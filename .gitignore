@@ -30,3 +30,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env / secrets（絕不可進 git）
+.env
+.env.*
+!.env.example
