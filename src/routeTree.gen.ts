@@ -9,38 +9,274 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardUsersRouteImport } from './routes/dashboard/users'
+import { Route as DashboardUserManualRouteImport } from './routes/dashboard/user-manual'
+import { Route as DashboardSystemDocsRouteImport } from './routes/dashboard/system-docs'
+import { Route as DashboardSystemConfigRouteImport } from './routes/dashboard/system-config'
+import { Route as DashboardRolePermissionsRouteImport } from './routes/dashboard/role-permissions'
+import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
+import { Route as DashboardMenuManagementRouteImport } from './routes/dashboard/menu-management'
+import { Route as DashboardLookupsRouteImport } from './routes/dashboard/lookups'
+import { Route as DashboardIssueReportsRouteImport } from './routes/dashboard/issue-reports'
+import { Route as DashboardFeatureRequestsRouteImport } from './routes/dashboard/feature-requests'
+import { Route as DashboardErrorLogsRouteImport } from './routes/dashboard/error-logs'
+import { Route as DashboardDevTodosRouteImport } from './routes/dashboard/dev-todos'
+import { Route as DashboardDevHistoryRouteImport } from './routes/dashboard/dev-history'
+import { Route as DashboardAuditLogsRouteImport } from './routes/dashboard/audit-logs'
+import { Route as DashboardActivityLogsRouteImport } from './routes/dashboard/activity-logs'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardUsersRoute = DashboardUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardUserManualRoute = DashboardUserManualRouteImport.update({
+  id: '/user-manual',
+  path: '/user-manual',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSystemDocsRoute = DashboardSystemDocsRouteImport.update({
+  id: '/system-docs',
+  path: '/system-docs',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSystemConfigRoute = DashboardSystemConfigRouteImport.update({
+  id: '/system-config',
+  path: '/system-config',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardRolePermissionsRoute =
+  DashboardRolePermissionsRouteImport.update({
+    id: '/role-permissions',
+    path: '/role-permissions',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardProfileRoute = DashboardProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardMenuManagementRoute = DashboardMenuManagementRouteImport.update({
+  id: '/menu-management',
+  path: '/menu-management',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardLookupsRoute = DashboardLookupsRouteImport.update({
+  id: '/lookups',
+  path: '/lookups',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardIssueReportsRoute = DashboardIssueReportsRouteImport.update({
+  id: '/issue-reports',
+  path: '/issue-reports',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardFeatureRequestsRoute =
+  DashboardFeatureRequestsRouteImport.update({
+    id: '/feature-requests',
+    path: '/feature-requests',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardErrorLogsRoute = DashboardErrorLogsRouteImport.update({
+  id: '/error-logs',
+  path: '/error-logs',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardDevTodosRoute = DashboardDevTodosRouteImport.update({
+  id: '/dev-todos',
+  path: '/dev-todos',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardDevHistoryRoute = DashboardDevHistoryRouteImport.update({
+  id: '/dev-history',
+  path: '/dev-history',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAuditLogsRoute = DashboardAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardActivityLogsRoute = DashboardActivityLogsRouteImport.update({
+  id: '/activity-logs',
+  path: '/activity-logs',
+  getParentRoute: () => DashboardRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
+  '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
+  '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
+  '/dashboard/dev-history': typeof DashboardDevHistoryRoute
+  '/dashboard/dev-todos': typeof DashboardDevTodosRoute
+  '/dashboard/error-logs': typeof DashboardErrorLogsRoute
+  '/dashboard/feature-requests': typeof DashboardFeatureRequestsRoute
+  '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
+  '/dashboard/lookups': typeof DashboardLookupsRoute
+  '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/profile': typeof DashboardProfileRoute
+  '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
+  '/dashboard/system-config': typeof DashboardSystemConfigRoute
+  '/dashboard/system-docs': typeof DashboardSystemDocsRoute
+  '/dashboard/user-manual': typeof DashboardUserManualRoute
+  '/dashboard/users': typeof DashboardUsersRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
+  '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
+  '/dashboard/dev-history': typeof DashboardDevHistoryRoute
+  '/dashboard/dev-todos': typeof DashboardDevTodosRoute
+  '/dashboard/error-logs': typeof DashboardErrorLogsRoute
+  '/dashboard/feature-requests': typeof DashboardFeatureRequestsRoute
+  '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
+  '/dashboard/lookups': typeof DashboardLookupsRoute
+  '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/profile': typeof DashboardProfileRoute
+  '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
+  '/dashboard/system-config': typeof DashboardSystemConfigRoute
+  '/dashboard/system-docs': typeof DashboardSystemDocsRoute
+  '/dashboard/user-manual': typeof DashboardUserManualRoute
+  '/dashboard/users': typeof DashboardUsersRoute
+  '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
+  '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
+  '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
+  '/dashboard/dev-history': typeof DashboardDevHistoryRoute
+  '/dashboard/dev-todos': typeof DashboardDevTodosRoute
+  '/dashboard/error-logs': typeof DashboardErrorLogsRoute
+  '/dashboard/feature-requests': typeof DashboardFeatureRequestsRoute
+  '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
+  '/dashboard/lookups': typeof DashboardLookupsRoute
+  '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/profile': typeof DashboardProfileRoute
+  '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
+  '/dashboard/system-config': typeof DashboardSystemConfigRoute
+  '/dashboard/system-docs': typeof DashboardSystemDocsRoute
+  '/dashboard/user-manual': typeof DashboardUserManualRoute
+  '/dashboard/users': typeof DashboardUsersRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/dashboard/activity-logs'
+    | '/dashboard/audit-logs'
+    | '/dashboard/dev-history'
+    | '/dashboard/dev-todos'
+    | '/dashboard/error-logs'
+    | '/dashboard/feature-requests'
+    | '/dashboard/issue-reports'
+    | '/dashboard/lookups'
+    | '/dashboard/menu-management'
+    | '/dashboard/profile'
+    | '/dashboard/role-permissions'
+    | '/dashboard/system-config'
+    | '/dashboard/system-docs'
+    | '/dashboard/user-manual'
+    | '/dashboard/users'
+    | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/dashboard/activity-logs'
+    | '/dashboard/audit-logs'
+    | '/dashboard/dev-history'
+    | '/dashboard/dev-todos'
+    | '/dashboard/error-logs'
+    | '/dashboard/feature-requests'
+    | '/dashboard/issue-reports'
+    | '/dashboard/lookups'
+    | '/dashboard/menu-management'
+    | '/dashboard/profile'
+    | '/dashboard/role-permissions'
+    | '/dashboard/system-config'
+    | '/dashboard/system-docs'
+    | '/dashboard/user-manual'
+    | '/dashboard/users'
+    | '/dashboard'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/dashboard/activity-logs'
+    | '/dashboard/audit-logs'
+    | '/dashboard/dev-history'
+    | '/dashboard/dev-todos'
+    | '/dashboard/error-logs'
+    | '/dashboard/feature-requests'
+    | '/dashboard/issue-reports'
+    | '/dashboard/lookups'
+    | '/dashboard/menu-management'
+    | '/dashboard/profile'
+    | '/dashboard/role-permissions'
+    | '/dashboard/system-config'
+    | '/dashboard/system-docs'
+    | '/dashboard/user-manual'
+    | '/dashboard/users'
+    | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +284,168 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/users': {
+      id: '/dashboard/users'
+      path: '/users'
+      fullPath: '/dashboard/users'
+      preLoaderRoute: typeof DashboardUsersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/user-manual': {
+      id: '/dashboard/user-manual'
+      path: '/user-manual'
+      fullPath: '/dashboard/user-manual'
+      preLoaderRoute: typeof DashboardUserManualRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/system-docs': {
+      id: '/dashboard/system-docs'
+      path: '/system-docs'
+      fullPath: '/dashboard/system-docs'
+      preLoaderRoute: typeof DashboardSystemDocsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/system-config': {
+      id: '/dashboard/system-config'
+      path: '/system-config'
+      fullPath: '/dashboard/system-config'
+      preLoaderRoute: typeof DashboardSystemConfigRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/role-permissions': {
+      id: '/dashboard/role-permissions'
+      path: '/role-permissions'
+      fullPath: '/dashboard/role-permissions'
+      preLoaderRoute: typeof DashboardRolePermissionsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/profile': {
+      id: '/dashboard/profile'
+      path: '/profile'
+      fullPath: '/dashboard/profile'
+      preLoaderRoute: typeof DashboardProfileRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/menu-management': {
+      id: '/dashboard/menu-management'
+      path: '/menu-management'
+      fullPath: '/dashboard/menu-management'
+      preLoaderRoute: typeof DashboardMenuManagementRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/lookups': {
+      id: '/dashboard/lookups'
+      path: '/lookups'
+      fullPath: '/dashboard/lookups'
+      preLoaderRoute: typeof DashboardLookupsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/issue-reports': {
+      id: '/dashboard/issue-reports'
+      path: '/issue-reports'
+      fullPath: '/dashboard/issue-reports'
+      preLoaderRoute: typeof DashboardIssueReportsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/feature-requests': {
+      id: '/dashboard/feature-requests'
+      path: '/feature-requests'
+      fullPath: '/dashboard/feature-requests'
+      preLoaderRoute: typeof DashboardFeatureRequestsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/error-logs': {
+      id: '/dashboard/error-logs'
+      path: '/error-logs'
+      fullPath: '/dashboard/error-logs'
+      preLoaderRoute: typeof DashboardErrorLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/dev-todos': {
+      id: '/dashboard/dev-todos'
+      path: '/dev-todos'
+      fullPath: '/dashboard/dev-todos'
+      preLoaderRoute: typeof DashboardDevTodosRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/dev-history': {
+      id: '/dashboard/dev-history'
+      path: '/dev-history'
+      fullPath: '/dashboard/dev-history'
+      preLoaderRoute: typeof DashboardDevHistoryRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/audit-logs': {
+      id: '/dashboard/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/dashboard/audit-logs'
+      preLoaderRoute: typeof DashboardAuditLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/activity-logs': {
+      id: '/dashboard/activity-logs'
+      path: '/activity-logs'
+      fullPath: '/dashboard/activity-logs'
+      preLoaderRoute: typeof DashboardActivityLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
+interface DashboardRouteChildren {
+  DashboardActivityLogsRoute: typeof DashboardActivityLogsRoute
+  DashboardAuditLogsRoute: typeof DashboardAuditLogsRoute
+  DashboardDevHistoryRoute: typeof DashboardDevHistoryRoute
+  DashboardDevTodosRoute: typeof DashboardDevTodosRoute
+  DashboardErrorLogsRoute: typeof DashboardErrorLogsRoute
+  DashboardFeatureRequestsRoute: typeof DashboardFeatureRequestsRoute
+  DashboardIssueReportsRoute: typeof DashboardIssueReportsRoute
+  DashboardLookupsRoute: typeof DashboardLookupsRoute
+  DashboardMenuManagementRoute: typeof DashboardMenuManagementRoute
+  DashboardProfileRoute: typeof DashboardProfileRoute
+  DashboardRolePermissionsRoute: typeof DashboardRolePermissionsRoute
+  DashboardSystemConfigRoute: typeof DashboardSystemConfigRoute
+  DashboardSystemDocsRoute: typeof DashboardSystemDocsRoute
+  DashboardUserManualRoute: typeof DashboardUserManualRoute
+  DashboardUsersRoute: typeof DashboardUsersRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardActivityLogsRoute: DashboardActivityLogsRoute,
+  DashboardAuditLogsRoute: DashboardAuditLogsRoute,
+  DashboardDevHistoryRoute: DashboardDevHistoryRoute,
+  DashboardDevTodosRoute: DashboardDevTodosRoute,
+  DashboardErrorLogsRoute: DashboardErrorLogsRoute,
+  DashboardFeatureRequestsRoute: DashboardFeatureRequestsRoute,
+  DashboardIssueReportsRoute: DashboardIssueReportsRoute,
+  DashboardLookupsRoute: DashboardLookupsRoute,
+  DashboardMenuManagementRoute: DashboardMenuManagementRoute,
+  DashboardProfileRoute: DashboardProfileRoute,
+  DashboardRolePermissionsRoute: DashboardRolePermissionsRoute,
+  DashboardSystemConfigRoute: DashboardSystemConfigRoute,
+  DashboardSystemDocsRoute: DashboardSystemDocsRoute,
+  DashboardUserManualRoute: DashboardUserManualRoute,
+  DashboardUsersRoute: DashboardUsersRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
