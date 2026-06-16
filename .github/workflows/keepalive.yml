@@ -1,0 +1,23 @@
+name: Supabase Keep-Alive
+# 每天打兩個 Supabase 專案的 daily_maintenance RPC，防止免費版「7 天無活動」被暫停。
+# 在 GitHub 伺服器執行，不依賴本機開著。anon key 為可公開金鑰（存取由 RLS 控管）。
+on:
+  schedule:
+    - cron: "0 15 * * *" # 15:00 UTC = 23:00 台北
+  workflow_dispatch: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping base01
+        run: |
+          curl -sS -X POST "https://gsehyfmwpcfgihxxvqrj.supabase.co/rest/v1/rpc/daily_maintenance" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZWh5Zm13cGNmZ2loeHh2cXJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MDA3NDYsImV4cCI6MjA5NzA3Njc0Nn0.DxVupYsAfK3ate65hk8osSJD33fJyTmyfSkOGxW7lbM" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZWh5Zm13cGNmZ2loeHh2cXJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MDA3NDYsImV4cCI6MjA5NzA3Njc0Nn0.DxVupYsAfK3ate65hk8osSJD33fJyTmyfSkOGxW7lbM" \
+            -H "Content-Type: application/json" -d '{}'
+      - name: Ping AI Agent Base
+        run: |
+          curl -sS -X POST "https://vzhrxohknejzjwvbvckd.supabase.co/rest/v1/rpc/daily_maintenance" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6aHJ4b2hrbmVqemp3dmJ2Y2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MDMzNDAsImV4cCI6MjA5NzA3OTM0MH0.5zLokTDttXyq4RBrEgOuKrKRb8qBz5FosjAdvKrCw18" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6aHJ4b2hrbmVqemp3dmJ2Y2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MDMzNDAsImV4cCI6MjA5NzA3OTM0MH0.5zLokTDttXyq4RBrEgOuKrKRb8qBz5FosjAdvKrCw18" \
+            -H "Content-Type: application/json" -d '{}'
