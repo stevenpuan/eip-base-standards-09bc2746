@@ -29,6 +29,8 @@ import { Route as DashboardDevTodosRouteImport } from './routes/dashboard/dev-to
 import { Route as DashboardDevHistoryRouteImport } from './routes/dashboard/dev-history'
 import { Route as DashboardAuditLogsRouteImport } from './routes/dashboard/audit-logs'
 import { Route as DashboardActivityLogsRouteImport } from './routes/dashboard/activity-logs'
+import { Route as DashboardEipTasksRouteImport } from './routes/dashboard/eip/tasks'
+import { Route as DashboardEipMembersRouteImport } from './routes/dashboard/eip/members'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -132,6 +134,16 @@ const DashboardActivityLogsRoute = DashboardActivityLogsRouteImport.update({
   path: '/activity-logs',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardEipTasksRoute = DashboardEipTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => DashboardEipRoute,
+} as any)
+const DashboardEipMembersRoute = DashboardEipMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => DashboardEipRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -141,7 +153,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
-  '/dashboard/eip': typeof DashboardEipRoute
+  '/dashboard/eip': typeof DashboardEipRouteWithChildren
   '/dashboard/error-logs': typeof DashboardErrorLogsRoute
   '/dashboard/feature-requests': typeof DashboardFeatureRequestsRoute
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
@@ -154,6 +166,8 @@ export interface FileRoutesByFullPath {
   '/dashboard/user-manual': typeof DashboardUserManualRoute
   '/dashboard/users': typeof DashboardUsersRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/eip/members': typeof DashboardEipMembersRoute
+  '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -162,7 +176,7 @@ export interface FileRoutesByTo {
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
-  '/dashboard/eip': typeof DashboardEipRoute
+  '/dashboard/eip': typeof DashboardEipRouteWithChildren
   '/dashboard/error-logs': typeof DashboardErrorLogsRoute
   '/dashboard/feature-requests': typeof DashboardFeatureRequestsRoute
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
@@ -175,6 +189,8 @@ export interface FileRoutesByTo {
   '/dashboard/user-manual': typeof DashboardUserManualRoute
   '/dashboard/users': typeof DashboardUsersRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/dashboard/eip/members': typeof DashboardEipMembersRoute
+  '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -185,7 +201,7 @@ export interface FileRoutesById {
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
-  '/dashboard/eip': typeof DashboardEipRoute
+  '/dashboard/eip': typeof DashboardEipRouteWithChildren
   '/dashboard/error-logs': typeof DashboardErrorLogsRoute
   '/dashboard/feature-requests': typeof DashboardFeatureRequestsRoute
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
@@ -198,6 +214,8 @@ export interface FileRoutesById {
   '/dashboard/user-manual': typeof DashboardUserManualRoute
   '/dashboard/users': typeof DashboardUsersRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/eip/members': typeof DashboardEipMembersRoute
+  '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -222,6 +240,8 @@ export interface FileRouteTypes {
     | '/dashboard/user-manual'
     | '/dashboard/users'
     | '/dashboard/'
+    | '/dashboard/eip/members'
+    | '/dashboard/eip/tasks'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -243,6 +263,8 @@ export interface FileRouteTypes {
     | '/dashboard/user-manual'
     | '/dashboard/users'
     | '/dashboard'
+    | '/dashboard/eip/members'
+    | '/dashboard/eip/tasks'
   id:
     | '__root__'
     | '/'
@@ -265,6 +287,8 @@ export interface FileRouteTypes {
     | '/dashboard/user-manual'
     | '/dashboard/users'
     | '/dashboard/'
+    | '/dashboard/eip/members'
+    | '/dashboard/eip/tasks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -415,15 +439,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardActivityLogsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/eip/tasks': {
+      id: '/dashboard/eip/tasks'
+      path: '/tasks'
+      fullPath: '/dashboard/eip/tasks'
+      preLoaderRoute: typeof DashboardEipTasksRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
+    '/dashboard/eip/members': {
+      id: '/dashboard/eip/members'
+      path: '/members'
+      fullPath: '/dashboard/eip/members'
+      preLoaderRoute: typeof DashboardEipMembersRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
   }
 }
+
+interface DashboardEipRouteChildren {
+  DashboardEipMembersRoute: typeof DashboardEipMembersRoute
+  DashboardEipTasksRoute: typeof DashboardEipTasksRoute
+}
+
+const DashboardEipRouteChildren: DashboardEipRouteChildren = {
+  DashboardEipMembersRoute: DashboardEipMembersRoute,
+  DashboardEipTasksRoute: DashboardEipTasksRoute,
+}
+
+const DashboardEipRouteWithChildren = DashboardEipRoute._addFileChildren(
+  DashboardEipRouteChildren,
+)
 
 interface DashboardRouteChildren {
   DashboardActivityLogsRoute: typeof DashboardActivityLogsRoute
   DashboardAuditLogsRoute: typeof DashboardAuditLogsRoute
   DashboardDevHistoryRoute: typeof DashboardDevHistoryRoute
   DashboardDevTodosRoute: typeof DashboardDevTodosRoute
-  DashboardEipRoute: typeof DashboardEipRoute
+  DashboardEipRoute: typeof DashboardEipRouteWithChildren
   DashboardErrorLogsRoute: typeof DashboardErrorLogsRoute
   DashboardFeatureRequestsRoute: typeof DashboardFeatureRequestsRoute
   DashboardIssueReportsRoute: typeof DashboardIssueReportsRoute
@@ -443,7 +495,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAuditLogsRoute: DashboardAuditLogsRoute,
   DashboardDevHistoryRoute: DashboardDevHistoryRoute,
   DashboardDevTodosRoute: DashboardDevTodosRoute,
-  DashboardEipRoute: DashboardEipRoute,
+  DashboardEipRoute: DashboardEipRouteWithChildren,
   DashboardErrorLogsRoute: DashboardErrorLogsRoute,
   DashboardFeatureRequestsRoute: DashboardFeatureRequestsRoute,
   DashboardIssueReportsRoute: DashboardIssueReportsRoute,
