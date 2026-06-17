@@ -324,8 +324,8 @@ function SharedFilters(props: {
 }) {
   return (
     <Card>
-      <CardContent className="p-3 grid gap-2 md:grid-cols-4 lg:grid-cols-5">
-        <Input placeholder="搜尋標題 / 描述" value={props.keyword} onChange={(e) => props.setKeyword(e.target.value)} />
+      <CardContent className="p-3 grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <Input placeholder="搜尋標題 / 描述" value={props.keyword} onChange={(e) => props.setKeyword(e.target.value)} className="w-full" />
         <MiniSelect value={props.filterStatus} onChange={props.setFilterStatus}
           options={[{ value: "all", label: "全部狀態" }, ...props.statuses.map((s) => ({ value: s.id, label: s.name }))]} />
         <MiniSelect value={props.filterPriority} onChange={props.setFilterPriority}
@@ -336,10 +336,10 @@ function SharedFilters(props: {
           options={[{ value: "all", label: "全部專案" }, ...props.projects.map((p) => ({ value: p.id, label: p.name }))]} />
         <MiniSelect value={props.filterOwner} onChange={props.setFilterOwner}
           options={[{ value: "all", label: "全部負責人" }, ...props.users.map((u) => ({ value: u.id, label: u.name }))]} />
-        <div className="flex items-center gap-1">
-          <Input type="date" value={props.dueFrom} onChange={(e) => props.setDueFrom(e.target.value)} className="h-9" />
-          <span className="text-xs text-muted-foreground">至</span>
-          <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:col-span-2 lg:col-span-1 xl:col-span-2 min-w-0">
+          <Input type="date" value={props.dueFrom} onChange={(e) => props.setDueFrom(e.target.value)} className="h-9 w-full" />
+          <span className="text-xs text-muted-foreground text-center">至</span>
+          <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
         </div>
       </CardContent>
     </Card>
