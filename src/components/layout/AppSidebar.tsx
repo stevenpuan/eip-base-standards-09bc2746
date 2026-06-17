@@ -1,11 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import * as Icons from "lucide-react";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { NotificationBell } from "@/components/eip/NotificationBell";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 interface MenuRow {
   id: string;
@@ -26,9 +28,9 @@ function Icon({ name, className }: { name: string | null; className?: string }) 
   return <Cmp className={className} />;
 }
 
-export function AppSidebar() {
+function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   const { pathname } = useLocation();
-  const { profile, roles, can, signOut } = useAuth();
+  const { profile, roleNames, signOut, can } = useAuth();
 
   const { data: menus = [] } = useQuery({
     queryKey: ["menus"],
@@ -48,7 +50,7 @@ export function AppSidebar() {
   const visible = (m: MenuRow) => !m.module_key || can(m.module_key, "view");
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-64 border-r bg-card flex flex-col">
+    <div className="flex flex-col h-full bg-card">
       <div className="px-5 py-4 border-b">
         <h1 className="text-base font-bold text-primary">後台管理</h1>
         <p className="text-xs text-muted-foreground mt-0.5">空系統 Base</p>
@@ -64,6 +66,7 @@ export function AppSidebar() {
                 icon={g.icon}
                 title={g.title}
                 active={pathname === g.route}
+                onNavigate={onNavigate}
               />
             );
           }
@@ -81,23 +84,23 @@ export function AppSidebar() {
                   icon={k.icon}
                   title={k.title}
                   active={pathname === k.route}
+                  onNavigate={onNavigate}
                 />
               ))}
             </div>
           );
         })}
-
       </nav>
       <div className="border-t p-3">
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0">
             {(profile?.full_name ?? profile?.email ?? "U").slice(0, 1).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium truncate">
               {profile?.full_name ?? profile?.email}
             </div>
-            <div className="text-xs text-muted-foreground">{roles[0] ?? "—"}</div>
+            <div className="text-xs text-muted-foreground truncate">{roleNames[0] ?? "—"}</div>
           </div>
           <button
             onClick={signOut}
@@ -110,7 +113,46 @@ export function AppSidebar() {
           <NotificationBell />
         </div>
       </div>
-    </aside>
+    </div>
+  );
+}
+
+export function AppSidebar() {
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  // Close drawer when route changes
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between h-12 px-3 border-b bg-card">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <button
+              className="p-2 -ml-2 rounded-md hover:bg-accent"
+              aria-label="開啟選單"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72 max-w-[85vw]">
+            <SheetTitle className="sr-only">主選單</SheetTitle>
+            <SidebarInner onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+        <h1 className="text-sm font-bold text-primary">後台管理</h1>
+        <span className="w-9" />
+      </header>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 border-r bg-card flex-col">
+        <SidebarInner />
+      </aside>
+    </>
   );
 }
 
@@ -119,15 +161,18 @@ function SideLink({
   icon,
   title,
   active,
+  onNavigate,
 }: {
   to: string;
   icon: string | null;
   title: string;
   active: boolean;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
       to={to as any}
+      onClick={onNavigate}
       className={cn(
         "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
         active
@@ -135,8 +180,8 @@ function SideLink({
           : "text-foreground/80 hover:bg-accent/50"
       )}
     >
-      <Icon name={icon} className="w-4 h-4" />
-      <span>{title}</span>
+      <Icon name={icon} className="w-4 h-4 shrink-0" />
+      <span className="truncate">{title}</span>
     </Link>
   );
 }
