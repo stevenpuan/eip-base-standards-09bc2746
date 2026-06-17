@@ -30,7 +30,9 @@ import { Route as DashboardDevHistoryRouteImport } from './routes/dashboard/dev-
 import { Route as DashboardAuditLogsRouteImport } from './routes/dashboard/audit-logs'
 import { Route as DashboardActivityLogsRouteImport } from './routes/dashboard/activity-logs'
 import { Route as DashboardEipTasksRouteImport } from './routes/dashboard/eip/tasks'
+import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/reports'
 import { Route as DashboardEipRecurringRouteImport } from './routes/dashboard/eip/recurring'
+import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/reports'
 import { Route as DashboardEipQuickReportsRouteImport } from './routes/dashboard/eip/quick-reports'
 import { Route as DashboardEipProjectsRouteImport } from './routes/dashboard/eip/projects'
 import { Route as DashboardEipMyTasksRouteImport } from './routes/dashboard/eip/my-tasks'
@@ -153,9 +155,19 @@ const DashboardEipTasksRoute = DashboardEipTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => DashboardEipRoute,
 } as any)
+const DashboardEipReportsRoute = DashboardEipReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => DashboardEipRoute,
+} as any)
 const DashboardEipRecurringRoute = DashboardEipRecurringRouteImport.update({
   id: '/recurring',
   path: '/recurring',
+  getParentRoute: () => DashboardEipRoute,
+} as any)
+const DashboardEipReportsRoute = DashboardEipReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => DashboardEipRoute,
 } as any)
 const DashboardEipQuickReportsRoute =
@@ -267,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
+  '/dashboard/eip/reports': typeof DashboardEipReportsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
@@ -304,6 +317,7 @@ export interface FileRoutesByTo {
   '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
+  '/dashboard/eip/reports': typeof DashboardEipReportsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
@@ -343,6 +357,7 @@ export interface FileRoutesById {
   '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
+  '/dashboard/eip/reports': typeof DashboardEipReportsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
@@ -383,6 +398,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/projects'
     | '/dashboard/eip/quick-reports'
     | '/dashboard/eip/recurring'
+    | '/dashboard/eip/reports'
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
@@ -420,6 +436,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/projects'
     | '/dashboard/eip/quick-reports'
     | '/dashboard/eip/recurring'
+    | '/dashboard/eip/reports'
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
@@ -458,6 +475,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/projects'
     | '/dashboard/eip/quick-reports'
     | '/dashboard/eip/recurring'
+    | '/dashboard/eip/reports'
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
@@ -620,11 +638,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEipTasksRouteImport
       parentRoute: typeof DashboardEipRoute
     }
+    '/dashboard/eip/reports': {
+      id: '/dashboard/eip/reports'
+      path: '/reports'
+      fullPath: '/dashboard/eip/reports'
+      preLoaderRoute: typeof DashboardEipReportsRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
     '/dashboard/eip/recurring': {
       id: '/dashboard/eip/recurring'
       path: '/recurring'
       fullPath: '/dashboard/eip/recurring'
       preLoaderRoute: typeof DashboardEipRecurringRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
+    '/dashboard/eip/reports': {
+      id: '/dashboard/eip/reports'
+      path: '/reports'
+      fullPath: '/dashboard/eip/reports'
+      preLoaderRoute: typeof DashboardEipReportsRouteImport
       parentRoute: typeof DashboardEipRoute
     }
     '/dashboard/eip/quick-reports': {
@@ -783,6 +815,7 @@ interface DashboardEipRouteChildren {
   DashboardEipProjectsRoute: typeof DashboardEipProjectsRouteWithChildren
   DashboardEipQuickReportsRoute: typeof DashboardEipQuickReportsRoute
   DashboardEipRecurringRoute: typeof DashboardEipRecurringRoute
+  DashboardEipReportsRoute: typeof DashboardEipReportsRoute
   DashboardEipTasksRoute: typeof DashboardEipTasksRoute
 }
 
@@ -799,6 +832,7 @@ const DashboardEipRouteChildren: DashboardEipRouteChildren = {
   DashboardEipProjectsRoute: DashboardEipProjectsRouteWithChildren,
   DashboardEipQuickReportsRoute: DashboardEipQuickReportsRoute,
   DashboardEipRecurringRoute: DashboardEipRecurringRoute,
+  DashboardEipReportsRoute: DashboardEipReportsRoute,
   DashboardEipTasksRoute: DashboardEipTasksRoute,
 }
 
