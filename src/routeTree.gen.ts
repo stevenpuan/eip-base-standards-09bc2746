@@ -38,6 +38,7 @@ import { Route as DashboardEipFeatureRequestsRouteImport } from './routes/dashbo
 import { Route as DashboardEipChangelogRouteImport } from './routes/dashboard/eip/changelog'
 import { Route as DashboardEipCalendarRouteImport } from './routes/dashboard/eip/calendar'
 import { Route as DashboardEipAnnouncementsRouteImport } from './routes/dashboard/eip/announcements'
+import { Route as DashboardEipProjectsIdRouteImport } from './routes/dashboard/eip/projects.$id'
 import { Route as DashboardEipFeatureRequestsNewRouteImport } from './routes/dashboard/eip/feature-requests.new'
 import { Route as DashboardEipFeatureRequestsIdRouteImport } from './routes/dashboard/eip/feature-requests.$id'
 import { Route as DashboardEipFeatureRequestsIdEditRouteImport } from './routes/dashboard/eip/feature-requests.$id.edit'
@@ -191,6 +192,11 @@ const DashboardEipAnnouncementsRoute =
     path: '/announcements',
     getParentRoute: () => DashboardEipRoute,
   } as any)
+const DashboardEipProjectsIdRoute = DashboardEipProjectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => DashboardEipProjectsRoute,
+} as any)
 const DashboardEipFeatureRequestsNewRoute =
   DashboardEipFeatureRequestsNewRouteImport.update({
     id: '/new',
@@ -238,10 +244,11 @@ export interface FileRoutesByFullPath {
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRoute
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
-  '/dashboard/eip/projects': typeof DashboardEipProjectsRoute
+  '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
+  '/dashboard/eip/projects/$id': typeof DashboardEipProjectsIdRoute
   '/dashboard/eip/feature-requests/$id/edit': typeof DashboardEipFeatureRequestsIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -271,10 +278,11 @@ export interface FileRoutesByTo {
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRoute
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
-  '/dashboard/eip/projects': typeof DashboardEipProjectsRoute
+  '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
+  '/dashboard/eip/projects/$id': typeof DashboardEipProjectsIdRoute
   '/dashboard/eip/feature-requests/$id/edit': typeof DashboardEipFeatureRequestsIdEditRoute
 }
 export interface FileRoutesById {
@@ -306,10 +314,11 @@ export interface FileRoutesById {
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRoute
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
-  '/dashboard/eip/projects': typeof DashboardEipProjectsRoute
+  '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
+  '/dashboard/eip/projects/$id': typeof DashboardEipProjectsIdRoute
   '/dashboard/eip/feature-requests/$id/edit': typeof DashboardEipFeatureRequestsIdEditRoute
 }
 export interface FileRouteTypes {
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
+    | '/dashboard/eip/projects/$id'
     | '/dashboard/eip/feature-requests/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
+    | '/dashboard/eip/projects/$id'
     | '/dashboard/eip/feature-requests/$id/edit'
   id:
     | '__root__'
@@ -413,6 +424,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
+    | '/dashboard/eip/projects/$id'
     | '/dashboard/eip/feature-requests/$id/edit'
   fileRoutesById: FileRoutesById
 }
@@ -627,6 +639,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEipAnnouncementsRouteImport
       parentRoute: typeof DashboardEipRoute
     }
+    '/dashboard/eip/projects/$id': {
+      id: '/dashboard/eip/projects/$id'
+      path: '/$id'
+      fullPath: '/dashboard/eip/projects/$id'
+      preLoaderRoute: typeof DashboardEipProjectsIdRouteImport
+      parentRoute: typeof DashboardEipProjectsRoute
+    }
     '/dashboard/eip/feature-requests/new': {
       id: '/dashboard/eip/feature-requests/new'
       path: '/new'
@@ -683,6 +702,17 @@ const DashboardEipFeatureRequestsRouteWithChildren =
     DashboardEipFeatureRequestsRouteChildren,
   )
 
+interface DashboardEipProjectsRouteChildren {
+  DashboardEipProjectsIdRoute: typeof DashboardEipProjectsIdRoute
+}
+
+const DashboardEipProjectsRouteChildren: DashboardEipProjectsRouteChildren = {
+  DashboardEipProjectsIdRoute: DashboardEipProjectsIdRoute,
+}
+
+const DashboardEipProjectsRouteWithChildren =
+  DashboardEipProjectsRoute._addFileChildren(DashboardEipProjectsRouteChildren)
+
 interface DashboardEipRouteChildren {
   DashboardEipAnnouncementsRoute: typeof DashboardEipAnnouncementsRoute
   DashboardEipCalendarRoute: typeof DashboardEipCalendarRoute
@@ -691,7 +721,7 @@ interface DashboardEipRouteChildren {
   DashboardEipMeetingsRoute: typeof DashboardEipMeetingsRoute
   DashboardEipMembersRoute: typeof DashboardEipMembersRoute
   DashboardEipMyTasksRoute: typeof DashboardEipMyTasksRoute
-  DashboardEipProjectsRoute: typeof DashboardEipProjectsRoute
+  DashboardEipProjectsRoute: typeof DashboardEipProjectsRouteWithChildren
   DashboardEipTasksRoute: typeof DashboardEipTasksRoute
 }
 
@@ -704,7 +734,7 @@ const DashboardEipRouteChildren: DashboardEipRouteChildren = {
   DashboardEipMeetingsRoute: DashboardEipMeetingsRoute,
   DashboardEipMembersRoute: DashboardEipMembersRoute,
   DashboardEipMyTasksRoute: DashboardEipMyTasksRoute,
-  DashboardEipProjectsRoute: DashboardEipProjectsRoute,
+  DashboardEipProjectsRoute: DashboardEipProjectsRouteWithChildren,
   DashboardEipTasksRoute: DashboardEipTasksRoute,
 }
 
