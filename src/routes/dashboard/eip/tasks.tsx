@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Database } from "@/integrations/supabase/types";
+import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
 
 export const Route = createFileRoute("/dashboard/eip/tasks")({ component: TasksPage });
 
