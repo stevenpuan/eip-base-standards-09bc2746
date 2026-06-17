@@ -140,7 +140,8 @@ export function QuickReportButton() {
         .order("sort_order")
         .limit(1)
         .maybeSingle();
-      const sid = (st as { id: string } | null)?.id ?? null;
+      const sid = (st as { id: string } | null)?.id;
+      if (!sid) throw new Error("找不到預設任務狀態");
       const { error } = await supabase.from("task").insert({
         tenant_id: tenantId,
         title: assignTitle.trim(),
