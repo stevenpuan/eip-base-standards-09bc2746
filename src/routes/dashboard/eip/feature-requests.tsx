@@ -317,6 +317,7 @@ function FeatureRequestsPage() {
                 <TableHead className="w-36">狀態</TableHead>
                 <TableHead className="w-28">提交者</TableHead>
                 <TableHead className="w-40">建立時間</TableHead>
+                <TableHead className="w-24 text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
