@@ -70,7 +70,14 @@ function ProjectsPage() {
     <div>
       <PageHeader title="專案"
         description="管理跨部門專案、里程碑與成員，並關聯任務與會議。"
-        actions={canCreate && appUser ? <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />新增專案</Button> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportProjectsBtn projects={projectsQ.data ?? []} userMap={userMap} />
+            {canCreate && appUser && (
+              <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />新增專案</Button>
+            )}
+          </div>
+        }
       />
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {(projectsQ.data ?? []).map((p) => (
