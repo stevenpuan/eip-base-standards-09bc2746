@@ -368,12 +368,36 @@ function FeatureRequestsPage() {
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString("zh-TW")}
                   </TableCell>
+                  <TableCell className="text-right">
+                    {(canManage || (appUser && r.submitter_id === appUser.id)) ? (
+                      <div className="flex justify-end gap-1">
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                          <Link
+                            to="/dashboard/eip/feature-requests/$id/edit"
+                            params={{ id: r.id }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteId(r.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="py-10 text-center text-muted-foreground"
                   >
                     無符合條件的需求
