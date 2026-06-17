@@ -331,8 +331,8 @@ function UsersPage() {
               </Card>
             )}
             <Card>
-              <CardContent className="p-0">
-                <Table>
+              <CardContent className="p-0 overflow-x-auto">
+                <Table className="min-w-[720px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
                       <TableHead>邀請碼</TableHead>
