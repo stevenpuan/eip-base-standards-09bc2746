@@ -12,7 +12,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/dashboard/profile")({ component: Page });
 
 function Page() {
-  const { profile, user, roles, refresh } = useAuth();
+  const { profile, user, roleNames, refresh } = useAuth();
   const [fullName, setFullName] = useState("");
   const [pw, setPw] = useState("");
 
