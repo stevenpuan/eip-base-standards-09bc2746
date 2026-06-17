@@ -879,6 +879,63 @@ export type Database = {
           },
         ]
       }
+      eip_quick_report: {
+        Row: {
+          created_at: string
+          detail: string | null
+          eta: string | null
+          id: string
+          leave_from: string | null
+          leave_to: string | null
+          report_date: string
+          status: string
+          submitter_id: string
+          tenant_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          eta?: string | null
+          id?: string
+          leave_from?: string | null
+          leave_to?: string | null
+          report_date?: string
+          status?: string
+          submitter_id: string
+          tenant_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          eta?: string | null
+          id?: string
+          leave_from?: string | null
+          leave_to?: string | null
+          report_date?: string
+          status?: string
+          submitter_id?: string
+          tenant_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eip_quick_report_submitter_id_fkey"
+            columns: ["submitter_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_quick_report_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       error_logs: {
         Row: {
           context: Json | null
@@ -2244,7 +2301,12 @@ export type Database = {
       attachment_entity: "task" | "meeting" | "project" | "announcement"
       comment_entity: "task" | "meeting" | "project"
       milestone_status: "pending" | "done"
-      notification_entity: "task" | "meeting" | "project" | "announcement"
+      notification_entity:
+        | "task"
+        | "meeting"
+        | "project"
+        | "announcement"
+        | "quick_report"
       notification_type:
         | "assigned"
         | "status_changed"
@@ -2253,6 +2315,7 @@ export type Database = {
         | "overdue"
         | "review_needed"
         | "announcement"
+        | "quick_report"
       project_status: "planning" | "active" | "on_hold" | "done"
       task_priority: "low" | "normal" | "high" | "urgent"
       user_role: "company_admin" | "dept_manager" | "member" | "viewer"
@@ -2389,7 +2452,13 @@ export const Constants = {
       attachment_entity: ["task", "meeting", "project", "announcement"],
       comment_entity: ["task", "meeting", "project"],
       milestone_status: ["pending", "done"],
-      notification_entity: ["task", "meeting", "project", "announcement"],
+      notification_entity: [
+        "task",
+        "meeting",
+        "project",
+        "announcement",
+        "quick_report",
+      ],
       notification_type: [
         "assigned",
         "status_changed",
@@ -2398,6 +2467,7 @@ export const Constants = {
         "overdue",
         "review_needed",
         "announcement",
+        "quick_report",
       ],
       project_status: ["planning", "active", "on_hold", "done"],
       task_priority: ["low", "normal", "high", "urgent"],
