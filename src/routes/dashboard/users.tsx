@@ -294,12 +294,14 @@ function UsersPage() {
         <p className="text-muted-foreground">載入中…</p>
       ) : (
         <Tabs defaultValue="active">
-          <TabsList>
-            <TabsTrigger value="pending">待審核 ({pending.length})</TabsTrigger>
-            <TabsTrigger value="active">已啟用 ({active.length})</TabsTrigger>
-            <TabsTrigger value="all">全部 ({rows.length})</TabsTrigger>
-            <TabsTrigger value="invite">邀請碼</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList>
+              <TabsTrigger value="pending">待審核 ({pending.length})</TabsTrigger>
+              <TabsTrigger value="active">已啟用 ({active.length})</TabsTrigger>
+              <TabsTrigger value="all">全部 ({rows.length})</TabsTrigger>
+              <TabsTrigger value="invite">邀請碼</TabsTrigger>
+            </TabsList>
+          </div>
           <TabsContent value="pending" className="mt-4">{renderTable(pending)}</TabsContent>
           <TabsContent value="active" className="mt-4">{renderTable(active)}</TabsContent>
           <TabsContent value="all" className="mt-4">{renderTable(rows)}</TabsContent>
