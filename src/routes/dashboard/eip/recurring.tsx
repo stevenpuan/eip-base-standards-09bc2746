@@ -481,3 +481,275 @@ function RuleDialog({
     </Dialog>
   );
 }
+
+type OverviewRow = Database["public"]["Views"]["eip_recurring_overview"]["Row"];
+type PeriodKey = "month" | "30d" | "all";
+
+function AchievementDashboard({
+  users, departments, activeRulesCount,
+}: {
+  users: AppUser[];
+  departments: Department[];
+  activeRulesCount: number;
+}) {
+  const [period, setPeriod] = useState<PeriodKey>("month");
+  const [ownerId, setOwnerId] = useState<string>("all");
+  const [deptId, setDeptId] = useState<string>("all");
+
+  const range = useMemo(() => {
+    const today = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    if (period === "month") {
+      const s = new Date(today.getFullYear(), today.getMonth(), 1);
+      const e = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { from: fmt(s), to: fmt(e) };
+    }
+    if (period === "30d") {
+      const s = new Date(today); s.setDate(s.getDate() - 30);
+      return { from: fmt(s), to: fmt(today) };
+    }
+    return { from: null as string | null, to: null as string | null };
+  }, [period]);
+
+  const overviewQ = useQuery({
+    queryKey: ["eip", "recurring-overview", range.from, range.to, ownerId, deptId],
+    queryFn: async () => {
+      let q = supabase.from("eip_recurring_overview").select("*");
+      if (range.from) q = q.gte("due_date", range.from);
+      if (range.to) q = q.lte("due_date", range.to);
+      if (ownerId !== "all") q = q.eq("owner_id", ownerId);
+      if (deptId !== "all") q = q.eq("department_id", deptId);
+      const { data, error } = await q.order("due_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as OverviewRow[];
+    },
+  });
+
+  const rows = overviewQ.data ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+  const total = rows.length;
+  const done = rows.filter((r) => r.is_done).length;
+  const overdue = rows.filter((r) => r.is_overdue).length;
+  const unreported = rows.filter((r) => !r.is_done && (r.due_date ?? "") <= today).length;
+  const rate = total ? Math.round((done / total) * 100) : 0;
+
+  const overdueList = rows.filter((r) => r.is_overdue);
+  const unreportedList = rows.filter((r) => !r.is_done && (r.due_date ?? "") <= today);
+
+  const daysBetween = (a: string, b: string) =>
+    Math.floor((new Date(a).getTime() - new Date(b).getTime()) / 86400000);
+
+  const byOwner = useMemo(() => {
+    const m = new Map<string, { name: string; total: number; done: number; overdue: number }>();
+    rows.forEach((r) => {
+      const key = r.owner_id ?? "—";
+      const name = r.owner_name ?? "—";
+      const v = m.get(key) ?? { name, total: 0, done: 0, overdue: 0 };
+      v.total += 1;
+      if (r.is_done) v.done += 1;
+      if (r.is_overdue) v.overdue += 1;
+      m.set(key, v);
+    });
+    return Array.from(m.values()).sort((a, b) => b.total - a.total);
+  }, [rows]);
+
+  const byDept = useMemo(() => {
+    const m = new Map<string, { name: string; total: number; done: number; overdue: number }>();
+    rows.forEach((r) => {
+      const key = r.department_id ?? "—";
+      const name = r.department_name ?? "—";
+      const v = m.get(key) ?? { name, total: 0, done: 0, overdue: 0 };
+      v.total += 1;
+      if (r.is_done) v.done += 1;
+      if (r.is_overdue) v.overdue += 1;
+      m.set(key, v);
+    });
+    return Array.from(m.values()).sort((a, b) => b.total - a.total);
+  }, [rows]);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-4 flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">期間</Label>
+            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
+              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="month">本月</SelectItem>
+                <SelectItem value="30d">近 30 天</SelectItem>
+                <SelectItem value="all">全部</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">負責人</Label>
+            <Select value={ownerId} onValueChange={setOwnerId}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">部門</Label>
+            <Select value={deptId} onValueChange={setDeptId}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <MetricCard label="啟用規則" value={activeRulesCount} />
+        <MetricCard label="本期到期" value={total} />
+        <MetricCard label="已完成" value={done} tone="success" />
+        <MetricCard label="逾期未完成" value={overdue} tone="danger" />
+        <MetricCard label="未回報" value={unreported} tone="warning" />
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="text-xs text-muted-foreground">達成率</div>
+            <div className="text-2xl font-bold">{rate}%</div>
+            <Progress value={rate} className="h-2" />
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="font-medium">逾期清單</div>
+          {overviewQ.isLoading ? (
+            <div className="text-sm text-muted-foreground text-center py-6">載入中…</div>
+          ) : overdueList.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">沒有逾期項目 🎉</div>
+          ) : (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>工作</TableHead><TableHead>負責人</TableHead>
+                <TableHead>到期日</TableHead><TableHead className="text-right">逾期天數</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {overdueList.map((r) => (
+                  <TableRow key={r.task_id ?? ""}>
+                    <TableCell className="font-medium">
+                      <Link to="/dashboard/eip/tasks" className="text-primary hover:underline">{r.rule_title}</Link>
+                    </TableCell>
+                    <TableCell>{r.owner_name ?? "—"}</TableCell>
+                    <TableCell className="text-destructive">{r.due_date ?? "—"}</TableCell>
+                    <TableCell className="text-right text-destructive font-medium">
+                      {r.due_date ? daysBetween(today, r.due_date) : "—"} 天
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="font-medium">未回報 / 待處理</div>
+          {unreportedList.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">沒有待處理項目</div>
+          ) : (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>負責人</TableHead><TableHead>工作</TableHead><TableHead>到期日</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {unreportedList.map((r) => (
+                  <TableRow key={r.task_id ?? ""}>
+                    <TableCell>{r.owner_name ?? "—"}</TableCell>
+                    <TableCell>
+                      <Link to="/dashboard/eip/tasks" className="text-primary hover:underline">{r.rule_title}</Link>
+                    </TableCell>
+                    <TableCell>{r.due_date ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="font-medium">依負責人</div>
+            {byOwner.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-6">無資料</div>
+            ) : (
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>負責人</TableHead><TableHead className="text-right">到期</TableHead>
+                  <TableHead className="text-right">完成</TableHead><TableHead className="text-right">逾期</TableHead>
+                  <TableHead className="text-right">達成率</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {byOwner.map((o, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{o.name}</TableCell>
+                      <TableCell className="text-right">{o.total}</TableCell>
+                      <TableCell className="text-right">{o.done}</TableCell>
+                      <TableCell className="text-right text-destructive">{o.overdue}</TableCell>
+                      <TableCell className="text-right">{o.total ? Math.round((o.done / o.total) * 100) : 0}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="font-medium">依部門</div>
+            {byDept.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-6">無資料</div>
+            ) : (
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>部門</TableHead><TableHead className="text-right">到期</TableHead>
+                  <TableHead className="text-right">完成</TableHead><TableHead className="text-right">逾期</TableHead>
+                  <TableHead className="text-right">達成率</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {byDept.map((o, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{o.name}</TableCell>
+                      <TableCell className="text-right">{o.total}</TableCell>
+                      <TableCell className="text-right">{o.done}</TableCell>
+                      <TableCell className="text-right text-destructive">{o.overdue}</TableCell>
+                      <TableCell className="text-right">{o.total ? Math.round((o.done / o.total) * 100) : 0}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, tone }: { label: string; value: number; tone?: "success" | "danger" | "warning" }) {
+  const toneCls =
+    tone === "success" ? "text-emerald-600" :
+    tone === "danger" ? "text-destructive" :
+    tone === "warning" ? "text-amber-600" : "";
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-1">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className={`text-2xl font-bold ${toneCls}`}>{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
