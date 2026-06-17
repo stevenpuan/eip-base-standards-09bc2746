@@ -324,7 +324,13 @@ function FeatureRequestsPage() {
               {filtered.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium text-sm">
-                    {r.title}
+                    <Link
+                      to="/dashboard/eip/feature-requests/$id"
+                      params={{ id: r.id }}
+                      className="hover:text-primary hover:underline"
+                    >
+                      {r.title}
+                    </Link>
                   </TableCell>
                   <TableCell className="text-sm">{r.scope ?? "—"}</TableCell>
                   <TableCell className="text-sm">
