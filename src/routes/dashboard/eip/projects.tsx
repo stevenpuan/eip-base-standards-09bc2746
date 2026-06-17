@@ -359,3 +359,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+function ExportProjectsBtn({ projects, userMap }: { projects: Project[]; userMap: Map<string, AppUser> }) {
+  const { can } = useAuth();
+  if (!can("eip_projects", "export")) return null;
+  return (
+    <Button variant="outline" onClick={() => exportToExcel({
+      filename: "EIP專案", sheetName: "專案", rows: projects,
+      columns: [
+        { header: "名稱", key: "name" },
+        { header: "狀態", key: "status", map: (r) => PROJECT_STATUS_LABEL[r.status] ?? r.status },
+        { header: "負責人", key: "owner_id", map: (r) => r.owner_id ? userMap.get(r.owner_id)?.name ?? "" : "" },
+        { header: "開始", key: "start_date", map: (r) => r.start_date ?? "" },
+        { header: "結束", key: "end_date", map: (r) => r.end_date ?? "" },
+        { header: "描述", key: "description", map: (r) => r.description ?? "" },
+        { header: "建立時間", key: "created_at", map: (r) => new Date(r.created_at).toLocaleString("zh-TW") },
+      ],
+    })}>
+      <Download className="w-4 h-4" /> 匯出 Excel
+    </Button>
+  );
+}
