@@ -113,12 +113,6 @@ function ProjectsPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
         />
       )}
-      {selected && (
-        <ProjectDetailDialog
-          project={selected} users={usersQ.data ?? []} appUser={appUser} onClose={() => setSelected(null)}
-          onChanged={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
-        />
-      )}
     </div>
   );
 }
