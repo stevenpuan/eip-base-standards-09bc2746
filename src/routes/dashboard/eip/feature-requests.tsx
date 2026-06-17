@@ -72,7 +72,6 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const MONTHLY_QUOTA = 30;
-  const [deleteId, setDeleteId] = useState<string | null>(null);
 
 
 function FeatureRequestsPage() {
@@ -84,6 +83,7 @@ function FeatureRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [excludeDone, setExcludeDone] = useState(false);
   const [excludeRejected, setExcludeRejected] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const listQ = useQuery({
     queryKey: ["eip", "feature-requests"],
