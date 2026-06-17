@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Lightbulb, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Lightbulb, Search, Pencil, Trash2, Download } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { exportToExcel } from "@/lib/eip-export";
 import {
   AlertDialog,
   AlertDialogAction,
