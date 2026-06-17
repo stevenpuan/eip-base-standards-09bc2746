@@ -81,11 +81,14 @@ function MeetingsPage() {
         title="會議"
         description="建立會議、紀錄議程與會議紀錄，並追蹤行動項目。"
         actions={
-          canCreate && appUser ? (
-            <Button onClick={() => setOpenCreate(true)}>
-              <Plus className="w-4 h-4" /> 新增會議
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <ExportMeetingsBtn meetings={meetingsQ.data ?? []} userMap={userMap} />
+            {canCreate && appUser && (
+              <Button onClick={() => setOpenCreate(true)}>
+                <Plus className="w-4 h-4" /> 新增會議
+              </Button>
+            )}
+          </div>
         }
       />
 
