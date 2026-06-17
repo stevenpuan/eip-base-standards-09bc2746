@@ -80,8 +80,9 @@ function LoginPage() {
     <div className="min-h-screen grid place-items-center bg-muted/30 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">後台管理系統</CardTitle>
-          <CardDescription>空系統 Base</CardDescription>
+          <img src="/logo.png" alt="陞煇食品" className="mx-auto h-16 w-16 object-contain mb-2" />
+          <CardTitle className="text-xl">陞煇食品</CardTitle>
+          <CardDescription>內部管理平台</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login">
