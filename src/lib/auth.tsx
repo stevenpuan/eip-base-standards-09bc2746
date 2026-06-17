@@ -30,6 +30,7 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   roles: string[];
+  roleNames: string[];
   isAdmin: boolean;
   can: (key: string, action?: Action) => boolean;
   refresh: () => Promise<void>;
