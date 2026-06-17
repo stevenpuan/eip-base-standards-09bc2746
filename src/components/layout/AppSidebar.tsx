@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Icons from "lucide-react";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { NotificationBell } from "@/components/eip/NotificationBell";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -106,6 +107,7 @@ export function AppSidebar() {
           >
             <LogOut className="w-4 h-4" />
           </button>
+          <NotificationBell />
         </div>
       </div>
     </aside>
