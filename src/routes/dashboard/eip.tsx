@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { EipUserProvider, useEipUser } from "@/lib/eip-user";
 import { ROLE_LABEL } from "@/lib/eip-constants";
+import { QuickReportButton } from "@/components/eip/QuickReportButton";
 
 export const Route = createFileRoute("/dashboard/eip")({ component: Layout });
 
@@ -9,6 +10,7 @@ function Layout() {
     <EipUserProvider>
       <Banner />
       <Outlet />
+      <QuickReportButton />
     </EipUserProvider>
   );
 }
