@@ -92,28 +92,39 @@ function MeetingsPage() {
         }
       />
 
-      <div className="space-y-2">
-        {(meetingsQ.data ?? []).map((m) => (
-          <Card key={m.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(m)}>
-            <CardContent className="p-3 flex items-center gap-3">
-              <CalendarDays className="w-4 h-4 text-muted-foreground" />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{m.title}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {new Date(m.meeting_date).toLocaleString("zh-TW")}
-                  {m.location && ` ・ ${m.location}`}
-                </div>
-              </div>
-              <Badge variant="outline" className="text-xs">
-                {userMap.get(m.created_by)?.name ?? "—"}
-              </Badge>
-            </CardContent>
-          </Card>
-        ))}
-        {(meetingsQ.data ?? []).length === 0 && (
-          <Card><CardContent className="py-10 text-center text-muted-foreground">尚無會議</CardContent></Card>
-        )}
-      </div>
+      <Tabs defaultValue="list">
+        <TabsList>
+          <TabsTrigger value="list">會議列表</TabsTrigger>
+          <TabsTrigger value="actions">決議追蹤</TabsTrigger>
+        </TabsList>
+        <TabsContent value="list">
+          <div className="space-y-2">
+            {(meetingsQ.data ?? []).map((m) => (
+              <Card key={m.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(m)}>
+                <CardContent className="p-3 flex items-center gap-3">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{m.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(m.meeting_date).toLocaleString("zh-TW")}
+                      {m.location && ` ・ ${m.location}`}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {userMap.get(m.created_by)?.name ?? "—"}
+                  </Badge>
+                </CardContent>
+              </Card>
+            ))}
+            {(meetingsQ.data ?? []).length === 0 && (
+              <Card><CardContent className="py-10 text-center text-muted-foreground">尚無會議</CardContent></Card>
+            )}
+          </div>
+        </TabsContent>
+        <TabsContent value="actions">
+          <ActionItemsTracker meetings={meetingsQ.data ?? []} users={usersQ.data ?? []} userMap={userMap} />
+        </TabsContent>
+      </Tabs>
 
       {openCreate && appUser && (
         <CreateMeetingDialog
