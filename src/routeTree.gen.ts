@@ -38,6 +38,7 @@ import { Route as DashboardEipFeatureRequestsRouteImport } from './routes/dashbo
 import { Route as DashboardEipChangelogRouteImport } from './routes/dashboard/eip/changelog'
 import { Route as DashboardEipAnnouncementsRouteImport } from './routes/dashboard/eip/announcements'
 import { Route as DashboardEipFeatureRequestsNewRouteImport } from './routes/dashboard/eip/feature-requests.new'
+import { Route as DashboardEipFeatureRequestsIdEditRouteImport } from './routes/dashboard/eip/feature-requests.$id.edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -189,6 +190,12 @@ const DashboardEipFeatureRequestsNewRoute =
     path: '/new',
     getParentRoute: () => DashboardEipFeatureRequestsRoute,
   } as any)
+const DashboardEipFeatureRequestsIdEditRoute =
+  DashboardEipFeatureRequestsIdEditRouteImport.update({
+    id: '/$id/edit',
+    path: '/$id/edit',
+    getParentRoute: () => DashboardEipFeatureRequestsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/eip/projects': typeof DashboardEipProjectsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
+  '/dashboard/eip/feature-requests/$id/edit': typeof DashboardEipFeatureRequestsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -250,6 +258,7 @@ export interface FileRoutesByTo {
   '/dashboard/eip/projects': typeof DashboardEipProjectsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
+  '/dashboard/eip/feature-requests/$id/edit': typeof DashboardEipFeatureRequestsIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -282,6 +291,7 @@ export interface FileRoutesById {
   '/dashboard/eip/projects': typeof DashboardEipProjectsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
+  '/dashboard/eip/feature-requests/$id/edit': typeof DashboardEipFeatureRequestsIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/projects'
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/new'
+    | '/dashboard/eip/feature-requests/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -345,6 +356,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/projects'
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/new'
+    | '/dashboard/eip/feature-requests/$id/edit'
   id:
     | '__root__'
     | '/'
@@ -376,6 +388,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/projects'
     | '/dashboard/eip/tasks'
     | '/dashboard/eip/feature-requests/new'
+    | '/dashboard/eip/feature-requests/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -589,16 +602,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEipFeatureRequestsNewRouteImport
       parentRoute: typeof DashboardEipFeatureRequestsRoute
     }
+    '/dashboard/eip/feature-requests/$id/edit': {
+      id: '/dashboard/eip/feature-requests/$id/edit'
+      path: '/$id/edit'
+      fullPath: '/dashboard/eip/feature-requests/$id/edit'
+      preLoaderRoute: typeof DashboardEipFeatureRequestsIdEditRouteImport
+      parentRoute: typeof DashboardEipFeatureRequestsRoute
+    }
   }
 }
 
 interface DashboardEipFeatureRequestsRouteChildren {
   DashboardEipFeatureRequestsNewRoute: typeof DashboardEipFeatureRequestsNewRoute
+  DashboardEipFeatureRequestsIdEditRoute: typeof DashboardEipFeatureRequestsIdEditRoute
 }
 
 const DashboardEipFeatureRequestsRouteChildren: DashboardEipFeatureRequestsRouteChildren =
   {
     DashboardEipFeatureRequestsNewRoute: DashboardEipFeatureRequestsNewRoute,
+    DashboardEipFeatureRequestsIdEditRoute:
+      DashboardEipFeatureRequestsIdEditRoute,
   }
 
 const DashboardEipFeatureRequestsRouteWithChildren =

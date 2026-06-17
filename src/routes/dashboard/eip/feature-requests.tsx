@@ -2,7 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Lightbulb, Search } from "lucide-react";
+import { Plus, Lightbulb, Search, Pencil, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -63,6 +73,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 const MONTHLY_QUOTA = 30;
 
+
 function FeatureRequestsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
@@ -72,6 +83,7 @@ function FeatureRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [excludeDone, setExcludeDone] = useState(false);
   const [excludeRejected, setExcludeRejected] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const listQ = useQuery({
     queryKey: ["eip", "feature-requests"],
@@ -170,6 +182,21 @@ function FeatureRequestsPage() {
       toast.success("狀態已更新");
       qc.invalidateQueries({ queryKey: ["eip", "feature-requests"] });
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase
+      .from("eip_feature_request")
+      .delete()
+      .eq("id", deleteId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("已刪除需求");
+      qc.invalidateQueries({ queryKey: ["eip", "feature-requests"] });
+    }
+    setDeleteId(null);
   };
 
   if (listQ.isLoading)
@@ -290,6 +317,7 @@ function FeatureRequestsPage() {
                 <TableHead className="w-36">狀態</TableHead>
                 <TableHead className="w-28">提交者</TableHead>
                 <TableHead className="w-40">建立時間</TableHead>
+                <TableHead className="w-24 text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -340,12 +368,36 @@ function FeatureRequestsPage() {
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString("zh-TW")}
                   </TableCell>
+                  <TableCell className="text-right">
+                    {(canManage || (appUser && r.submitter_id === appUser.id)) ? (
+                      <div className="flex justify-end gap-1">
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                          <Link
+                            to="/dashboard/eip/feature-requests/$id/edit"
+                            params={{ id: r.id }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteId(r.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="py-10 text-center text-muted-foreground"
                   >
                     無符合條件的需求
@@ -356,6 +408,21 @@ function FeatureRequestsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除此需求?</AlertDialogTitle>
+            <AlertDialogDescription>刪除後將無法復原。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              刪除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
