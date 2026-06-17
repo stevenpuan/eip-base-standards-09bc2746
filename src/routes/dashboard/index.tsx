@@ -8,7 +8,7 @@ import { EipDashboardSummary } from "@/components/eip/EipDashboardSummary";
 export const Route = createFileRoute("/dashboard/")({ component: DashboardHome });
 
 function DashboardHome() {
-  const { profile, roles } = useAuth();
+  const { profile, roleNames } = useAuth();
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
@@ -32,7 +32,7 @@ function DashboardHome() {
           歡迎回來，{profile?.full_name ?? profile?.email}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          角色：{roles.join("、") || "—"}
+          角色：{roleNames.join("、") || "—"}
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">

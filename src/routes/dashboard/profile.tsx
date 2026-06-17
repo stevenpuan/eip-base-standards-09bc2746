@@ -12,7 +12,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/dashboard/profile")({ component: Page });
 
 function Page() {
-  const { profile, user, roles, refresh } = useAuth();
+  const { profile, user, roleNames, refresh } = useAuth();
   const [fullName, setFullName] = useState("");
   const [pw, setPw] = useState("");
 
@@ -43,7 +43,7 @@ function Page() {
         <CardHeader><CardTitle className="text-base">個人資料</CardTitle></CardHeader>
         <CardContent className="space-y-4 max-w-md">
           <div className="space-y-1"><Label>Email</Label><Input value={profile?.email ?? ""} disabled /></div>
-          <div className="space-y-1"><Label>角色</Label><Input value={roles.join("、") || "—"} disabled /></div>
+          <div className="space-y-1"><Label>角色</Label><Input value={roleNames.join("、") || "—"} disabled /></div>
           <div className="space-y-1"><Label>姓名</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
           <Button onClick={saveProfile}>儲存</Button>
         </CardContent>

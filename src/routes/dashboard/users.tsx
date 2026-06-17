@@ -216,7 +216,7 @@ function UsersPage() {
   const renderTable = (list: ProfileRow[]) => (
     <Card>
       <CardContent className="p-0 overflow-x-auto">
-        <Table>
+        <Table className="min-w-[900px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
           <TableHeader>
             <TableRow>
               <TableHead>姓名</TableHead>
@@ -294,23 +294,25 @@ function UsersPage() {
         <p className="text-muted-foreground">載入中…</p>
       ) : (
         <Tabs defaultValue="active">
-          <TabsList>
-            <TabsTrigger value="pending">待審核 ({pending.length})</TabsTrigger>
-            <TabsTrigger value="active">已啟用 ({active.length})</TabsTrigger>
-            <TabsTrigger value="all">全部 ({rows.length})</TabsTrigger>
-            <TabsTrigger value="invite">邀請碼</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList>
+              <TabsTrigger value="pending">待審核 ({pending.length})</TabsTrigger>
+              <TabsTrigger value="active">已啟用 ({active.length})</TabsTrigger>
+              <TabsTrigger value="all">全部 ({rows.length})</TabsTrigger>
+              <TabsTrigger value="invite">邀請碼</TabsTrigger>
+            </TabsList>
+          </div>
           <TabsContent value="pending" className="mt-4">{renderTable(pending)}</TabsContent>
           <TabsContent value="active" className="mt-4">{renderTable(active)}</TabsContent>
           <TabsContent value="all" className="mt-4">{renderTable(rows)}</TabsContent>
           <TabsContent value="invite" className="mt-4 space-y-4">
             {editable && (
               <Card>
-                <CardContent className="py-4 flex flex-wrap items-end gap-3">
+                <CardContent className="py-4 grid gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
                   <div className="space-y-1">
                     <Label className="text-xs">角色</Label>
                     <Select value={invRole} onValueChange={setInvRole}>
-                      <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-full lg:w-36"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {roles.map((r) => <SelectItem key={r.id} value={r.code}>{r.name}</SelectItem>)}
                       </SelectContent>
@@ -318,19 +320,19 @@ function UsersPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">指定信箱（選填）</Label>
-                    <Input className="w-56" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} />
+                    <Input className="w-full lg:w-56" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">有效天數</Label>
-                    <Input className="w-24" type="number" value={invDays} onChange={(e) => setInvDays(e.target.value)} />
+                    <Input className="w-full lg:w-24" type="number" value={invDays} onChange={(e) => setInvDays(e.target.value)} />
                   </div>
-                  <Button onClick={generate}>產生邀請碼</Button>
+                  <Button onClick={generate} className="w-full sm:w-auto">產生邀請碼</Button>
                 </CardContent>
               </Card>
             )}
             <Card>
-              <CardContent className="p-0">
-                <Table>
+              <CardContent className="p-0 overflow-x-auto">
+                <Table className="min-w-[720px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
                       <TableHead>邀請碼</TableHead>

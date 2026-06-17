@@ -20,7 +20,7 @@ function Page() {
     <div className="space-y-6">
       <PageHeader title="操作日誌" description="一般操作行為紀錄（最新 200 筆）" />
       {isLoading ? <p className="text-muted-foreground">載入中…</p> : (
-        <Card><CardContent className="p-0">
+        <Card><CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow><TableHead>動作</TableHead><TableHead>路徑</TableHead><TableHead>IP</TableHead><TableHead>時間</TableHead></TableRow></TableHeader>
             <TableBody>

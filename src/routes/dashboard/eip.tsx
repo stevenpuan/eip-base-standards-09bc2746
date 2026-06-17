@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { EipUserProvider, useEipUser } from "@/lib/eip-user";
-import { ROLE_LABEL } from "@/lib/eip-constants";
+import { useAuth } from "@/lib/auth";
 import { QuickReportButton } from "@/components/eip/QuickReportButton";
 
 export const Route = createFileRoute("/dashboard/eip")({ component: Layout });
@@ -17,6 +17,7 @@ function Layout() {
 
 function Banner() {
   const { loading, appUser, error } = useEipUser();
+  const { roleNames, profile } = useAuth();
   if (loading) return <div className="text-sm text-muted-foreground py-2">EIP 帳號載入中…</div>;
   if (error)
     return (
@@ -25,9 +26,12 @@ function Banner() {
       </div>
     );
   if (!appUser) return null;
+  const displayName = profile?.full_name ?? appUser.name;
+  const displayRole = roleNames[0] ?? "—";
   return (
     <div className="text-xs text-muted-foreground py-1.5">
-      EIP 身分：{appUser.name}（{ROLE_LABEL[appUser.role] ?? appUser.role}）
+      EIP 身分：{displayName}（{displayRole}）
     </div>
   );
 }
+

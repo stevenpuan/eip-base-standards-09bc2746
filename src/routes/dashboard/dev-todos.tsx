@@ -73,7 +73,7 @@ function Page() {
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">已完成</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{doneN}</div></CardContent></Card>
       </div>
       {isLoading ? <p className="text-muted-foreground">載入中…</p> : (
-        <Card><CardContent className="p-0">
+        <Card><CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow><TableHead>標題</TableHead><TableHead>狀態</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
             <TableBody>

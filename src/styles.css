@@ -142,3 +142,12 @@
     color: var(--color-foreground);
   }
 }
+
+/* RWD: 列表表格在窄螢幕可橫向捲動，並避免儲存格逐字斷行 */
+.overflow-x-auto > table {
+  min-width: 720px;
+}
+.overflow-x-auto > table th,
+.overflow-x-auto > table td {
+  white-space: nowrap;
+}

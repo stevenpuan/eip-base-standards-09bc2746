@@ -107,7 +107,7 @@ function Page() {
       </CardContent></Card>
 
       {isLoading ? <p className="text-muted-foreground">載入中…</p> : (
-        <Card><CardContent className="p-0">
+        <Card><CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow><TableHead>標題</TableHead><TableHead>區塊</TableHead><TableHead>點數</TableHead><TableHead>狀態</TableHead><TableHead>建立時間</TableHead></TableRow></TableHeader>
             <TableBody>

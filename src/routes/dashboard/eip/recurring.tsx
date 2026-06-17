@@ -164,7 +164,7 @@ function RecurringPage() {
         </TabsList>
         <TabsContent value="rules">
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               {rulesQ.isLoading ? (
                 <div className="text-sm text-muted-foreground text-center py-8">載入中…</div>
               ) : !rulesQ.data?.length ? (
