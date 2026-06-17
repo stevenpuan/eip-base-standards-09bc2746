@@ -336,6 +336,111 @@ export type Database = {
           },
         ]
       }
+      eip_changelog: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          released_at: string
+          tenant_id: string
+          title: string
+          type: string
+          version: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          released_at?: string
+          tenant_id: string
+          title: string
+          type?: string
+          version: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          released_at?: string
+          tenant_id?: string
+          title?: string
+          type?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eip_changelog_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eip_feature_request: {
+        Row: {
+          area: string | null
+          created_at: string
+          description: string | null
+          id: string
+          points_cost: number
+          status: string
+          submitter_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          points_cost?: number
+          status?: string
+          submitter_id?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          points_cost?: number
+          status?: string
+          submitter_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eip_feature_request_submitter_id_fkey"
+            columns: ["submitter_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_feature_request_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting: {
         Row: {
           agenda: string | null
@@ -1004,6 +1109,16 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       current_tenant_id: { Args: never; Returns: string }
+      eip_announcement_targeted: {
+        Args: { p_announcement_id: string }
+        Returns: boolean
+      }
+      eip_can_manage_task: { Args: { p_task_id: string }; Returns: boolean }
+      eip_can_see_task: { Args: { p_task_id: string }; Returns: boolean }
+      eip_is_task_collaborator: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       action_item_status: "open" | "converted" | "done"
