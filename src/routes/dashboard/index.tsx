@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { EipDashboardSummary } from "@/components/eip/EipDashboardSummary";
 
 export const Route = createFileRoute("/dashboard/")({ component: DashboardHome });
 
@@ -39,6 +40,7 @@ function DashboardHome() {
         <StatCard title="許願清單" value={stats?.fr} />
         <StatCard title="待處理問題" value={stats?.issues} />
       </div>
+      <EipDashboardSummary />
     </div>
   );
 }

@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Lightbulb, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Lightbulb, Search, Pencil, Trash2, Download } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { exportToExcel } from "@/lib/eip-export";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,7 +79,9 @@ const MONTHLY_QUOTA = 30;
 function FeatureRequestsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
+  const { can } = useAuth();
   const canManage = canManageEip(appUser?.role);
+  const canExport = can("eip_feature_pool", "export");
 
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -208,14 +212,34 @@ function FeatureRequestsPage() {
         title="需求許願池"
         description="提出系統功能新增或修改的需求"
         actions={
-          appUser ? (
-            <Button asChild>
-              <Link to="/dashboard/eip/feature-requests/new">
-                <Plus className="w-4 h-4" />
-                新增需求
-              </Link>
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {canExport && (
+              <Button variant="outline" onClick={() => exportToExcel({
+                filename: "需求許願池", sheetName: "需求", rows: filtered,
+                columns: [
+                  { header: "標題", key: "title" },
+                  { header: "應用範圍", key: "scope", map: (r) => r.scope ?? "" },
+                  { header: "需求類型", key: "request_type", map: (r) => r.request_type ?? "" },
+                  { header: "區塊", key: "area", map: (r) => r.area ?? "" },
+                  { header: "點數", key: "points_cost" },
+                  { header: "狀態", key: "status", map: (r) => STATUS_LABEL[r.status] ?? r.status },
+                  { header: "提交者", key: "submitter_id", map: (r) => r.submitter_id ? userMap.get(r.submitter_id)?.name ?? "" : "" },
+                  { header: "建立時間", key: "created_at", map: (r) => new Date(r.created_at).toLocaleString("zh-TW") },
+                  { header: "完成時間", key: "completed_at", map: (r) => r.completed_at ? new Date(r.completed_at).toLocaleString("zh-TW") : "" },
+                ],
+              })}>
+                <Download className="w-4 h-4" /> 匯出 Excel
+              </Button>
+            )}
+            {appUser && (
+              <Button asChild>
+                <Link to="/dashboard/eip/feature-requests/new">
+                  <Plus className="w-4 h-4" />
+                  新增需求
+                </Link>
+              </Button>
+            )}
+          </div>
         }
       />
 

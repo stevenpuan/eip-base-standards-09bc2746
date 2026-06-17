@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Pin, Megaphone } from "lucide-react";
+import { Plus, Pin, Megaphone, Download } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
@@ -73,7 +75,14 @@ function AnnouncementsPage() {
     <div>
       <PageHeader title="公告"
         description="發布公司或部門公告，並追蹤已讀狀態。"
-        actions={canPublish && appUser ? <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />發布公告</Button> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportAnnouncementsBtn rows={listQ.data ?? []} userMap={userMap} />
+            {canPublish && appUser && (
+              <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />發布公告</Button>
+            )}
+          </div>
+        }
       />
       <div className="space-y-2">
         {(listQ.data ?? []).map((a) => (
@@ -348,5 +357,27 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
+  );
+}
+
+const AUDIENCE_EXPORT: Record<string, string> = { all: "全公司", department: "指定部門", users: "指定人員" };
+function ExportAnnouncementsBtn({ rows, userMap }: { rows: Announcement[]; userMap: Map<string, AppUser> }) {
+  const { can } = useAuth();
+  if (!can("eip_announcements", "export")) return null;
+  return (
+    <Button variant="outline" onClick={() => exportToExcel({
+      filename: "EIP公告", sheetName: "公告", rows,
+      columns: [
+        { header: "標題", key: "title" },
+        { header: "是否置頂", key: "is_pinned", map: (r) => r.is_pinned ? "是" : "否" },
+        { header: "發布對象", key: "audience_type", map: (r) => AUDIENCE_EXPORT[r.audience_type] ?? r.audience_type },
+        { header: "建立者", key: "created_by", map: (r) => userMap.get(r.created_by)?.name ?? "" },
+        { header: "發布時間", key: "published_at", map: (r) => r.published_at ? new Date(r.published_at).toLocaleString("zh-TW") : "草稿" },
+        { header: "內容", key: "body" },
+        { header: "建立時間", key: "created_at", map: (r) => new Date(r.created_at).toLocaleString("zh-TW") },
+      ],
+    })}>
+      <Download className="w-4 h-4" /> 匯出 Excel
+    </Button>
   );
 }

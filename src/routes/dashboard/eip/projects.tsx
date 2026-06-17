@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, FolderKanban } from "lucide-react";
+import { Plus, FolderKanban, Download } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
@@ -68,7 +70,14 @@ function ProjectsPage() {
     <div>
       <PageHeader title="專案"
         description="管理跨部門專案、里程碑與成員，並關聯任務與會議。"
-        actions={canCreate && appUser ? <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />新增專案</Button> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportProjectsBtn projects={projectsQ.data ?? []} userMap={userMap} />
+            {canCreate && appUser && (
+              <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />新增專案</Button>
+            )}
+          </div>
+        }
       />
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {(projectsQ.data ?? []).map((p) => (
@@ -348,5 +357,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
+  );
+}
+
+function ExportProjectsBtn({ projects, userMap }: { projects: Project[]; userMap: Map<string, AppUser> }) {
+  const { can } = useAuth();
+  if (!can("eip_projects", "export")) return null;
+  return (
+    <Button variant="outline" onClick={() => exportToExcel({
+      filename: "EIP專案", sheetName: "專案", rows: projects,
+      columns: [
+        { header: "名稱", key: "name" },
+        { header: "狀態", key: "status", map: (r) => PROJECT_STATUS_LABEL[r.status] ?? r.status },
+        { header: "負責人", key: "owner_id", map: (r) => r.owner_id ? userMap.get(r.owner_id)?.name ?? "" : "" },
+        { header: "開始", key: "start_date", map: (r) => r.start_date ?? "" },
+        { header: "結束", key: "end_date", map: (r) => r.end_date ?? "" },
+        { header: "描述", key: "description", map: (r) => r.description ?? "" },
+        { header: "建立時間", key: "created_at", map: (r) => new Date(r.created_at).toLocaleString("zh-TW") },
+      ],
+    })}>
+      <Download className="w-4 h-4" /> 匯出 Excel
+    </Button>
   );
 }

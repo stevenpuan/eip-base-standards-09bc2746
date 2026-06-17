@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, CalendarDays } from "lucide-react";
+import { Plus, CalendarDays, Download } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
@@ -79,11 +81,14 @@ function MeetingsPage() {
         title="會議"
         description="建立會議、紀錄議程與會議紀錄，並追蹤行動項目。"
         actions={
-          canCreate && appUser ? (
-            <Button onClick={() => setOpenCreate(true)}>
-              <Plus className="w-4 h-4" /> 新增會議
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <ExportMeetingsBtn meetings={meetingsQ.data ?? []} userMap={userMap} />
+            {canCreate && appUser && (
+              <Button onClick={() => setOpenCreate(true)}>
+                <Plus className="w-4 h-4" /> 新增會議
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -398,5 +403,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
+  );
+}
+
+function ExportMeetingsBtn({ meetings, userMap }: { meetings: Meeting[]; userMap: Map<string, AppUser> }) {
+  const { can } = useAuth();
+  if (!can("eip_meetings", "export")) return null;
+  return (
+    <Button variant="outline" onClick={() => exportToExcel({
+      filename: "EIP會議", sheetName: "會議", rows: meetings,
+      columns: [
+        { header: "標題", key: "title" },
+        { header: "會議時間", key: "meeting_date", map: (r) => new Date(r.meeting_date).toLocaleString("zh-TW") },
+        { header: "地點", key: "location", map: (r) => r.location ?? "" },
+        { header: "建立者", key: "created_by", map: (r) => userMap.get(r.created_by)?.name ?? "" },
+        { header: "議程", key: "agenda", map: (r: any) => r.agenda ?? "" },
+        { header: "紀錄", key: "minutes", map: (r: any) => r.minutes ?? "" },
+        { header: "建立時間", key: "created_at", map: (r: any) => new Date(r.created_at).toLocaleString("zh-TW") },
+      ],
+    })}>
+      <Download className="w-4 h-4" /> 匯出 Excel
+    </Button>
   );
 }
