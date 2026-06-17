@@ -72,6 +72,8 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const MONTHLY_QUOTA = 30;
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
 
 function FeatureRequestsPage() {
   const qc = useQueryClient();
