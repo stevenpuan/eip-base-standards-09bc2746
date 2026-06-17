@@ -86,20 +86,6 @@ export function AppSidebar() {
           );
         })}
 
-        {/* EIP 內部管理平台（獨立分組，與模板選單並存） */}
-        <div className="pt-2">
-          <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            EIP 平台
-          </div>
-          <SideLink to="/dashboard/eip/tasks" icon="KanbanSquare" title="任務看板" active={pathname === "/dashboard/eip/tasks"} />
-          <SideLink to="/dashboard/eip/my-tasks" icon="CheckSquare" title="我的任務" active={pathname === "/dashboard/eip/my-tasks"} />
-          <SideLink to="/dashboard/eip/meetings" icon="CalendarDays" title="會議" active={pathname === "/dashboard/eip/meetings"} />
-          <SideLink to="/dashboard/eip/projects" icon="FolderKanban" title="專案" active={pathname === "/dashboard/eip/projects"} />
-          <SideLink to="/dashboard/eip/announcements" icon="Megaphone" title="公告" active={pathname === "/dashboard/eip/announcements"} />
-          <SideLink to="/dashboard/eip/feature-requests" icon="Lightbulb" title="需求許願池" active={pathname === "/dashboard/eip/feature-requests"} />
-          <SideLink to="/dashboard/eip/changelog" icon="History" title="開發紀錄" active={pathname === "/dashboard/eip/changelog"} />
-          <SideLink to="/dashboard/eip/members" icon="Users" title="EIP 成員" active={pathname === "/dashboard/eip/members"} />
-        </div>
       </nav>
       <div className="border-t p-3">
         <div className="flex items-center gap-2 px-2 py-1.5">
