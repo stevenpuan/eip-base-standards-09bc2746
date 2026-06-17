@@ -1538,6 +1538,110 @@ export type Database = {
           },
         ]
       }
+      recurring_rule: {
+        Row: {
+          advance_days: number[]
+          counterpart: string | null
+          created_at: string
+          created_by: string | null
+          days_of_month: number[] | null
+          department_id: string | null
+          description: string | null
+          freq: string
+          id: string
+          is_active: boolean
+          last_run_on: string | null
+          months: number[] | null
+          owner_id: string
+          priority: Database["public"]["Enums"]["task_priority"]
+          remind_until_done: boolean
+          repeat_every_days: number | null
+          report_fields: Json | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          use_month_end: boolean
+          weekday: number | null
+        }
+        Insert: {
+          advance_days?: number[]
+          counterpart?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_month?: number[] | null
+          department_id?: string | null
+          description?: string | null
+          freq?: string
+          id?: string
+          is_active?: boolean
+          last_run_on?: string | null
+          months?: number[] | null
+          owner_id: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          remind_until_done?: boolean
+          repeat_every_days?: number | null
+          report_fields?: Json | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+          use_month_end?: boolean
+          weekday?: number | null
+        }
+        Update: {
+          advance_days?: number[]
+          counterpart?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_month?: number[] | null
+          department_id?: string | null
+          description?: string | null
+          freq?: string
+          id?: string
+          is_active?: boolean
+          last_run_on?: string | null
+          months?: number[] | null
+          owner_id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          remind_until_done?: boolean
+          repeat_every_days?: number | null
+          report_fields?: Json | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          use_month_end?: boolean
+          weekday?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_rule_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_rule_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_rule_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_rule_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_module_permissions: {
         Row: {
           can_create: boolean
@@ -1684,11 +1788,14 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          occurrence_date: string | null
           owner_id: string
           parent_task_id: string | null
           priority: Database["public"]["Enums"]["task_priority"]
           progress: number
           project_id: string | null
+          recurring_rule_id: string | null
+          report_data: Json | null
           start_date: string | null
           status_id: string
           tenant_id: string
@@ -1705,11 +1812,14 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          occurrence_date?: string | null
           owner_id: string
           parent_task_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           progress?: number
           project_id?: string | null
+          recurring_rule_id?: string | null
+          report_data?: Json | null
           start_date?: string | null
           status_id: string
           tenant_id: string
@@ -1726,11 +1836,14 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          occurrence_date?: string | null
           owner_id?: string
           parent_task_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           progress?: number
           project_id?: string | null
+          recurring_rule_id?: string | null
+          report_data?: Json | null
           start_date?: string | null
           status_id?: string
           tenant_id?: string
@@ -1772,6 +1885,13 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "task"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_recurring_rule_id_fkey"
+            columns: ["recurring_rule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rule"
             referencedColumns: ["id"]
           },
           {
@@ -2040,6 +2160,14 @@ export type Database = {
         Args: { p_task_id: string }
         Returns: boolean
       }
+      eip_rule_due_on: {
+        Args: {
+          d: string
+          r: Database["public"]["Tables"]["recurring_rule"]["Row"]
+        }
+        Returns: boolean
+      }
+      eip_run_recurring: { Args: { p_date?: string }; Returns: undefined }
       is_admin: { Args: { _uid: string }; Returns: boolean }
       redeem_invitation: { Args: { p_code: string }; Returns: string }
     }
