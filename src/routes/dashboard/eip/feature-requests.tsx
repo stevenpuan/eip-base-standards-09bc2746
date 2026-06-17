@@ -79,7 +79,9 @@ const MONTHLY_QUOTA = 30;
 function FeatureRequestsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
+  const { can } = useAuth();
   const canManage = canManageEip(appUser?.role);
+  const canExport = can("eip_feature_pool", "export");
 
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
