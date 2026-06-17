@@ -534,6 +534,91 @@ export type Database = {
           },
         ]
       }
+      eip_feature_analysis: {
+        Row: {
+          approach: string | null
+          complexity: string | null
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          dev_brief: string | null
+          estimated_points: number | null
+          feasibility: string | null
+          feature_request_id: string
+          id: string
+          model: string | null
+          raw: Json | null
+          reason: string | null
+          recommendation: string | null
+          relevance: number | null
+          risks: string | null
+          similar_notes: string | null
+          tenant_id: string
+        }
+        Insert: {
+          approach?: string | null
+          complexity?: string | null
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          dev_brief?: string | null
+          estimated_points?: number | null
+          feasibility?: string | null
+          feature_request_id: string
+          id?: string
+          model?: string | null
+          raw?: Json | null
+          reason?: string | null
+          recommendation?: string | null
+          relevance?: number | null
+          risks?: string | null
+          similar_notes?: string | null
+          tenant_id: string
+        }
+        Update: {
+          approach?: string | null
+          complexity?: string | null
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          dev_brief?: string | null
+          estimated_points?: number | null
+          feasibility?: string | null
+          feature_request_id?: string
+          id?: string
+          model?: string | null
+          raw?: Json | null
+          reason?: string | null
+          recommendation?: string | null
+          relevance?: number | null
+          risks?: string | null
+          similar_notes?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eip_feature_analysis_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_feature_analysis_feature_request_id_fkey"
+            columns: ["feature_request_id"]
+            isOneToOne: false
+            referencedRelation: "eip_feature_request"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_feature_analysis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eip_feature_request: {
         Row: {
           area: string | null
