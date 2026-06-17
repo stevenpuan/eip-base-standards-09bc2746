@@ -981,6 +981,64 @@ export type Database = {
           },
         ]
       }
+      meeting_agenda_item: {
+        Row: {
+          created_at: string
+          duration_min: number | null
+          id: string
+          meeting_id: string
+          notes: string | null
+          owner_id: string | null
+          sort_order: number
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          duration_min?: number | null
+          id?: string
+          meeting_id: string
+          notes?: string | null
+          owner_id?: string | null
+          sort_order?: number
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          duration_min?: number | null
+          id?: string
+          meeting_id?: string
+          notes?: string | null
+          owner_id?: string | null
+          sort_order?: number
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_agenda_item_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meeting"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_agenda_item_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_agenda_item_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_attendee: {
         Row: {
           meeting_id: string
@@ -1067,6 +1125,7 @@ export type Database = {
           due_date: string | null
           id: string
           name: string
+          progress: number
           project_id: string
           status: Database["public"]["Enums"]["milestone_status"]
           tenant_id: string
@@ -1077,6 +1136,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name: string
+          progress?: number
           project_id: string
           status?: Database["public"]["Enums"]["milestone_status"]
           tenant_id: string
@@ -1087,6 +1147,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name?: string
+          progress?: number
           project_id?: string
           status?: Database["public"]["Enums"]["milestone_status"]
           tenant_id?: string
@@ -1431,6 +1492,7 @@ export type Database = {
           priority: Database["public"]["Enums"]["task_priority"]
           progress: number
           project_id: string | null
+          start_date: string | null
           status_id: string
           tenant_id: string
           title: string
@@ -1451,6 +1513,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["task_priority"]
           progress?: number
           project_id?: string | null
+          start_date?: string | null
           status_id: string
           tenant_id: string
           title: string
@@ -1471,6 +1534,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["task_priority"]
           progress?: number
           project_id?: string | null
+          start_date?: string | null
           status_id?: string
           tenant_id?: string
           title?: string
