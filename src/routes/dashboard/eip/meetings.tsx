@@ -405,3 +405,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+function ExportMeetingsBtn({ meetings, userMap }: { meetings: Meeting[]; userMap: Map<string, AppUser> }) {
+  const { can } = useAuth();
+  if (!can("eip_meetings", "export")) return null;
+  return (
+    <Button variant="outline" onClick={() => exportToExcel({
+      filename: "EIP會議", sheetName: "會議", rows: meetings,
+      columns: [
+        { header: "標題", key: "title" },
+        { header: "會議時間", key: "meeting_date", map: (r) => new Date(r.meeting_date).toLocaleString("zh-TW") },
+        { header: "地點", key: "location", map: (r) => r.location ?? "" },
+        { header: "建立者", key: "created_by", map: (r) => userMap.get(r.created_by)?.name ?? "" },
+        { header: "議程", key: "agenda", map: (r: any) => r.agenda ?? "" },
+        { header: "紀錄", key: "minutes", map: (r: any) => r.minutes ?? "" },
+        { header: "建立時間", key: "created_at", map: (r: any) => new Date(r.created_at).toLocaleString("zh-TW") },
+      ],
+    })}>
+      <Download className="w-4 h-4" /> 匯出 Excel
+    </Button>
+  );
+}
