@@ -216,7 +216,7 @@ function UsersPage() {
   const renderTable = (list: ProfileRow[]) => (
     <Card>
       <CardContent className="p-0 overflow-x-auto">
-        <Table>
+        <Table className="min-w-[900px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
           <TableHeader>
             <TableRow>
               <TableHead>姓名</TableHead>
