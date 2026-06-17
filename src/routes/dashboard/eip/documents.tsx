@@ -30,7 +30,7 @@ export const Route = createFileRoute("/dashboard/eip/documents")({
   component: DocumentsPage,
 });
 
-type Folder = {
+type DocFolder = {
   id: string;
   name: string;
   parent_id: string | null;
@@ -106,7 +106,7 @@ function DocumentsPage() {
         .order("sort_order")
         .order("name");
       if (error) throw error;
-      return (data ?? []) as Folder[];
+      return (data ?? []) as DocFolder[];
     },
   });
 
@@ -340,7 +340,7 @@ async function promptCreateFolder(parentId: string | null, tenantId: string, qc:
 function FolderTree({
   folders, docs, parentId, depth, selectedId, onSelect, isManager, tenantId,
 }: {
-  folders: Folder[]; docs: Doc[]; parentId: string | null; depth: number;
+  folders: DocFolder[]; docs: Doc[]; parentId: string | null; depth: number;
   selectedId: string | null; onSelect: (id: string | null) => void;
   isManager: boolean; tenantId: string;
 }) {
@@ -377,7 +377,7 @@ function FolderTree({
 function FolderNode({
   folder, depth, hasChildren, docCount, active, onSelect, isManager, tenantId, children,
 }: {
-  folder: Folder; depth: number; hasChildren: boolean; docCount: number;
+  folder: DocFolder; depth: number; hasChildren: boolean; docCount: number;
   active: boolean; onSelect: (id: string) => void;
   isManager: boolean; tenantId: string; children: React.ReactNode;
 }) {
@@ -442,7 +442,7 @@ function FolderNode({
 function FolderRow({
   folder, active, onSelect, count,
 }: {
-  folder: Folder | null; active: boolean; onSelect: () => void; count: number;
+  folder: DocFolder | null; active: boolean; onSelect: () => void; count: number;
   isManager: boolean; tenantId: string;
 }) {
   return (
@@ -645,7 +645,7 @@ function DocEditorDialog({
 }: {
   mode: "new" | "edit";
   doc: Doc | null;
-  folders: Folder[];
+  folders: DocFolder[];
   users: Array<{ id: string; name: string | null; email: string | null }>;
   departments: Array<{ id: string; name: string }>;
   defaultFolderId: string | null;
