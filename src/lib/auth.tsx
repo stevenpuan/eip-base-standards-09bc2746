@@ -58,10 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("role_id, roles(code,name)")
       .eq("user_id", uid);
     const rows = (ur ?? []) as unknown as Array<{ role_id: string; roles: { code: string; name: string } | null }>;
-    setRoles(rows.map((r) => r.roles?.code).filter(Boolean) as string[]);
-    setRoleNames(rows.map((r) => r.roles?.name).filter(Boolean) as string[]);
-
+    let codes = rows.map((r) => r.roles?.code).filter(Boolean) as string[];
+    let names = rows.map((r) => r.roles?.name).filter(Boolean) as string[];
     const roleIds = rows.map((r) => r.role_id);
+    // Fallback: 若 join 未返回 roles（例如 RLS 阻擋），改以 role_id 直查
+    if (roleIds.length && (codes.length === 0 || names.length === 0)) {
+      const { data: rs } = await supabase.from("roles").select("id,code,name").in("id", roleIds);
+      const map = new Map((rs ?? []).map((r: any) => [r.id, r]));
+      codes = roleIds.map((id) => map.get(id)?.code).filter(Boolean) as string[];
+      names = roleIds.map((id) => map.get(id)?.name).filter(Boolean) as string[];
+    }
+    setRoles(codes);
+    setRoleNames(names);
+
     if (!roleIds.length) {
       setPerms({});
       setPagePerms({});
