@@ -32,7 +32,7 @@ function DashboardHome() {
           歡迎回來，{profile?.full_name ?? profile?.email}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          角色：{roles.join("、") || "—"}
+          角色：{roleNames.join("、") || "—"}
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
