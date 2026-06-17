@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat } from "lucide-react";
+import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
