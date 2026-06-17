@@ -59,7 +59,7 @@ export function EipDashboardSummary() {
     queryFn: async () => {
       const { data } = await supabase
         .from("task")
-        .select("id,title,status_id,owner_id,created_by,due_date,progress,department_id");
+        .select("id,title,status_id,owner_id,created_by,due_date,progress,department_id,project_id");
       return data ?? [];
     },
   });
