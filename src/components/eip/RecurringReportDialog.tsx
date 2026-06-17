@@ -71,7 +71,7 @@ export function RecurringReportDialog({
           patch.progress = 100;
         }
       }
-      const { error } = await supabase.from("task").update(patch).eq("id", taskId);
+      const { error } = await supabase.from("task").update(patch as never).eq("id", taskId);
       if (error) throw error;
       toast.success("已回報");
       onDone?.();
