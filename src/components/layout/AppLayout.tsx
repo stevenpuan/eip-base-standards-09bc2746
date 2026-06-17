@@ -40,8 +40,8 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar />
-      <main className="pl-64">
-        <div className="p-6 max-w-7xl mx-auto">
+      <main className="lg:pl-64">
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto">
           <Outlet />
         </div>
       </main>
