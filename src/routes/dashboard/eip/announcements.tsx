@@ -75,7 +75,14 @@ function AnnouncementsPage() {
     <div>
       <PageHeader title="公告"
         description="發布公司或部門公告，並追蹤已讀狀態。"
-        actions={canPublish && appUser ? <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />發布公告</Button> : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportAnnouncementsBtn rows={listQ.data ?? []} userMap={userMap} />
+            {canPublish && appUser && (
+              <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />發布公告</Button>
+            )}
+          </div>
+        }
       />
       <div className="space-y-2">
         {(listQ.data ?? []).map((a) => (
