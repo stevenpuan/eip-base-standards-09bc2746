@@ -390,10 +390,13 @@ export type Database = {
       eip_feature_request: {
         Row: {
           area: string | null
+          completed_at: string | null
           created_at: string
           description: string | null
           id: string
           points_cost: number
+          request_type: string | null
+          scope: string | null
           status: string
           submitter_id: string | null
           tenant_id: string
@@ -402,10 +405,13 @@ export type Database = {
         }
         Insert: {
           area?: string | null
+          completed_at?: string | null
           created_at?: string
           description?: string | null
           id?: string
           points_cost?: number
+          request_type?: string | null
+          scope?: string | null
           status?: string
           submitter_id?: string | null
           tenant_id: string
@@ -414,10 +420,13 @@ export type Database = {
         }
         Update: {
           area?: string | null
+          completed_at?: string | null
           created_at?: string
           description?: string | null
           id?: string
           points_cost?: number
+          request_type?: string | null
+          scope?: string | null
           status?: string
           submitter_id?: string | null
           tenant_id?: string
