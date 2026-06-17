@@ -157,7 +157,8 @@ function FeatureRequestsPage() {
   }, [rows, keyword, statusFilter, excludeDone, excludeRejected, userMap]);
 
   const updateStatus = async (id: string, status: string) => {
-    const patch: Record<string, unknown> = { status };
+    const patch: Database["public"]["Tables"]["eip_feature_request"]["Update"] =
+      { status };
     if (status === "done") patch.completed_at = new Date().toISOString();
     const { error } = await supabase
       .from("eip_feature_request")
