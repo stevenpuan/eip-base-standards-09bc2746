@@ -430,6 +430,7 @@ function TaskCard({ task, owner, subtask, onDragStart }: {
   subtask?: { total: number; done: number };
   onDragStart: () => void;
 }) {
+  const [reportOpen, setReportOpen] = useState(false);
   const overdue = task.due_date &&
     new Date(task.due_date) < new Date(new Date().toDateString()) && task.progress < 100;
   const initial = owner?.name ? owner.name.slice(0, 1) : "?";
@@ -442,6 +443,9 @@ function TaskCard({ task, owner, subtask, onDragStart }: {
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium leading-snug line-clamp-2">{task.title}</div>
           </div>
+          {task.recurring_rule_id && (
+            <Badge variant="outline" className="text-[10px] gap-0.5"><Repeat className="w-2.5 h-2.5" />週期</Badge>
+          )}
           <Badge className={`text-[10px] ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
             {PRIORITY_LABEL[task.priority]}
           </Badge>
@@ -470,7 +474,22 @@ function TaskCard({ task, owner, subtask, onDragStart }: {
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
+        {task.recurring_rule_id && task.progress < 100 && (
+          <Button size="sm" variant="outline" className="w-full h-7 text-xs"
+            onClick={(e) => { e.stopPropagation(); setReportOpen(true); }}>
+            週期回報
+          </Button>
+        )}
       </CardContent>
+      {reportOpen && task.recurring_rule_id && (
+        <RecurringReportDialog
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          taskId={task.id}
+          recurringRuleId={task.recurring_rule_id}
+          initialData={task.report_data as Record<string, unknown> | null}
+        />
+      )}
     </Card>
   );
 }
