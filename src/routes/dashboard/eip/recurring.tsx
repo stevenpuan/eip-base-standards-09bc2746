@@ -157,53 +157,69 @@ function RecurringPage() {
           </div>
         }
       />
-      <Card>
-        <CardContent className="p-0">
-          {rulesQ.isLoading ? (
-            <div className="text-sm text-muted-foreground text-center py-8">載入中…</div>
-          ) : !rulesQ.data?.length ? (
-            <div className="text-sm text-muted-foreground text-center py-8">尚無常態工作規則。</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>標題</TableHead>
-                  <TableHead>負責人</TableHead>
-                  <TableHead>部門</TableHead>
-                  <TableHead>週期</TableHead>
-                  <TableHead>優先級</TableHead>
-                  <TableHead>上次執行</TableHead>
-                  <TableHead className="text-center">啟用</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rulesQ.data.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.title}</TableCell>
-                    <TableCell>{userMap.get(r.owner_id)?.name ?? "—"}</TableCell>
-                    <TableCell>{r.department_id ? deptMap.get(r.department_id)?.name ?? "—" : "—"}</TableCell>
-                    <TableCell><Badge variant="secondary">{FREQ_LABEL[r.freq] ?? r.freq}</Badge> <span className="text-xs text-muted-foreground">{summarize(r)}</span></TableCell>
-                    <TableCell>{PRIORITY_LABEL[r.priority]}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{r.last_run_on ?? "—"}</TableCell>
-                    <TableCell className="text-center">
-                      <Switch checked={r.is_active} onCheckedChange={() => canManage && toggleActive(r)} disabled={!canManage} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canManage && (
-                        <div className="flex items-center justify-end gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => { setEditing(r); setOpen(true); }}><Pencil className="w-4 h-4" /></Button>
-                          <Button size="icon" variant="ghost" onClick={() => remove(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="rules" className="mt-2">
+        <TabsList>
+          <TabsTrigger value="rules">規則設定</TabsTrigger>
+          <TabsTrigger value="dashboard">達成儀表板</TabsTrigger>
+        </TabsList>
+        <TabsContent value="rules">
+          <Card>
+            <CardContent className="p-0">
+              {rulesQ.isLoading ? (
+                <div className="text-sm text-muted-foreground text-center py-8">載入中…</div>
+              ) : !rulesQ.data?.length ? (
+                <div className="text-sm text-muted-foreground text-center py-8">尚無常態工作規則。</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>標題</TableHead>
+                      <TableHead>負責人</TableHead>
+                      <TableHead>部門</TableHead>
+                      <TableHead>週期</TableHead>
+                      <TableHead>優先級</TableHead>
+                      <TableHead>上次執行</TableHead>
+                      <TableHead className="text-center">啟用</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rulesQ.data.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{r.title}</TableCell>
+                        <TableCell>{userMap.get(r.owner_id)?.name ?? "—"}</TableCell>
+                        <TableCell>{r.department_id ? deptMap.get(r.department_id)?.name ?? "—" : "—"}</TableCell>
+                        <TableCell><Badge variant="secondary">{FREQ_LABEL[r.freq] ?? r.freq}</Badge> <span className="text-xs text-muted-foreground">{summarize(r)}</span></TableCell>
+                        <TableCell>{PRIORITY_LABEL[r.priority]}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{r.last_run_on ?? "—"}</TableCell>
+                        <TableCell className="text-center">
+                          <Switch checked={r.is_active} onCheckedChange={() => canManage && toggleActive(r)} disabled={!canManage} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canManage && (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => { setEditing(r); setOpen(true); }}><Pencil className="w-4 h-4" /></Button>
+                              <Button size="icon" variant="ghost" onClick={() => remove(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="dashboard">
+          <AchievementDashboard
+            users={usersQ.data ?? []}
+            departments={deptQ.data ?? []}
+            activeRulesCount={(rulesQ.data ?? []).filter((r) => r.is_active).length}
+          />
+        </TabsContent>
+      </Tabs>
+
 
       {open && (
         <RuleDialog
