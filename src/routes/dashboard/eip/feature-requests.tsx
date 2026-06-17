@@ -184,6 +184,21 @@ function FeatureRequestsPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase
+      .from("eip_feature_request")
+      .delete()
+      .eq("id", deleteId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("已刪除需求");
+      qc.invalidateQueries({ queryKey: ["eip", "feature-requests"] });
+    }
+    setDeleteId(null);
+  };
+
   if (listQ.isLoading)
     return <div className="text-muted-foreground py-8">載入中…</div>;
 
