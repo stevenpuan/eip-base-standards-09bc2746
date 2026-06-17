@@ -438,3 +438,193 @@ function ExportMeetingsBtn({ meetings, userMap }: { meetings: Meeting[]; userMap
     </Button>
   );
 }
+
+function ActionItemsTracker({ meetings, users, userMap }: { meetings: Meeting[]; users: AppUser[]; userMap: Map<string, AppUser> }) {
+  const qc = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
+  const [keyword, setKeyword] = useState("");
+
+  const itemsQ = useQuery({
+    queryKey: ["eip", "action-items-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meeting_action_item").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ActionItem[];
+    },
+  });
+
+  const meetingMap = useMemo(() => new Map(meetings.map((m) => [m.id, m])), [meetings]);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const filtered = useMemo(() => {
+    return (itemsQ.data ?? []).filter((it) => {
+      if (statusFilter !== "all" && it.status !== statusFilter) return false;
+      if (ownerFilter !== "all" && it.owner_id !== ownerFilter) return false;
+      if (onlyOverdue) {
+        if (!it.due_date || it.due_date >= today || it.status === "done") return false;
+      }
+      if (keyword && !it.content.toLowerCase().includes(keyword.toLowerCase())) return false;
+      return true;
+    });
+  }, [itemsQ.data, statusFilter, ownerFilter, onlyOverdue, keyword, today]);
+
+  const setStatus = async (id: string, status: ActionStatus) => {
+    const { error } = await supabase.from("meeting_action_item").update({ status }).eq("id", id);
+    if (error) toast.error(error.message);
+    else qc.invalidateQueries({ queryKey: ["eip", "action-items-all"] });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input placeholder="搜尋…" value={keyword} onChange={(e) => setKeyword(e.target.value)} className="w-48" />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">所有狀態</SelectItem>
+            <SelectItem value="open">待處理</SelectItem>
+            <SelectItem value="converted">已轉任務</SelectItem>
+            <SelectItem value="done">已完成</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">所有負責人</SelectItem>
+            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+          <input type="checkbox" checked={onlyOverdue} onChange={(e) => setOnlyOverdue(e.target.checked)} />
+          僅逾期
+        </label>
+        <span className="text-xs text-muted-foreground ml-auto">共 {filtered.length} 筆</span>
+      </div>
+
+      <Card><CardContent className="p-0">
+        {filtered.length === 0 ? (
+          <div className="py-10 text-center text-muted-foreground text-sm">無符合條件的決議事項</div>
+        ) : (
+          <div className="divide-y">
+            {filtered.map((it) => {
+              const overdue = it.due_date && it.due_date < today && it.status !== "done";
+              const m = meetingMap.get(it.meeting_id);
+              return (
+                <div key={it.id} className="p-3 flex items-center gap-3 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <div className={overdue ? "text-red-600" : ""}>{it.content}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                      {m && <span>會議：{m.title}</span>}
+                      <span>負責：{it.owner_id ? userMap.get(it.owner_id)?.name ?? "—" : "未指派"}</span>
+                      {it.due_date && <span>期限 {it.due_date}{overdue && " ⚠ 逾期"}</span>}
+                      {it.linked_task_id && (
+                        <Link to="/dashboard/eip/tasks" className="text-primary hover:underline">→ 已連結任務</Link>
+                      )}
+                    </div>
+                  </div>
+                  <Select value={it.status} onValueChange={(v) => setStatus(it.id, v as ActionStatus)}>
+                    <SelectTrigger className="w-[120px] h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">待處理</SelectItem>
+                      <SelectItem value="converted">已轉任務</SelectItem>
+                      <SelectItem value="done">已完成</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent></Card>
+    </div>
+  );
+}
+
+function StructuredAgenda({ meetingId, tenantId, users }: { meetingId: string; tenantId: string; users: AppUser[] }) {
+  const qc = useQueryClient();
+  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const itemsQ = useQuery({
+    queryKey: ["eip", "agenda-items", meetingId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meeting_agenda_item").select("*").eq("meeting_id", meetingId).order("sort_order");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const [title, setTitle] = useState("");
+  const [mins, setMins] = useState<string>("10");
+  const [owner, setOwner] = useState<string>("none");
+
+  const items = itemsQ.data ?? [];
+  const totalMin = items.reduce((s: number, it: any) => s + (it.duration_min ?? 0), 0);
+
+  const add = async () => {
+    if (!title.trim()) return;
+    const nextOrder = items.length ? Math.max(...items.map((i: any) => i.sort_order ?? 0)) + 1 : 1;
+    const { error } = await supabase.from("meeting_agenda_item").insert({
+      tenant_id: tenantId, meeting_id: meetingId, title: title.trim(),
+      duration_min: Number(mins) || null, owner_id: owner === "none" ? null : owner,
+      sort_order: nextOrder,
+    });
+    if (error) toast.error(error.message);
+    else { setTitle(""); setMins("10"); setOwner("none"); qc.invalidateQueries({ queryKey: ["eip", "agenda-items", meetingId] }); }
+  };
+  const remove = async (id: string) => {
+    const { error } = await supabase.from("meeting_agenda_item").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else qc.invalidateQueries({ queryKey: ["eip", "agenda-items", meetingId] });
+  };
+  const move = async (it: any, dir: -1 | 1) => {
+    const sorted = [...items].sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((x: any) => x.id === it.id);
+    const swap = sorted[idx + dir];
+    if (!swap) return;
+    await supabase.from("meeting_agenda_item").update({ sort_order: swap.sort_order }).eq("id", it.id);
+    await supabase.from("meeting_agenda_item").update({ sort_order: it.sort_order }).eq("id", swap.id);
+    qc.invalidateQueries({ queryKey: ["eip", "agenda-items", meetingId] });
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-xs font-semibold text-muted-foreground">結構化議程</div>
+        <div className="text-xs text-muted-foreground">總時長 {totalMin} 分鐘</div>
+      </div>
+      <div className="space-y-1.5">
+        {items.map((it: any, i: number) => (
+          <div key={it.id} className="flex items-center gap-2 p-2 border rounded-md text-sm">
+            <span className="text-xs text-muted-foreground w-5">{i + 1}.</span>
+            <div className="flex-1 min-w-0">
+              <div className="truncate">{it.title}</div>
+              <div className="text-xs text-muted-foreground">
+                {it.duration_min ? `${it.duration_min} 分` : "—"}
+                {it.owner_id && ` ・ ${userMap.get(it.owner_id)?.name ?? ""}`}
+                {it.notes && ` ・ ${it.notes}`}
+              </div>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => move(it, -1)} disabled={i === 0}>↑</Button>
+            <Button size="sm" variant="ghost" onClick={() => move(it, 1)} disabled={i === items.length - 1}>↓</Button>
+            <Button size="sm" variant="ghost" onClick={() => remove(it.id)} className="text-destructive">刪</Button>
+          </div>
+        ))}
+        {items.length === 0 && <div className="text-xs text-muted-foreground py-1">尚無議程項目</div>}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <Input placeholder="議題標題…" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input type="number" className="w-20" value={mins} onChange={(e) => setMins(e.target.value)} placeholder="分鐘" />
+        <Select value={owner} onValueChange={setOwner}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">未指派</SelectItem>
+            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button onClick={add}>新增</Button>
+      </div>
+    </div>
+  );
+}
