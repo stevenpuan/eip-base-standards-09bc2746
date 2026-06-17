@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
+  const [roleNames, setRoleNames] = useState<string[]>([]);
   const [perms, setPerms] = useState<PermMap>({});
   const [pagePerms, setPagePerms] = useState<PageMap>({});
 
@@ -54,10 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: ur } = await supabase
       .from("user_roles")
-      .select("role_id, roles(code)")
+      .select("role_id, roles(code,name)")
       .eq("user_id", uid);
-    const rows = (ur ?? []) as unknown as Array<{ role_id: string; roles: { code: string } | null }>;
+    const rows = (ur ?? []) as unknown as Array<{ role_id: string; roles: { code: string; name: string } | null }>;
     setRoles(rows.map((r) => r.roles?.code).filter(Boolean) as string[]);
+    setRoleNames(rows.map((r) => r.roles?.name).filter(Boolean) as string[]);
 
     const roleIds = rows.map((r) => r.role_id);
     if (!roleIds.length) {
