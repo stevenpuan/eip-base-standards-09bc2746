@@ -116,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else {
         setProfile(null);
         setRoles([]);
+        setRoleNames([]);
         setPerms({});
         setPagePerms({});
       }
@@ -144,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ loading, session, user: session?.user ?? null, profile, roles, isAdmin, can, refresh, signOut }}
+      value={{ loading, session, user: session?.user ?? null, profile, roles, roleNames, isAdmin, can, refresh, signOut }}
     >
       {children}
     </AuthContext.Provider>
