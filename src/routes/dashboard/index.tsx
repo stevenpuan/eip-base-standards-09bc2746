@@ -40,6 +40,7 @@ function DashboardHome() {
         <StatCard title="許願清單" value={stats?.fr} />
         <StatCard title="待處理問題" value={stats?.issues} />
       </div>
+      <EipDashboardSummary />
     </div>
   );
 }
