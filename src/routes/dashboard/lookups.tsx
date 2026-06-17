@@ -82,7 +82,7 @@ function Page() {
       {categories.map((cat) => (
         <Card key={cat}>
           <CardHeader><CardTitle className="text-base font-mono">{cat}</CardTitle></CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader><TableRow><TableHead>代碼</TableHead><TableHead>標籤</TableHead><TableHead>排序</TableHead><TableHead>狀態</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
               <TableBody>

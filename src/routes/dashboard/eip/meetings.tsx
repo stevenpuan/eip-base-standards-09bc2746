@@ -507,7 +507,7 @@ function ActionItemsTracker({ meetings, users, userMap }: { meetings: Meeting[];
         <span className="text-xs text-muted-foreground ml-auto">共 {filtered.length} 筆</span>
       </div>
 
-      <Card><CardContent className="p-0">
+      <Card><CardContent className="p-0 overflow-x-auto">
         {filtered.length === 0 ? (
           <div className="py-10 text-center text-muted-foreground text-sm">無符合條件的決議事項</div>
         ) : (

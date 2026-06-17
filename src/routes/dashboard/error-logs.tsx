@@ -21,7 +21,7 @@ function Page() {
     <div className="space-y-6">
       <PageHeader title="錯誤日誌" description="系統例外紀錄（最新 200 筆）" />
       {isLoading ? <p className="text-muted-foreground">載入中…</p> : (
-        <Card><CardContent className="p-0">
+        <Card><CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow><TableHead>等級</TableHead><TableHead>訊息</TableHead><TableHead>路徑</TableHead><TableHead>時間</TableHead></TableRow></TableHeader>
             <TableBody>

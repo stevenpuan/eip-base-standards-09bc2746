@@ -251,7 +251,7 @@ function DocumentsPage() {
           </Card>
 
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               {docsQ.isLoading ? (
                 <div className="text-muted-foreground py-12 text-center">載入中…</div>
               ) : filteredDocs.length === 0 ? (

@@ -75,7 +75,7 @@ function Page() {
         </Dialog>
       ) : undefined} />
       {isLoading ? <p className="text-muted-foreground">載入中…</p> : (
-        <Card><CardContent className="p-0">
+        <Card><CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow><TableHead>版本</TableHead><TableHead>類型</TableHead><TableHead>標題</TableHead><TableHead>發布日</TableHead></TableRow></TableHeader>
             <TableBody>
