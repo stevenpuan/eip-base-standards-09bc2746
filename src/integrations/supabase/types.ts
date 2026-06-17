@@ -1152,6 +1152,13 @@ export type Database = {
             foreignKeyName: "meeting_action_item_linked_task_id_fkey"
             columns: ["linked_task_id"]
             isOneToOne: false
+            referencedRelation: "eip_recurring_overview"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "meeting_action_item_linked_task_id_fkey"
+            columns: ["linked_task_id"]
+            isOneToOne: false
             referencedRelation: "task"
             referencedColumns: ["id"]
           },
@@ -1884,6 +1891,13 @@ export type Database = {
             foreignKeyName: "task_parent_task_id_fkey"
             columns: ["parent_task_id"]
             isOneToOne: false
+            referencedRelation: "eip_recurring_overview"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
             referencedRelation: "task"
             referencedColumns: ["id"]
           },
@@ -1931,6 +1945,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_collaborator_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "eip_recurring_overview"
+            referencedColumns: ["task_id"]
+          },
           {
             foreignKeyName: "task_collaborator_task_id_fkey"
             columns: ["task_id"]
@@ -2066,6 +2087,13 @@ export type Database = {
             foreignKeyName: "task_update_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "eip_recurring_overview"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_update_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "task"
             referencedColumns: ["id"]
           },
@@ -2141,7 +2169,46 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      eip_recurring_overview: {
+        Row: {
+          department_id: string | null
+          department_name: string | null
+          due_date: string | null
+          is_done: boolean | null
+          is_overdue: boolean | null
+          is_reported: boolean | null
+          occurrence_date: string | null
+          owner_id: string | null
+          owner_name: string | null
+          recurring_rule_id: string | null
+          rule_title: string | null
+          status_name: string | null
+          task_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_recurring_rule_id_fkey"
+            columns: ["recurring_rule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       current_department_id: { Args: never; Returns: string }
