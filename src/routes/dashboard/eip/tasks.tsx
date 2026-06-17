@@ -324,29 +324,86 @@ function SharedFilters(props: {
   dueTo: string; setDueTo: (v: string) => void;
   statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
 }) {
+  const [open, setOpen] = useState(false);
+  const activeCount = [
+    props.filterStatus !== "all",
+    props.filterPriority !== "all",
+    props.filterDept !== "all",
+    props.filterProject !== "all",
+    props.filterOwner !== "all",
+    !!props.dueFrom,
+    !!props.dueTo,
+  ].filter(Boolean).length;
+
+  const filterFields = (
+    <div className="grid gap-3">
+      <MiniSelect value={props.filterStatus} onChange={props.setFilterStatus}
+        options={[{ value: "all", label: "全部狀態" }, ...props.statuses.map((s) => ({ value: s.id, label: s.name }))]} />
+      <MiniSelect value={props.filterPriority} onChange={props.setFilterPriority}
+        options={[{ value: "all", label: "全部優先級" }, ...ALL_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))]} />
+      <MiniSelect value={props.filterDept} onChange={props.setFilterDept}
+        options={[{ value: "all", label: "全部部門" }, ...props.departments.map((d) => ({ value: d.id, label: d.name }))]} />
+      <MiniSelect value={props.filterProject} onChange={props.setFilterProject}
+        options={[{ value: "all", label: "全部專案" }, ...props.projects.map((p) => ({ value: p.id, label: p.name }))]} />
+      <MiniSelect value={props.filterOwner} onChange={props.setFilterOwner}
+        options={[{ value: "all", label: "全部負責人" }, ...props.users.map((u) => ({ value: u.id, label: u.name }))]} />
+      <div className="grid gap-1">
+        <Input type="date" value={props.dueFrom} onChange={(e) => props.setDueFrom(e.target.value)} className="h-9 w-full" />
+        <span className="text-xs text-muted-foreground text-center">至</span>
+        <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
+      </div>
+    </div>
+  );
+
   return (
     <Card>
-      <CardContent className="p-3 grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <Input placeholder="搜尋標題 / 描述" value={props.keyword} onChange={(e) => props.setKeyword(e.target.value)} className="w-full" />
-        <MiniSelect value={props.filterStatus} onChange={props.setFilterStatus}
-          options={[{ value: "all", label: "全部狀態" }, ...props.statuses.map((s) => ({ value: s.id, label: s.name }))]} />
-        <MiniSelect value={props.filterPriority} onChange={props.setFilterPriority}
-          options={[{ value: "all", label: "全部優先級" }, ...ALL_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))]} />
-        <MiniSelect value={props.filterDept} onChange={props.setFilterDept}
-          options={[{ value: "all", label: "全部部門" }, ...props.departments.map((d) => ({ value: d.id, label: d.name }))]} />
-        <MiniSelect value={props.filterProject} onChange={props.setFilterProject}
-          options={[{ value: "all", label: "全部專案" }, ...props.projects.map((p) => ({ value: p.id, label: p.name }))]} />
-        <MiniSelect value={props.filterOwner} onChange={props.setFilterOwner}
-          options={[{ value: "all", label: "全部負責人" }, ...props.users.map((u) => ({ value: u.id, label: u.name }))]} />
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:col-span-2 lg:col-span-1 xl:col-span-2 min-w-0">
-          <Input type="date" value={props.dueFrom} onChange={(e) => props.setDueFrom(e.target.value)} className="h-9 w-full" />
-          <span className="text-xs text-muted-foreground text-center">至</span>
-          <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
+      <CardContent className="p-3">
+        {/* < lg：搜尋 + 篩選按鈕(Sheet) */}
+        <div className="flex gap-2 lg:hidden">
+          <Input placeholder="搜尋標題 / 描述" value={props.keyword}
+            onChange={(e) => props.setKeyword(e.target.value)} className="flex-1 min-w-0" />
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="shrink-0">
+                <SlidersHorizontal className="w-4 h-4" />
+                篩選{activeCount > 0 && <Badge variant="secondary" className="ml-1">{activeCount}</Badge>}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[90vw] sm:w-[400px] overflow-y-auto">
+              <SheetHeader><SheetTitle>篩選條件</SheetTitle></SheetHeader>
+              <div className="mt-4">{filterFields}</div>
+              <div className="mt-4 flex justify-end">
+                <Button onClick={() => setOpen(false)}>完成</Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* ≥ lg：grid 完整展開 */}
+        <div className="hidden lg:grid gap-2 lg:grid-cols-3 xl:grid-cols-5">
+          <Input placeholder="搜尋標題 / 描述" value={props.keyword}
+            onChange={(e) => props.setKeyword(e.target.value)} className="w-full" />
+          <MiniSelect value={props.filterStatus} onChange={props.setFilterStatus}
+            options={[{ value: "all", label: "全部狀態" }, ...props.statuses.map((s) => ({ value: s.id, label: s.name }))]} />
+          <MiniSelect value={props.filterPriority} onChange={props.setFilterPriority}
+            options={[{ value: "all", label: "全部優先級" }, ...ALL_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))]} />
+          <MiniSelect value={props.filterDept} onChange={props.setFilterDept}
+            options={[{ value: "all", label: "全部部門" }, ...props.departments.map((d) => ({ value: d.id, label: d.name }))]} />
+          <MiniSelect value={props.filterProject} onChange={props.setFilterProject}
+            options={[{ value: "all", label: "全部專案" }, ...props.projects.map((p) => ({ value: p.id, label: p.name }))]} />
+          <MiniSelect value={props.filterOwner} onChange={props.setFilterOwner}
+            options={[{ value: "all", label: "全部負責人" }, ...props.users.map((u) => ({ value: u.id, label: u.name }))]} />
+          <div className="flex items-center gap-1 xl:col-span-2 min-w-0">
+            <Input type="date" value={props.dueFrom} onChange={(e) => props.setDueFrom(e.target.value)} className="h-9 w-full" />
+            <span className="text-xs text-muted-foreground shrink-0">至</span>
+            <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
+          </div>
         </div>
       </CardContent>
     </Card>
   );
 }
+
 
 function MiniSelect({ value, onChange, options }: {
   value: string; onChange: (v: string) => void; options: { value: string; label: string }[];
