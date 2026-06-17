@@ -8,7 +8,7 @@ import { EipDashboardSummary } from "@/components/eip/EipDashboardSummary";
 export const Route = createFileRoute("/dashboard/")({ component: DashboardHome });
 
 function DashboardHome() {
-  const { profile, roles } = useAuth();
+  const { profile, roleNames } = useAuth();
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
