@@ -51,9 +51,12 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex flex-col h-full bg-card">
-      <div className="px-5 py-4 border-b">
-        <h1 className="text-base font-bold text-primary">後台管理</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">空系統 Base</p>
+      <div className="px-5 py-4 border-b flex items-center gap-3">
+        <img src="/logo.png" alt="陸輝食品 SHENG HUI" className="w-10 h-10 object-contain shrink-0" />
+        <div className="min-w-0">
+          <h1 className="text-sm font-bold text-primary truncate">陸輝食品</h1>
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">SHENG HUI · EIP</p>
+        </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
         {groups.map((g) => {
@@ -144,7 +147,10 @@ export function AppSidebar() {
             <SidebarInner onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
-        <h1 className="text-sm font-bold text-primary">後台管理</h1>
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="陸輝食品" className="w-6 h-6 object-contain" />
+          <h1 className="text-sm font-bold text-primary">陸輝食品 EIP</h1>
+        </div>
         <span className="w-9" />
       </header>
 
