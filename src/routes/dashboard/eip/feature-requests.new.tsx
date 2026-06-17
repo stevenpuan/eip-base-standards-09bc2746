@@ -80,20 +80,33 @@ function NewFeatureRequestPage() {
 
     setBusy(true);
     try {
-      const { error } = await supabase.from("eip_feature_request").insert({
-        tenant_id: appUser.tenant_id ?? DEFAULT_TENANT_ID,
-        title: title.trim(),
-        scope,
-        request_type: requestType,
-        area: area.trim(),
-        points_cost: cost,
-        description: html,
-        submitter_id: appUser.id,
-        status: "pending",
-      });
+      const { data: inserted, error } = await supabase
+        .from("eip_feature_request")
+        .insert({
+          tenant_id: appUser.tenant_id ?? DEFAULT_TENANT_ID,
+          title: title.trim(),
+          scope,
+          request_type: requestType,
+          area: area.trim(),
+          points_cost: cost,
+          description: html,
+          submitter_id: appUser.id,
+          status: "pending",
+        })
+        .select("id")
+        .single();
       if (error) throw error;
-      toast.success("已送出需求");
-      navigate({ to: "/dashboard/eip/feature-requests" });
+      toast.success("已送出需求,AI 分析進行中…");
+      // 背景觸發 AI 分析,失敗不阻擋導頁
+      void supabase.functions
+        .invoke("analyze-feature-request", {
+          body: { feature_request_id: inserted.id },
+        })
+        .catch(() => undefined);
+      navigate({
+        to: "/dashboard/eip/feature-requests/$id",
+        params: { id: inserted.id },
+      });
     } catch (e) {
       toast.error(`失敗：${e instanceof Error ? e.message : String(e)}`);
     } finally {
