@@ -81,24 +81,26 @@ function ProjectsPage() {
       />
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {(projectsQ.data ?? []).map((p) => (
-          <Card key={p.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(p)}>
-            <CardContent className="p-4 space-y-2">
-              <div className="flex items-start gap-2">
-                <FolderKanban className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{p.name}</div>
-                  {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
+          <Link key={p.id} to="/dashboard/eip/projects/$id" params={{ id: p.id }}>
+            <Card className="cursor-pointer hover:shadow-md transition-shadow">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <FolderKanban className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{p.name}</div>
+                    {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
+                  </div>
+                  <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
+                    {PROJECT_STATUS_LABEL[p.status]}
+                  </Badge>
                 </div>
-                <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
-                  {PROJECT_STATUS_LABEL[p.status]}
-                </Badge>
-              </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
-                <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
-                {p.end_date && <span>截止 {p.end_date}</span>}
-              </div>
-            </CardContent>
-          </Card>
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
+                  {p.end_date && <span>截止 {p.end_date}</span>}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
         {(projectsQ.data ?? []).length === 0 && (
           <Card className="md:col-span-2 lg:col-span-3"><CardContent className="py-10 text-center text-muted-foreground">尚無專案</CardContent></Card>
