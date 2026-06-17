@@ -32,7 +32,6 @@ import { Route as DashboardActivityLogsRouteImport } from './routes/dashboard/ac
 import { Route as DashboardEipTasksRouteImport } from './routes/dashboard/eip/tasks'
 import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/reports'
 import { Route as DashboardEipRecurringRouteImport } from './routes/dashboard/eip/recurring'
-import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/reports'
 import { Route as DashboardEipQuickReportsRouteImport } from './routes/dashboard/eip/quick-reports'
 import { Route as DashboardEipProjectsRouteImport } from './routes/dashboard/eip/projects'
 import { Route as DashboardEipMyTasksRouteImport } from './routes/dashboard/eip/my-tasks'
@@ -163,11 +162,6 @@ const DashboardEipReportsRoute = DashboardEipReportsRouteImport.update({
 const DashboardEipRecurringRoute = DashboardEipRecurringRouteImport.update({
   id: '/recurring',
   path: '/recurring',
-  getParentRoute: () => DashboardEipRoute,
-} as any)
-const DashboardEipReportsRoute = DashboardEipReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
   getParentRoute: () => DashboardEipRoute,
 } as any)
 const DashboardEipQuickReportsRoute =
@@ -650,13 +644,6 @@ declare module '@tanstack/react-router' {
       path: '/recurring'
       fullPath: '/dashboard/eip/recurring'
       preLoaderRoute: typeof DashboardEipRecurringRouteImport
-      parentRoute: typeof DashboardEipRoute
-    }
-    '/dashboard/eip/reports': {
-      id: '/dashboard/eip/reports'
-      path: '/reports'
-      fullPath: '/dashboard/eip/reports'
-      preLoaderRoute: typeof DashboardEipReportsRouteImport
       parentRoute: typeof DashboardEipRoute
     }
     '/dashboard/eip/quick-reports': {
