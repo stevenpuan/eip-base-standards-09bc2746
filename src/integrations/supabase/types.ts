@@ -1418,6 +1418,7 @@ export type Database = {
       }
       task: {
         Row: {
+          board_position: number
           completed_at: string | null
           created_at: string
           created_by: string
@@ -1437,6 +1438,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          board_position?: number
           completed_at?: string | null
           created_at?: string
           created_by: string
@@ -1456,6 +1458,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          board_position?: number
           completed_at?: string | null
           created_at?: string
           created_by?: string
