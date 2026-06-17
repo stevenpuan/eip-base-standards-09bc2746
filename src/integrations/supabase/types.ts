@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip: string | null
+          route: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip?: string | null
+          route?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip?: string | null
+          route?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       announcement: {
         Row: {
           audience_type: Database["public"]["Enums"]["announcement_audience"]
@@ -246,6 +276,69 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          id: string
+          target_id: string | null
+          target_table: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      changelogs: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          released_at: string | null
+          title: string
+          type: string
+          version: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          released_at?: string | null
+          title: string
+          type?: string
+          version: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          released_at?: string | null
+          title?: string
+          type?: string
+          version?: string
+        }
+        Relationships: []
+      }
       comment: {
         Row: {
           body: string
@@ -335,6 +428,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dev_todos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          done_at: string | null
+          id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          done_at?: string | null
+          id?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          done_at?: string | null
+          id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      doc_pages: {
+        Row: {
+          content: string | null
+          id: string
+          key: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          id?: string
+          key: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          id?: string
+          key?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       eip_changelog: {
         Row: {
@@ -449,6 +596,173 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      error_logs: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          level: string
+          message: string | null
+          route: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string | null
+          route?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string | null
+          route?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      feature_requests: {
+        Row: {
+          area: string | null
+          created_at: string
+          description: string | null
+          id: string
+          points_cost: number
+          status: string
+          submitter_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          points_cost?: number
+          status?: string
+          submitter_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          points_cost?: number
+          status?: string
+          submitter_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invitations: {
+        Row: {
+          code: string
+          created_at: string
+          email: string | null
+          expires_at: string | null
+          id: string
+          invited_by: string | null
+          role_id: string | null
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          role_id?: string | null
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          role_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issue_reports: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          reporter_id: string | null
+          severity: string
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          reporter_id?: string | null
+          severity?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          reporter_id?: string | null
+          severity?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      lookups: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          category: string
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       meeting: {
         Row: {
@@ -612,6 +926,56 @@ export type Database = {
           },
         ]
       }
+      menus: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          menu_key: string
+          module_key: string | null
+          page_key: string | null
+          parent_id: string | null
+          route: string | null
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          menu_key: string
+          module_key?: string | null
+          page_key?: string | null
+          parent_id?: string | null
+          route?: string | null
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          menu_key?: string
+          module_key?: string | null
+          page_key?: string | null
+          parent_id?: string | null
+          route?: string | null
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menus_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "menus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       milestone: {
         Row: {
           created_at: string
@@ -711,6 +1075,36 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       project: {
         Row: {
           created_at: string
@@ -800,6 +1194,142 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      role_module_permissions: {
+        Row: {
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_export: boolean
+          can_view: boolean
+          id: string
+          module_key: string
+          role_id: string
+        }
+        Insert: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_view?: boolean
+          id?: string
+          module_key: string
+          role_id: string
+        }
+        Update: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_view?: boolean
+          id?: string
+          module_key?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_module_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_page_permissions: {
+        Row: {
+          can_create: boolean | null
+          can_delete: boolean | null
+          can_edit: boolean | null
+          can_export: boolean | null
+          can_view: boolean | null
+          id: string
+          page_key: string
+          role_id: string
+        }
+        Insert: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_export?: boolean | null
+          can_view?: boolean | null
+          id?: string
+          page_key: string
+          role_id: string
+        }
+        Update: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_export?: boolean | null
+          can_view?: boolean | null
+          id?: string
+          page_key?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_page_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roles: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      system_configs: {
+        Row: {
+          created_at: string
+          description: string | null
+          group_name: string | null
+          id: string
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          group_name?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          group_name?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
       }
       task: {
         Row: {
@@ -1107,6 +1637,32 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1128,6 +1684,8 @@ export type Database = {
         Args: { p_task_id: string }
         Returns: boolean
       }
+      is_admin: { Args: { _uid: string }; Returns: boolean }
+      redeem_invitation: { Args: { p_code: string }; Returns: string }
     }
     Enums: {
       action_item_status: "open" | "converted" | "done"
