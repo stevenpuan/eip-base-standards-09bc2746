@@ -359,3 +359,25 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+const AUDIENCE_EXPORT: Record<string, string> = { all: "全公司", department: "指定部門", users: "指定人員" };
+function ExportAnnouncementsBtn({ rows, userMap }: { rows: Announcement[]; userMap: Map<string, AppUser> }) {
+  const { can } = useAuth();
+  if (!can("eip_announcements", "export")) return null;
+  return (
+    <Button variant="outline" onClick={() => exportToExcel({
+      filename: "EIP公告", sheetName: "公告", rows,
+      columns: [
+        { header: "標題", key: "title" },
+        { header: "是否置頂", key: "is_pinned", map: (r) => r.is_pinned ? "是" : "否" },
+        { header: "發布對象", key: "audience_type", map: (r) => AUDIENCE_EXPORT[r.audience_type] ?? r.audience_type },
+        { header: "建立者", key: "created_by", map: (r) => userMap.get(r.created_by)?.name ?? "" },
+        { header: "發布時間", key: "published_at", map: (r) => r.published_at ? new Date(r.published_at).toLocaleString("zh-TW") : "草稿" },
+        { header: "內容", key: "body" },
+        { header: "建立時間", key: "created_at", map: (r) => new Date(r.created_at).toLocaleString("zh-TW") },
+      ],
+    })}>
+      <Download className="w-4 h-4" /> 匯出 Excel
+    </Button>
+  );
+}
