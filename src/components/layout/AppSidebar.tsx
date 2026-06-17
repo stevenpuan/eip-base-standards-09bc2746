@@ -96,6 +96,8 @@ export function AppSidebar() {
           <SideLink to="/dashboard/eip/meetings" icon="CalendarDays" title="會議" active={pathname === "/dashboard/eip/meetings"} />
           <SideLink to="/dashboard/eip/projects" icon="FolderKanban" title="專案" active={pathname === "/dashboard/eip/projects"} />
           <SideLink to="/dashboard/eip/announcements" icon="Megaphone" title="公告" active={pathname === "/dashboard/eip/announcements"} />
+          <SideLink to="/dashboard/eip/feature-requests" icon="Lightbulb" title="需求實驗室" active={pathname === "/dashboard/eip/feature-requests"} />
+          <SideLink to="/dashboard/eip/changelog" icon="History" title="開發紀錄" active={pathname === "/dashboard/eip/changelog"} />
           <SideLink to="/dashboard/eip/members" icon="Users" title="EIP 成員" active={pathname === "/dashboard/eip/members"} />
         </div>
       </nav>
