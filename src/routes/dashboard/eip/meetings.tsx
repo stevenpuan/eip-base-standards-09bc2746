@@ -336,9 +336,12 @@ function MeetingDetailDialog({
           </div>
           {meeting.agenda && (
             <div>
-              <div className="text-xs font-semibold text-muted-foreground mb-1">議程</div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">議程備註</div>
               <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/40 p-2">{meeting.agenda}</div>
             </div>
+          )}
+          {appUser && (
+            <StructuredAgenda meetingId={meeting.id} tenantId={meeting.tenant_id} users={users} />
           )}
           <div>
             <div className="text-xs font-semibold text-muted-foreground mb-1">與會者</div>
