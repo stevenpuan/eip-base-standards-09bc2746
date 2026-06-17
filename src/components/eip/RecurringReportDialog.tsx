@@ -55,7 +55,9 @@ export function RecurringReportDialog({
   const submit = async () => {
     setBusy(true);
     try {
-      const patch: Record<string, unknown> = { report_data: values };
+      const patch: { report_data: Record<string, unknown>; status_id?: string; progress?: number } = {
+        report_data: values,
+      };
       if (markDone) {
         const { data: doneStatus } = await supabase
           .from("task_status")
