@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { DocRenderer } from "@/components/DocRenderer";
 
 export function DocPage({ docKey, title, description }: { docKey: string; title: string; description?: string }) {
   const { can } = useAuth();
@@ -49,15 +50,15 @@ export function DocPage({ docKey, title, description }: { docKey: string; title:
           )
         ) : undefined}
       />
-      <Card>
-        <CardContent className="py-6">
-          {editing ? (
+      {editing ? (
+        <Card>
+          <CardContent className="py-6">
             <Textarea className="min-h-[400px] font-mono text-sm" value={content} onChange={(e) => setContent(e.target.value)} />
-          ) : (
-            <div className="whitespace-pre-wrap text-sm leading-7 text-foreground/90">{content || "（尚無內容）"}</div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <DocRenderer content={content} />
+      )}
     </div>
   );
 }
