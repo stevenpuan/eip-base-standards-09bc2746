@@ -87,14 +87,22 @@ const STATUS_COLOR: Record<string, string> = {
   archived: "bg-amber-100 text-amber-700",
 };
 
+function canEditDoc(d: Doc, role: string | undefined | null, uid: string | undefined | null): boolean {
+  if (!role || !uid) return false;
+  if (role === "company_admin" || role === "dept_manager") return true;
+  return d.owner_id === uid || d.created_by === uid;
+}
+function canDeleteDoc(d: Doc, role: string | undefined | null, uid: string | undefined | null): boolean {
+  if (!role || !uid) return false;
+  if (role === "company_admin") return true;
+  return d.owner_id === uid;
+}
+
 function DocumentsPage() {
   const qc = useQueryClient();
-  const { can } = useAuth();
   const { appUser } = useEipUser();
-  const isManager = canManageEip(appUser?.role) || can("eip_documents", "delete");
-  const canCreate = can("eip_documents", "create");
-  const canEdit = can("eip_documents", "edit");
-  const canDelete = can("eip_documents", "delete");
+  const isManager = canManageEip(appUser?.role);
+  const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -103,6 +111,8 @@ function DocumentsPage() {
 
   const [editingDoc, setEditingDoc] = useState<Doc | "new" | null>(null);
   const [detailDocId, setDetailDocId] = useState<string | null>(null);
+  const [deleteDoc, setDeleteDoc] = useState<Doc | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // 資料夾
   const foldersQ = useQuery({
