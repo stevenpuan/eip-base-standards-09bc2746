@@ -549,10 +549,10 @@ function FolderRow({
 // ============ 詳情對話框 ============
 
 function DocDetailDialog({
-  docId, onClose, onEdit, userMap, canEdit, canDelete,
+  docId, onClose, onEdit, onAskDelete, userMap, appUser,
 }: {
-  docId: string; onClose: () => void; onEdit: (d: Doc) => void;
-  userMap: Map<string, string>; canEdit: boolean; canDelete: boolean;
+  docId: string; onClose: () => void; onEdit: (d: Doc) => void; onAskDelete: (d: Doc) => void;
+  userMap: Map<string, string>; appUser: { id: string; role: string } | null;
 }) {
   const qc = useQueryClient();
   const [showHistory, setShowHistory] = useState(false);
