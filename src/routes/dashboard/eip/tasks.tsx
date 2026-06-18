@@ -708,13 +708,14 @@ function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpe
 type SortKey = "title" | "owner" | "status" | "priority" | "progress" | "due" | "project";
 
 function ListView({
-  tasks, statusMap, userMap, projectMap, statuses, users, appUser, canManage, onChanged,
+  tasks, statusMap, userMap, projectMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
 }: {
   tasks: Task[];
   statusMap: Map<string, Status>; userMap: Map<string, AppUser>; projectMap: Map<string, Project>;
   statuses: Status[]; users: AppUser[];
   appUser: AppUser | null; canManage: boolean;
   onChanged: () => void;
+  onOpenDetail: (t: Task) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
