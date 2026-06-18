@@ -91,6 +91,9 @@ function TasksPage() {
   const [dueTo, setDueTo] = useState("");
   const [keyword, setKeyword] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [deleteTask, setDeleteTask] = useState<Task | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const statusesQ = useQuery({
     queryKey: ["eip", "task_status"],
