@@ -8,7 +8,7 @@ import {
   Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
