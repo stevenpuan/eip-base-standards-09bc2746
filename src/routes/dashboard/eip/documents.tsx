@@ -373,6 +373,38 @@ function DocumentsPage() {
           onClose={() => setEditingDoc(null)}
         />
       )}
+
+      <AlertDialog open={!!deleteDoc} onOpenChange={(o) => !o && !deleting && setDeleteDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除文件？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteDoc?.title}」,所有版本將一併移除。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteDoc) return;
+                setDeleting(true);
+                await supabase.from("eip_document_version").delete().eq("document_id", deleteDoc.id);
+                const { error } = await supabase.from("eip_document").delete().eq("id", deleteDoc.id);
+                setDeleting(false);
+                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                toast.success("文件已刪除");
+                setDeleteDoc(null);
+                qc.invalidateQueries({ queryKey: ["eip_document"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
