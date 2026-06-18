@@ -142,10 +142,27 @@ function ProjectsPage() {
                         <div className="font-medium truncate">{p.name}</div>
                         {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
                       </div>
-                      <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
-                        {PROJECT_STATUS_LABEL[p.status]}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
+                          {PROJECT_STATUS_LABEL[p.status]}
+                        </Badge>
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <span className={`inline-block w-2 h-2 rounded-full ${HEALTH_DOT[p.health]}`} />{HEALTH_LABEL[p.health]}
+                        </span>
+                      </div>
                     </div>
+                    {(() => {
+                      const s = progressByProject.get(p.id);
+                      const pct = s && s.total ? Math.round((s.done / s.total) * 100) : 0;
+                      return (
+                        <div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">進度 {pct}%{s ? ` · ${s.done}/${s.total} 任務` : ""}</div>
+                        </div>
+                      );
+                    })()}
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
                       {p.end_date && <span>截止 {p.end_date}</span>}
