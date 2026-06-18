@@ -56,10 +56,13 @@ export function NotificationBell() {
       await supabase.from("notification").update({ is_read: true }).eq("id", n.id);
     }
     setOpen(false);
-    if (n.entity_type === "task") navigate({ to: "/dashboard/eip/tasks" });
-    else if (n.entity_type === "meeting") navigate({ to: "/dashboard/eip/meetings" });
+    if (n.entity_type === "task") navigate({ to: "/dashboard/eip/tasks", search: { openTask: n.entity_id } });
+    else if (n.entity_type === "meeting") navigate({ to: "/dashboard/eip/meetings/$id", params: { id: n.entity_id } });
     else if (n.entity_type === "announcement") navigate({ to: "/dashboard/eip/announcements" });
     else if (n.entity_type === "project") navigate({ to: "/dashboard/eip/projects" });
+    else if (n.entity_type === "quick_report" || n.entity_type === "eip_quick_report") navigate({ to: "/dashboard/eip/quick-reports" });
+    else if (n.entity_type === "feature_request") navigate({ to: "/dashboard/eip/feature-requests" });
+    else if (n.entity_type === "document") navigate({ to: "/dashboard/eip/documents" });
     void load();
   };
 
