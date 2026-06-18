@@ -195,7 +195,7 @@ function ProjectDetailPage() {
         </TabsContent>
 
         <TabsContent value="milestones">
-          <MilestoneList projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canManageEip(appUser?.role) || appUser?.id === project.owner_id} />
+          <MilestoneList projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canManageEip(appUser?.role)} />
         </TabsContent>
 
         <TabsContent value="members">
