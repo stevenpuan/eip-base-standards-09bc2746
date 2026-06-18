@@ -2,7 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronLeft } from "lucide-react";
+import {
+  ChevronLeft, Plus, Pencil, Trash2, Target, Flag, ListChecks,
+  AlertTriangle, CalendarDays, Activity, MoreHorizontal,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -10,25 +13,58 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import type { Database } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/dashboard/eip/projects/$id")({ component: ProjectDetailPage });
+export const Route = createFileRoute("/dashboard/eip/projects/$id")({
+  component: ProjectDetailPage,
+});
 
 type Project = Database["public"]["Tables"]["project"]["Row"];
 type Task = Database["public"]["Tables"]["task"]["Row"];
 type Milestone = Database["public"]["Tables"]["milestone"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
+type Kpi = Database["public"]["Tables"]["project_kpi"]["Row"];
+type Risk = Database["public"]["Tables"]["project_risk"]["Row"];
+type Meeting = Database["public"]["Tables"]["meeting"]["Row"];
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
+type ProjectHealth = Database["public"]["Enums"]["project_health"];
 
 const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   planning: "規劃中", active: "進行中", on_hold: "暫停", done: "已完成",
+};
+const HEALTH_LABEL: Record<ProjectHealth, string> = {
+  on_track: "綠燈 · 正常", at_risk: "黃燈 · 需關注", off_track: "紅燈 · 風險",
+};
+const HEALTH_DOT: Record<ProjectHealth, string> = {
+  on_track: "bg-emerald-500", at_risk: "bg-amber-500", off_track: "bg-red-500",
+};
+const RISK_LEVEL_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
+const RISK_STATUS_LABEL: Record<string, string> = { open: "待處理", mitigating: "處理中", closed: "已解決" };
+const RISK_STATUS_COLOR: Record<string, string> = {
+  open: "bg-red-100 text-red-700",
+  mitigating: "bg-amber-100 text-amber-700",
+  closed: "bg-emerald-100 text-emerald-700",
+};
+const MEETING_STATUS_LABEL: Record<string, string> = {
+  draft: "草稿", scheduled: "已排程", in_progress: "進行中", completed: "已結束", canceled: "已取消",
 };
 
 function ProjectDetailPage() {
   const { id } = Route.useParams();
   const { appUser } = useEipUser();
+  const qc = useQueryClient();
 
   const projectQ = useQuery({
     queryKey: ["eip", "project", id],
@@ -36,6 +72,14 @@ function ProjectDetailPage() {
       const { data, error } = await supabase.from("project").select("*").eq("id", id).single();
       if (error) throw error;
       return data as Project;
+    },
+  });
+  const usersQ = useQuery({
+    queryKey: ["eip", "users-min"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_user").select("*");
+      if (error) throw error;
+      return (data ?? []) as AppUser[];
     },
   });
   const tasksQ = useQuery({
@@ -54,6 +98,30 @@ function ProjectDetailPage() {
       return (data ?? []) as Milestone[];
     },
   });
+  const kpisQ = useQuery({
+    queryKey: ["eip", "project-kpis", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project_kpi").select("*").eq("project_id", id).order("sort_order", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return (data ?? []) as Kpi[];
+    },
+  });
+  const risksQ = useQuery({
+    queryKey: ["eip", "project-risks", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project_risk").select("*").eq("project_id", id).order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Risk[];
+    },
+  });
+  const meetingsQ = useQuery({
+    queryKey: ["eip", "project-meetings", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("meeting").select("*").eq("project_id", id).order("meeting_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Meeting[];
+    },
+  });
   const statusesQ = useQuery({
     queryKey: ["eip", "task-statuses"],
     queryFn: async () => {
@@ -62,378 +130,619 @@ function ProjectDetailPage() {
       return data ?? [];
     },
   });
-  const membersQ = useQuery({
-    queryKey: ["eip", "project-members", id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("project_member").select("*").eq("project_id", id);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-  const usersQ = useQuery({
-    queryKey: ["eip", "users-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
 
   const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
-  const doneStatusIds = useMemo(() => new Set((statusesQ.data ?? []).filter((s: any) => s.is_done_state).map((s: any) => s.id)), [statusesQ.data]);
-
-  const tasks = tasksQ.data ?? [];
-  const milestones = milestonesQ.data ?? [];
-  const todayYMD = new Date().toISOString().slice(0, 10);
-
-  const totalT = tasks.length;
-  const doneT = tasks.filter((t) => doneStatusIds.has(t.status_id) || t.progress >= 100).length;
-  const inProgT = tasks.filter((t) => !doneStatusIds.has(t.status_id) && t.progress > 0 && t.progress < 100).length;
-  const overdueT = tasks.filter((t) => t.due_date && t.due_date < todayYMD && !doneStatusIds.has(t.status_id)).length;
-  const completion = totalT ? Math.round((doneT / totalT) * 100) : 0;
-  const health: "green" | "yellow" | "red" =
-    overdueT > Math.max(2, totalT * 0.2) ? "red" :
-    overdueT > 0 || completion < 30 ? "yellow" : "green";
-  const HEALTH_COLOR = { green: "bg-emerald-500", yellow: "bg-amber-500", red: "bg-red-500" } as const;
-  const HEALTH_LABEL = { green: "健康", yellow: "需關注", red: "風險" } as const;
+  const doneStatusIds = useMemo(
+    () => new Set((statusesQ.data ?? []).filter((s: any) => s.is_done_state).map((s: any) => s.id as string)),
+    [statusesQ.data],
+  );
 
   if (projectQ.isLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!projectQ.data) return <div className="text-destructive py-8">找不到專案</div>;
+
   const project = projectQ.data;
+  const canEdit = canManageEip(appUser?.role) || appUser?.id === project.owner_id;
+
+  const tasks = tasksQ.data ?? [];
+  const milestones = milestonesQ.data ?? [];
+  const totalT = tasks.length;
+  const doneT = tasks.filter((t) => doneStatusIds.has(t.status_id) || t.progress >= 100).length;
+  const taskRate = totalT ? Math.round((doneT / totalT) * 100) : 0;
+  const doneMs = milestones.filter((m) => m.status === "done").length;
+  const totalMs = milestones.length;
+  const avgMsProgress = totalMs ? Math.round(milestones.reduce((s, m) => s + (m.progress ?? 0), 0) / totalMs) : 0;
+  const overallProgress = Math.round((taskRate + avgMsProgress) / (totalMs ? 2 : 1));
+  const today = new Date();
+  const daysLeft = project.end_date
+    ? Math.ceil((new Date(project.end_date).getTime() - today.getTime()) / 86400000)
+    : null;
+
+  const refetchProject = () => qc.invalidateQueries({ queryKey: ["eip", "project", id] });
+
+  const saveProject = async (patch: Partial<Project>) => {
+    const { error } = await supabase.from("project").update(patch).eq("id", project.id);
+    if (error) toast.error(error.message);
+    else { toast.success("已儲存"); refetchProject(); }
+  };
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title={project.name}
         description={project.goal ?? undefined}
         actions={
-          <Link to="/dashboard/eip/projects"><Button variant="outline"><ChevronLeft className="w-4 h-4" />返回</Button></Link>
+          <Link to="/dashboard/eip/projects">
+            <Button variant="outline"><ChevronLeft className="w-4 h-4" />返回</Button>
+          </Link>
         }
       />
 
-      <Tabs defaultValue="dashboard">
-        <TabsList>
-          <TabsTrigger value="dashboard">儀表板</TabsTrigger>
-          <TabsTrigger value="tasks">任務</TabsTrigger>
-          <TabsTrigger value="milestones">里程碑</TabsTrigger>
-          <TabsTrigger value="members">成員</TabsTrigger>
-          <TabsTrigger value="gantt">甘特</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="dashboard" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <span className={`inline-block w-3 h-3 rounded-full ${HEALTH_COLOR[health]}`} />
-            <span className="text-sm font-medium">健康狀態：{HEALTH_LABEL[health]}</span>
-            <Badge variant="outline">{PROJECT_STATUS_LABEL[project.status]}</Badge>
-            {project.start_date && <span className="text-xs text-muted-foreground">{project.start_date} ～ {project.end_date ?? "未定"}</span>}
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatBox label="任務總數" value={totalT} />
-            <StatBox label="已完成" value={doneT} accent="text-emerald-600" />
-            <StatBox label="進行中" value={inProgT} accent="text-blue-600" />
-            <StatBox label="逾期" value={overdueT} accent={overdueT ? "text-red-600" : ""} />
-            <StatBox label="完成率" value={`${completion}%`} />
-          </div>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-xs font-semibold text-muted-foreground mb-2">里程碑時間軸</div>
-              {milestones.length === 0 ? (
-                <div className="text-xs text-muted-foreground py-2">尚無里程碑</div>
-              ) : (
-                <div className="relative">
-                  <div className="absolute left-3 top-2 bottom-2 w-px bg-border" />
-                  <div className="space-y-3">
-                    {milestones.map((m) => {
-                      const overdue = m.due_date && m.due_date < todayYMD && m.status !== "done";
-                      return (
-                        <div key={m.id} className="flex items-start gap-3 relative">
-                          <div className={`mt-1 w-3 h-3 rounded-full border-2 ${m.status === "done" ? "bg-emerald-500 border-emerald-500" : overdue ? "bg-red-500 border-red-500" : "bg-background border-muted-foreground"}`} />
-                          <div className="flex-1">
-                            <div className={`text-sm ${m.status === "done" ? "line-through text-muted-foreground" : ""}`}>{m.name}</div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-2">
-                              {m.due_date ?? "無期限"}
-                              <span>進度 {m.progress}%</span>
-                              {overdue && <Badge variant="destructive" className="text-[10px]">逾期</Badge>}
-                            </div>
-                            <div className="h-1.5 bg-muted rounded-full mt-1 overflow-hidden w-48">
-                              <div className="h-full bg-primary" style={{ width: `${m.progress}%` }} />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-xs font-semibold text-muted-foreground mb-2">成員負荷</div>
-              <div className="grid gap-2 md:grid-cols-2">
-                {(membersQ.data ?? []).map((pm: any) => {
-                  const open = tasks.filter((t) => t.owner_id === pm.user_id && !doneStatusIds.has(t.status_id)).length;
-                  const overload = open >= 5;
-                  return (
-                    <div key={pm.user_id} className="flex items-center justify-between p-2 rounded-md border">
-                      <span className="text-sm">{userMap.get(pm.user_id)?.name ?? pm.user_id.slice(0, 6)}</span>
-                      <Badge variant={overload ? "destructive" : "secondary"}>未完成 {open}{overload ? " · 過載" : ""}</Badge>
-                    </div>
-                  );
-                })}
-                {(membersQ.data ?? []).length === 0 && <div className="text-xs text-muted-foreground">無成員</div>}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tasks">
-          <TaskBoard tasks={tasks} statuses={statusesQ.data ?? []} userMap={userMap} />
-        </TabsContent>
-
-        <TabsContent value="milestones">
-          <MilestoneList projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canManageEip(appUser?.role)} />
-        </TabsContent>
-
-        <TabsContent value="members">
-          <MembersTab projectId={id} members={membersQ.data ?? []} users={usersQ.data ?? []} canEdit={canManageEip(appUser?.role) || appUser?.id === project.owner_id} />
-        </TabsContent>
-
-        <TabsContent value="gantt">
-          <GanttView tasks={tasks} milestones={milestones} project={project} doneStatusIds={doneStatusIds} />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-function StatBox({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
-  return (
-    <Card><CardContent className="p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`text-2xl font-bold mt-0.5 ${accent ?? ""}`}>{value}</div>
-    </CardContent></Card>
-  );
-}
-
-function TaskBoard({ tasks, statuses, userMap }: { tasks: Task[]; statuses: any[]; userMap: Map<string, AppUser> }) {
-  return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(statuses.length, 1)}, minmax(220px, 1fr))` }}>
-      {statuses.map((s) => {
-        const col = tasks.filter((t) => t.status_id === s.id);
-        return (
-          <Card key={s.id}><CardContent className="p-3">
-            <div className="text-xs font-semibold mb-2">{s.name} <span className="text-muted-foreground">({col.length})</span></div>
-            <div className="space-y-2">
-              {col.map((t) => (
-                <div key={t.id} className="p-2 rounded-md border text-xs">
-                  <div className="font-medium truncate">{t.title}</div>
-                  <div className="text-muted-foreground mt-0.5">{userMap.get(t.owner_id)?.name ?? "—"}{t.due_date && ` · ${t.due_date}`}</div>
-                </div>
-              ))}
-              {col.length === 0 && <div className="text-xs text-muted-foreground">—</div>}
+      {/* A. 概覽 */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">狀態</span>
+              {canEdit ? (
+                <Select value={project.status} onValueChange={(v) => saveProject({ status: v as ProjectStatus })}>
+                  <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PROJECT_STATUS_LABEL) as ProjectStatus[]).map((s) =>
+                      <SelectItem key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : <Badge variant="secondary">{PROJECT_STATUS_LABEL[project.status]}</Badge>}
             </div>
-          </CardContent></Card>
-        );
-      })}
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">健康度</span>
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${HEALTH_DOT[project.health]}`} />
+              {canEdit ? (
+                <Select value={project.health} onValueChange={(v) => saveProject({ health: v as ProjectHealth })}>
+                  <SelectTrigger className="h-8 w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(HEALTH_LABEL) as ProjectHealth[]).map((h) =>
+                      <SelectItem key={h} value={h}>{HEALTH_LABEL[h]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : <span>{HEALTH_LABEL[project.health]}</span>}
+            </div>
+            <div><span className="text-muted-foreground">負責人 </span>{userMap.get(project.owner_id)?.name ?? "—"}</div>
+            <div><span className="text-muted-foreground">期間 </span>{project.start_date ?? "—"} ~ {project.end_date ?? "—"}</div>
+          </div>
+          {(project.goal || project.scope || project.description) && (
+            <div className="grid gap-2 md:grid-cols-3 text-sm">
+              {project.goal && (
+                <div><div className="text-xs text-muted-foreground mb-0.5">目標</div><div className="whitespace-pre-wrap">{project.goal}</div></div>
+              )}
+              {project.scope && (
+                <div><div className="text-xs text-muted-foreground mb-0.5">範疇</div><div className="whitespace-pre-wrap">{project.scope}</div></div>
+              )}
+              {project.description && (
+                <div><div className="text-xs text-muted-foreground mb-0.5">描述</div><div className="whitespace-pre-wrap text-muted-foreground">{project.description}</div></div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* B. 儀表板 */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <StatBox label="整體進度" value={`${overallProgress}%`} />
+        <StatBox label="任務完成率" value={`${taskRate}%`} sub={`${doneT}/${totalT}`} />
+        <StatBox label="里程碑達成" value={`${doneMs}/${totalMs}`} sub={`平均進度 ${avgMsProgress}%`} />
+        <StatBox label="距結束" value={daysLeft == null ? "—" : `${daysLeft} 天`} accent={daysLeft != null && daysLeft < 0 ? "text-red-600" : ""} />
+        <StatBox label="健康度" value={<span className="flex items-center gap-1.5"><span className={`inline-block w-2.5 h-2.5 rounded-full ${HEALTH_DOT[project.health]}`} />{HEALTH_LABEL[project.health].split(" · ")[0]}</span>} />
+      </div>
+
+      {/* C. KPI */}
+      <Section icon={Target} title="KPI 指標">
+        <KpiSection projectId={id} tenantId={project.tenant_id} kpis={kpisQ.data ?? []} canEdit={canEdit} />
+      </Section>
+
+      {/* D. 里程碑 */}
+      <Section icon={Flag} title="里程碑">
+        <MilestonesSection projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canEdit} />
+      </Section>
+
+      {/* E. 任務 */}
+      <Section icon={ListChecks} title={`工作任務（完成 ${doneT}/${totalT}・${taskRate}%）`}>
+        <TasksSection projectId={id} tenantId={project.tenant_id} tasks={tasks} statuses={statusesQ.data ?? []} userMap={userMap} doneStatusIds={doneStatusIds} canEdit={canEdit} appUser={appUser ?? null} />
+      </Section>
+
+      {/* F. 風險 */}
+      <Section icon={AlertTriangle} title="風險與議題">
+        <RisksSection projectId={id} tenantId={project.tenant_id} risks={risksQ.data ?? []} canEdit={canEdit} />
+      </Section>
+
+      {/* G. 會議 */}
+      <Section icon={CalendarDays} title="關聯會議">
+        <MeetingsSection meetings={meetingsQ.data ?? []} />
+      </Section>
     </div>
   );
 }
 
-function MilestoneList({ projectId, tenantId, milestones, canEdit }: { projectId: string; tenantId: string; milestones: Milestone[]; canEdit: boolean }) {
+function Section({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary">
+            <Icon className="w-4 h-4" />
+          </span>
+          <h2 className="text-base font-semibold">{title}</h2>
+        </div>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function StatBox({ label, value, sub, accent }: { label: string; value: React.ReactNode; sub?: string; accent?: string }) {
+  return (
+    <Card>
+      <CardContent className="p-3">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className={`text-xl font-bold mt-0.5 ${accent ?? ""}`}>{value}</div>
+        {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------- KPI ---------- */
+function KpiSection({ projectId, tenantId, kpis, canEdit }: { projectId: string; tenantId: string; kpis: Kpi[]; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<Kpi | "new" | null>(null);
+  const refetch = () => qc.invalidateQueries({ queryKey: ["eip", "project-kpis", projectId] });
+
+  const remove = async (k: Kpi) => {
+    const { error } = await supabase.from("project_kpi").delete().eq("id", k.id);
+    if (error) toast.error(error.message); else { toast.success("已刪除"); refetch(); }
+  };
+
+  return (
+    <>
+      {kpis.length === 0 ? (
+        <div className="text-xs text-muted-foreground">尚無 KPI{canEdit && "，點下方「新增 KPI」設定第一個指標"}</div>
+      ) : (
+        <div className="grid gap-2 md:grid-cols-2">
+          {kpis.map((k) => {
+            const cur = parseFloat(k.current_value ?? "0") || 0;
+            const tgt = parseFloat(k.target_value ?? "0") || 0;
+            const pct = tgt > 0 ? Math.min(100, Math.round((cur / tgt) * 100)) : 0;
+            return (
+              <div key={k.id} className="p-3 border rounded-md">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{k.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {k.current_value ?? "—"} / {k.target_value ?? "—"} {k.unit ?? ""}
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums">{pct}%</span>
+                  {canEdit && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"><MoreHorizontal className="w-3.5 h-3.5" /></button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setEditing(k)}><Pencil className="w-3.5 h-3.5 mr-2" />編輯</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => remove(k)}><Trash2 className="w-3.5 h-3.5 mr-2" />刪除</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+                <Progress value={pct} className="h-1.5 mt-2" />
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {canEdit && (
+        <Button size="sm" variant="outline" onClick={() => setEditing("new")}>
+          <Plus className="w-3.5 h-3.5" /> 新增 KPI
+        </Button>
+      )}
+      {editing && (
+        <KpiDialog
+          kpi={editing === "new" ? null : editing}
+          projectId={projectId} tenantId={tenantId}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); refetch(); }}
+        />
+      )}
+    </>
+  );
+}
+
+function KpiDialog({ kpi, projectId, tenantId, onClose, onSaved }: { kpi: Kpi | null; projectId: string; tenantId: string; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(kpi?.name ?? "");
+  const [target, setTarget] = useState(kpi?.target_value ?? "");
+  const [current, setCurrent] = useState(kpi?.current_value ?? "");
+  const [unit, setUnit] = useState(kpi?.unit ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error("請輸入名稱");
+    setBusy(true);
+    const payload = {
+      project_id: projectId, tenant_id: tenantId,
+      name: name.trim(),
+      target_value: target.trim() || null,
+      current_value: current.trim() || null,
+      unit: unit.trim() || null,
+    };
+    const { error } = kpi
+      ? await supabase.from("project_kpi").update(payload).eq("id", kpi.id)
+      : await supabase.from("project_kpi").insert(payload);
+    setBusy(false);
+    if (error) toast.error(error.message); else { toast.success("已儲存"); onSaved(); }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{kpi ? "編輯 KPI" : "新增 KPI"}</DialogTitle></DialogHeader>
+        <div className="grid gap-3 py-2">
+          <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例：客戶滿意度" /></Field>
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="目前值"><Input value={current} onChange={(e) => setCurrent(e.target.value)} /></Field>
+            <Field label="目標值"><Input value={target} onChange={(e) => setTarget(e.target.value)} /></Field>
+            <Field label="單位"><Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="%, 件, 萬…" /></Field>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- Milestones ---------- */
+function MilestonesSection({ projectId, tenantId, milestones, canEdit }: { projectId: string; tenantId: string; milestones: Milestone[]; canEdit: boolean }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [due, setDue] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const refetch = () => qc.invalidateQueries({ queryKey: ["eip", "milestones", projectId] });
 
   const add = async () => {
     if (!name.trim()) return;
-    const { error } = await supabase.from("milestone").insert({ tenant_id: tenantId, project_id: projectId, name: name.trim(), due_date: due || null, status: "pending" });
-    if (error) toast.error(error.message);
-    else { setName(""); setDue(""); qc.invalidateQueries({ queryKey: ["eip", "milestones", projectId] }); }
+    const { error } = await supabase.from("milestone").insert({
+      tenant_id: tenantId, project_id: projectId, name: name.trim(),
+      due_date: due || null, status: "pending",
+    });
+    if (error) toast.error(error.message); else { setName(""); setDue(""); refetch(); }
   };
   const toggle = async (m: Milestone) => {
     const next = m.status === "done" ? "pending" : "done";
     const { error } = await supabase.from("milestone").update({ status: next, progress: next === "done" ? 100 : m.progress }).eq("id", m.id);
-    if (error) toast.error(error.message);
-    else qc.invalidateQueries({ queryKey: ["eip", "milestones", projectId] });
+    if (error) toast.error(error.message); else refetch();
   };
   const setProgress = async (m: Milestone, v: number) => {
     const { error } = await supabase.from("milestone").update({ progress: v }).eq("id", m.id);
-    if (error) toast.error(error.message);
-    else qc.invalidateQueries({ queryKey: ["eip", "milestones", projectId] });
+    if (error) toast.error(error.message); else refetch();
+  };
+  const remove = async (m: Milestone) => {
+    const { error } = await supabase.from("milestone").delete().eq("id", m.id);
+    if (error) toast.error(error.message); else refetch();
   };
 
   return (
-    <Card><CardContent className="p-4 space-y-2">
-      {milestones.map((m) => (
-        <div key={m.id} className="flex items-center gap-2 p-2 border rounded-md">
-          <input type="checkbox" checked={m.status === "done"} onChange={() => toggle(m)} disabled={!canEdit} className="w-4 h-4" />
-          <div className="flex-1">
-            <div className={`text-sm ${m.status === "done" ? "line-through text-muted-foreground" : ""}`}>{m.name}</div>
-            <div className="text-xs text-muted-foreground">{m.due_date ?? "無期限"}</div>
+    <>
+      {milestones.length === 0 ? (
+        <div className="text-xs text-muted-foreground">尚無里程碑{canEdit && "，於下方新增"}</div>
+      ) : (
+        <div className="relative pl-3">
+          <div className="absolute left-1 top-2 bottom-2 w-px bg-border" />
+          <div className="space-y-2">
+            {milestones.map((m) => {
+              const overdue = m.due_date && m.due_date < today && m.status !== "done";
+              return (
+                <div key={m.id} className="flex items-center gap-2 relative">
+                  <button
+                    type="button"
+                    disabled={!canEdit}
+                    onClick={() => canEdit && toggle(m)}
+                    className={`-ml-1 mt-0 w-3 h-3 rounded-full border-2 ${m.status === "done" ? "bg-emerald-500 border-emerald-500" : overdue ? "bg-red-500 border-red-500" : "bg-background border-muted-foreground"}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm ${m.status === "done" ? "line-through text-muted-foreground" : ""}`}>{m.name}</span>
+                      {overdue && <Badge variant="destructive" className="text-[10px]">逾期</Badge>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{m.due_date ?? "無期限"} · 進度 {m.progress}%</div>
+                    <Progress value={m.progress} className="h-1 mt-1 max-w-xs" />
+                  </div>
+                  {canEdit && (
+                    <>
+                      <Input type="number" min={0} max={100} value={m.progress} onChange={(e) => setProgress(m, Number(e.target.value))} className="w-20 h-8" />
+                      <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive p-1" aria-label="刪除"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          {canEdit && <Input type="number" min={0} max={100} value={m.progress} onChange={(e) => setProgress(m, Number(e.target.value))} className="w-20 h-8" />}
-          <span className="text-xs text-muted-foreground w-12 text-right">{m.progress}%</span>
         </div>
-      ))}
-      {milestones.length === 0 && <div className="text-xs text-muted-foreground py-2">尚無里程碑</div>}
+      )}
       {canEdit && (
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-1">
           <Input placeholder="新增里程碑…" value={name} onChange={(e) => setName(e.target.value)} />
           <Input type="date" className="w-[150px]" value={due} onChange={(e) => setDue(e.target.value)} />
-          <Button onClick={add}>新增</Button>
+          <Button size="sm" onClick={add}><Plus className="w-4 h-4" />新增</Button>
         </div>
       )}
-    </CardContent></Card>
+    </>
   );
 }
 
-function MembersTab({ projectId, members, users, canEdit }: { projectId: string; members: any[]; users: AppUser[]; canEdit: boolean }) {
+/* ---------- Tasks ---------- */
+function TasksSection({
+  projectId, tenantId, tasks, statuses, userMap, doneStatusIds, canEdit, appUser,
+}: {
+  projectId: string; tenantId: string; tasks: Task[]; statuses: any[];
+  userMap: Map<string, AppUser>; doneStatusIds: Set<string>; canEdit: boolean; appUser: AppUser | null;
+}) {
   const qc = useQueryClient();
-  const [pick, setPick] = useState("none");
-  const userMap = new Map(users.map((u) => [u.id, u]));
-
-  const add = async () => {
-    if (pick === "none") return;
-    const { error } = await supabase.from("project_member").insert({ project_id: projectId, user_id: pick, role: "member" });
-    if (error) toast.error(error.message);
-    else { setPick("none"); qc.invalidateQueries({ queryKey: ["eip", "project-members", projectId] }); }
-  };
-  const remove = async (uid: string) => {
-    const { error } = await supabase.from("project_member").delete().eq("project_id", projectId).eq("user_id", uid);
-    if (error) toast.error(error.message);
-    else qc.invalidateQueries({ queryKey: ["eip", "project-members", projectId] });
-  };
+  const [adding, setAdding] = useState(false);
+  const statusMap = useMemo(() => new Map(statuses.map((s) => [s.id, s])), [statuses]);
 
   return (
-    <Card><CardContent className="p-4 space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {members.map((pm) => (
-          <Badge key={pm.user_id} variant="secondary" className="gap-1">
-            {userMap.get(pm.user_id)?.name ?? pm.user_id.slice(0, 6)}
-            {canEdit && <button onClick={() => remove(pm.user_id)} className="ml-1 text-muted-foreground hover:text-destructive">×</button>}
-          </Badge>
-        ))}
-        {members.length === 0 && <span className="text-xs text-muted-foreground">無成員</span>}
-      </div>
-      {canEdit && (
-        <div className="flex gap-2">
-          <Select value={pick} onValueChange={setPick}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder="選擇成員…" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">—</SelectItem>
-              {users.filter((u) => !members.some((m) => m.user_id === u.id)).map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={add}>加入</Button>
-        </div>
-      )}
-    </CardContent></Card>
-  );
-}
-
-function GanttView({ tasks, milestones, project, doneStatusIds }: { tasks: Task[]; milestones: Milestone[]; project: Project; doneStatusIds: Set<string> }) {
-  // 計算時間範圍
-  const dates: number[] = [];
-  tasks.forEach((t) => {
-    if (t.start_date) dates.push(new Date(t.start_date).getTime());
-    if (t.due_date) dates.push(new Date(t.due_date).getTime());
-  });
-  milestones.forEach((m) => { if (m.due_date) dates.push(new Date(m.due_date).getTime()); });
-  if (project.start_date) dates.push(new Date(project.start_date).getTime());
-  if (project.end_date) dates.push(new Date(project.end_date).getTime());
-
-  if (dates.length === 0) {
-    return <Card><CardContent className="p-6 text-center text-muted-foreground">尚無任務或里程碑日期可供顯示</CardContent></Card>;
-  }
-
-  const min = new Date(Math.min(...dates));
-  const max = new Date(Math.max(...dates));
-  min.setDate(min.getDate() - 2);
-  max.setDate(max.getDate() + 2);
-  const totalDays = Math.max(1, Math.round((max.getTime() - min.getTime()) / 86400000));
-  const dayPx = Math.max(20, Math.min(40, Math.round(900 / totalDays)));
-  const totalW = totalDays * dayPx;
-  const today = new Date();
-  const todayOffset = Math.round((today.getTime() - min.getTime()) / 86400000);
-
-  // 顯示每月份標尺
-  const months: { x: number; label: string }[] = [];
-  const cur = new Date(min); cur.setDate(1);
-  while (cur <= max) {
-    const x = Math.round((cur.getTime() - min.getTime()) / 86400000) * dayPx;
-    months.push({ x, label: `${cur.getFullYear()}/${cur.getMonth() + 1}` });
-    cur.setMonth(cur.getMonth() + 1);
-  }
-
-  const sortedTasks = [...tasks].sort((a, b) => {
-    const ad = a.start_date ?? a.due_date ?? "";
-    const bd = b.start_date ?? b.due_date ?? "";
-    return ad.localeCompare(bd);
-  });
-
-  return (
-    <Card><CardContent className="p-4">
-      <div className="overflow-x-auto">
-        <div style={{ width: totalW + 220, position: "relative" }}>
-          {/* 月份標尺 */}
-          <div className="relative h-6 border-b mb-1" style={{ marginLeft: 220 }}>
-            {months.map((m, i) => (
-              <div key={i} className="absolute text-[11px] text-muted-foreground" style={{ left: m.x }}>{m.label}</div>
-            ))}
-            {todayOffset >= 0 && todayOffset <= totalDays && (
-              <div className="absolute top-0 bottom-[-2000px] w-px bg-red-400/60 z-10" style={{ left: todayOffset * dayPx }} title="今天" />
-            )}
-          </div>
-
-          {sortedTasks.map((t) => {
-            const start = t.start_date ? new Date(t.start_date) : t.due_date ? new Date(t.due_date) : null;
-            const end = t.due_date ? new Date(t.due_date) : start;
-            if (!start || !end) return null;
-            const left = Math.round((start.getTime() - min.getTime()) / 86400000) * dayPx;
-            const span = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-            const w = span * dayPx;
-            const overdue = t.due_date && new Date(t.due_date) < today && !doneStatusIds.has(t.status_id);
+    <>
+      {tasks.length === 0 ? (
+        <div className="text-xs text-muted-foreground">尚無任務{canEdit && "，點右上「新增任務」建立"}</div>
+      ) : (
+        <div className="border rounded-md divide-y">
+          {tasks.map((t) => {
             const done = doneStatusIds.has(t.status_id) || t.progress >= 100;
-            const color = done ? "bg-emerald-500" : overdue ? "bg-red-500" : "bg-blue-500";
             return (
-              <div key={t.id} className="flex items-center h-7 mb-1 border-b border-dashed border-border/50">
-                <div className="w-[220px] pr-2 text-xs truncate">{t.title}</div>
-                <div className="flex-1 relative h-full">
-                  <div className={`absolute top-1 h-5 rounded ${color} opacity-80`} style={{ left, width: w }}
-                    title={`${t.start_date ?? ""} ～ ${t.due_date ?? ""}`}>
-                    <div className="h-full bg-white/30" style={{ width: `${100 - t.progress}%`, marginLeft: `${t.progress}%` }} />
+              <Link
+                key={t.id}
+                to="/dashboard/eip/tasks"
+                search={{ openTask: t.id }}
+                className="flex items-center gap-3 p-2.5 hover:bg-accent/50"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm truncate ${done ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {statusMap.get(t.status_id)?.name ?? "—"} · {userMap.get(t.owner_id)?.name ?? "—"}
+                    {t.due_date && ` · 期限 ${t.due_date}`}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-
-          {milestones.filter((m) => m.due_date).map((m) => {
-            const d = new Date(m.due_date as string);
-            const left = Math.round((d.getTime() - min.getTime()) / 86400000) * dayPx;
-            return (
-              <div key={m.id} className="flex items-center h-7 mb-1">
-                <div className="w-[220px] pr-2 text-xs truncate text-amber-700">◆ {m.name}</div>
-                <div className="flex-1 relative h-full">
-                  <div className="absolute top-1.5 w-3 h-3 bg-amber-500 rotate-45" style={{ left: left - 6 }} title={m.due_date ?? ""} />
+                <div className="w-20 hidden sm:block">
+                  <Progress value={t.progress} className="h-1.5" />
+                  <div className="text-[10px] text-muted-foreground text-right mt-0.5">{t.progress}%</div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
-      </div>
-      <div className="text-[11px] text-muted-foreground mt-2 flex gap-3">
-        <span><span className="inline-block w-3 h-3 bg-blue-500 rounded mr-1" />進行中</span>
-        <span><span className="inline-block w-3 h-3 bg-emerald-500 rounded mr-1" />完成</span>
-        <span><span className="inline-block w-3 h-3 bg-red-500 rounded mr-1" />逾期</span>
-        <span><span className="inline-block w-3 h-3 bg-amber-500 rotate-45 mr-1" />里程碑</span>
-      </div>
-    </CardContent></Card>
+      )}
+      {canEdit && appUser && (
+        <Button size="sm" variant="outline" onClick={() => setAdding(true)}><Plus className="w-3.5 h-3.5" />新增任務</Button>
+      )}
+      {adding && appUser && (
+        <NewTaskDialog
+          projectId={projectId} tenantId={tenantId} statuses={statuses} users={Array.from(userMap.values())}
+          appUser={appUser}
+          onClose={() => setAdding(false)}
+          onCreated={() => { setAdding(false); qc.invalidateQueries({ queryKey: ["eip", "project-tasks", projectId] }); }}
+        />
+      )}
+    </>
+  );
+}
+
+function NewTaskDialog({
+  projectId, tenantId, statuses, users, appUser, onClose, onCreated,
+}: {
+  projectId: string; tenantId: string; statuses: any[]; users: AppUser[];
+  appUser: AppUser; onClose: () => void; onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [ownerId, setOwnerId] = useState(appUser.id);
+  const [due, setDue] = useState("");
+  const [statusId, setStatusId] = useState<string>(statuses[0]?.id ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!title.trim()) return toast.error("請輸入標題");
+    if (!statusId) return toast.error("找不到任務狀態");
+    setBusy(true);
+    const { error } = await supabase.from("task").insert({
+      tenant_id: tenantId, project_id: projectId,
+      title: title.trim(), owner_id: ownerId, created_by: appUser.id,
+      status_id: statusId, due_date: due || null,
+    });
+    setBusy(false);
+    if (error) toast.error(error.message); else { toast.success("已建立任務"); onCreated(); }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>新增任務</DialogTitle></DialogHeader>
+        <div className="grid gap-3 py-2">
+          <Field label="標題"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="負責人">
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="狀態">
+              <Select value={statusId} onValueChange={setStatusId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{statuses.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="期限"><Input type="date" value={due} onChange={(e) => setDue(e.target.value)} /></Field>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? "建立中…" : "建立"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- Risks ---------- */
+function RisksSection({ projectId, tenantId, risks, canEdit }: { projectId: string; tenantId: string; risks: Risk[]; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<Risk | "new" | null>(null);
+  const refetch = () => qc.invalidateQueries({ queryKey: ["eip", "project-risks", projectId] });
+
+  const remove = async (r: Risk) => {
+    const { error } = await supabase.from("project_risk").delete().eq("id", r.id);
+    if (error) toast.error(error.message); else { toast.success("已刪除"); refetch(); }
+  };
+
+  return (
+    <>
+      {risks.length === 0 ? (
+        <div className="text-xs text-muted-foreground">尚無風險紀錄{canEdit && "，點下方「新增風險」"}</div>
+      ) : (
+        <div className="border rounded-md divide-y">
+          {risks.map((r) => (
+            <div key={r.id} className="p-3 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">{r.title}</span>
+                  <Badge variant="outline" className="text-[10px]">可能性 {RISK_LEVEL_LABEL[r.likelihood ?? "medium"] ?? r.likelihood}</Badge>
+                  <Badge variant="outline" className="text-[10px]">影響 {RISK_LEVEL_LABEL[r.impact ?? "medium"] ?? r.impact}</Badge>
+                  <Badge className={`text-[10px] ${RISK_STATUS_COLOR[r.status] ?? ""}`} variant="secondary">{RISK_STATUS_LABEL[r.status] ?? r.status}</Badge>
+                </div>
+                {r.mitigation && <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">應對：{r.mitigation}</div>}
+              </div>
+              {canEdit && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"><MoreHorizontal className="w-3.5 h-3.5" /></button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setEditing(r)}><Pencil className="w-3.5 h-3.5 mr-2" />編輯</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => remove(r)}><Trash2 className="w-3.5 h-3.5 mr-2" />刪除</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {canEdit && (
+        <Button size="sm" variant="outline" onClick={() => setEditing("new")}>
+          <Plus className="w-3.5 h-3.5" /> 新增風險
+        </Button>
+      )}
+      {editing && (
+        <RiskDialog
+          risk={editing === "new" ? null : editing}
+          projectId={projectId} tenantId={tenantId}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); refetch(); }}
+        />
+      )}
+    </>
+  );
+}
+
+function RiskDialog({ risk, projectId, tenantId, onClose, onSaved }: { risk: Risk | null; projectId: string; tenantId: string; onClose: () => void; onSaved: () => void }) {
+  const [title, setTitle] = useState(risk?.title ?? "");
+  const [likelihood, setLikelihood] = useState(risk?.likelihood ?? "medium");
+  const [impact, setImpact] = useState(risk?.impact ?? "medium");
+  const [status, setStatus] = useState(risk?.status ?? "open");
+  const [mitigation, setMitigation] = useState(risk?.mitigation ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!title.trim()) return toast.error("請輸入風險名稱");
+    setBusy(true);
+    const payload = {
+      project_id: projectId, tenant_id: tenantId,
+      title: title.trim(), likelihood, impact, status, mitigation: mitigation.trim() || null,
+    };
+    const { error } = risk
+      ? await supabase.from("project_risk").update(payload).eq("id", risk.id)
+      : await supabase.from("project_risk").insert(payload);
+    setBusy(false);
+    if (error) toast.error(error.message); else { toast.success("已儲存"); onSaved(); }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{risk ? "編輯風險" : "新增風險"}</DialogTitle></DialogHeader>
+        <div className="grid gap-3 py-2">
+          <Field label="風險名稱"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="可能性">
+              <Select value={likelihood} onValueChange={setLikelihood}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(RISK_LEVEL_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="影響">
+              <Select value={impact} onValueChange={setImpact}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(RISK_LEVEL_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="狀態">
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(RISK_STATUS_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <Field label="應對方案"><Textarea rows={3} value={mitigation} onChange={(e) => setMitigation(e.target.value)} /></Field>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- Meetings ---------- */
+function MeetingsSection({ meetings }: { meetings: Meeting[] }) {
+  if (meetings.length === 0) return <div className="text-xs text-muted-foreground">尚無關聯會議</div>;
+  return (
+    <div className="border rounded-md divide-y">
+      {meetings.map((m) => (
+        <Link
+          key={m.id}
+          to="/dashboard/eip/meetings/$id"
+          params={{ id: m.id }}
+          className="flex items-center gap-3 p-2.5 hover:bg-accent/50"
+        >
+          <Activity className="w-4 h-4 text-muted-foreground" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm truncate">{m.title}</div>
+            <div className="text-xs text-muted-foreground">
+              {new Date(m.meeting_date).toLocaleString("zh-TW")}{m.location && ` · ${m.location}`}
+            </div>
+          </div>
+          <Badge variant="secondary" className="text-[10px]">{MEETING_STATUS_LABEL[m.status] ?? m.status}</Badge>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {children}
+    </div>
   );
 }

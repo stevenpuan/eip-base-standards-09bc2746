@@ -37,9 +37,8 @@ function canManageProject(p: Project, appUser: AppUser | null): boolean {
 type Project = Database["public"]["Tables"]["project"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
 type Task = Database["public"]["Tables"]["task"]["Row"];
-type Milestone = Database["public"]["Tables"]["milestone"]["Row"];
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
-type MilestoneStatus = Database["public"]["Enums"]["milestone_status"];
+type ProjectHealth = Database["public"]["Enums"]["project_health"];
 
 const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   planning: "規劃中", active: "進行中", on_hold: "暫停", done: "已完成",
@@ -49,6 +48,12 @@ const PROJECT_STATUS_COLOR: Record<ProjectStatus, string> = {
   active: "bg-emerald-100 text-emerald-700",
   on_hold: "bg-amber-100 text-amber-700",
   done: "bg-blue-100 text-blue-700",
+};
+const HEALTH_LABEL: Record<ProjectHealth, string> = {
+  on_track: "綠燈", at_risk: "黃燈", off_track: "紅燈",
+};
+const HEALTH_DOT: Record<ProjectHealth, string> = {
+  on_track: "bg-emerald-500", at_risk: "bg-amber-500", off_track: "bg-red-500",
 };
 
 function ProjectsPage() {
@@ -77,8 +82,36 @@ function ProjectsPage() {
       return (data ?? []) as AppUser[];
     },
   });
+  const tasksQ = useQuery({
+    queryKey: ["eip", "all-project-tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task").select("id,project_id,status_id,progress").not("project_id", "is", null);
+      if (error) throw error;
+      return (data ?? []) as Pick<Task, "id" | "project_id" | "status_id" | "progress">[];
+    },
+  });
+  const statusesQ = useQuery({
+    queryKey: ["eip", "task-statuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task_status").select("id,is_done_state");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
+  const doneStatusIds = useMemo(() => new Set((statusesQ.data ?? []).filter((s: any) => s.is_done_state).map((s: any) => s.id as string)), [statusesQ.data]);
+  const progressByProject = useMemo(() => {
+    const m = new Map<string, { done: number; total: number }>();
+    for (const t of tasksQ.data ?? []) {
+      if (!t.project_id) continue;
+      const cur = m.get(t.project_id) ?? { done: 0, total: 0 };
+      cur.total += 1;
+      if (doneStatusIds.has(t.status_id) || (t.progress ?? 0) >= 100) cur.done += 1;
+      m.set(t.project_id, cur);
+    }
+    return m;
+  }, [tasksQ.data, doneStatusIds]);
 
   if (projectsQ.isLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
 
@@ -109,10 +142,27 @@ function ProjectsPage() {
                         <div className="font-medium truncate">{p.name}</div>
                         {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
                       </div>
-                      <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
-                        {PROJECT_STATUS_LABEL[p.status]}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
+                          {PROJECT_STATUS_LABEL[p.status]}
+                        </Badge>
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <span className={`inline-block w-2 h-2 rounded-full ${HEALTH_DOT[p.health]}`} />{HEALTH_LABEL[p.health]}
+                        </span>
+                      </div>
                     </div>
+                    {(() => {
+                      const s = progressByProject.get(p.id);
+                      const pct = s && s.total ? Math.round((s.done / s.total) * 100) : 0;
+                      return (
+                        <div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">進度 {pct}%{s ? ` · ${s.done}/${s.total} 任務` : ""}</div>
+                        </div>
+                      );
+                    })()}
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
                       {p.end_date && <span>截止 {p.end_date}</span>}
@@ -215,9 +265,11 @@ function EditProjectDialog({
 }: { project: Project; users: AppUser[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
+  const [scope, setScope] = useState(project.scope ?? "");
   const [description, setDescription] = useState(project.description ?? "");
   const [ownerId, setOwnerId] = useState(project.owner_id);
   const [status, setStatus] = useState<ProjectStatus>(project.status);
+  const [health, setHealth] = useState<ProjectHealth>(project.health);
   const [startDate, setStartDate] = useState(project.start_date ?? "");
   const [endDate, setEndDate] = useState(project.end_date ?? "");
   const [busy, setBusy] = useState(false);
@@ -228,9 +280,11 @@ function EditProjectDialog({
     const { error } = await supabase.from("project").update({
       name: name.trim(),
       goal: goal.trim() || null,
+      scope: scope.trim() || null,
       description: description.trim() || null,
       owner_id: ownerId,
       status,
+      health,
       start_date: startDate || null,
       end_date: endDate || null,
     }).eq("id", project.id);
@@ -246,6 +300,7 @@ function EditProjectDialog({
         <div className="grid gap-3 py-2">
           <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="目標"><Input value={goal} onChange={(e) => setGoal(e.target.value)} /></Field>
+          <Field label="範疇"><Textarea rows={2} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="專案範疇,含括與排除項目" /></Field>
           <Field label="描述"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="負責人">
@@ -263,6 +318,16 @@ function EditProjectDialog({
                 </SelectContent>
               </Select>
             </Field>
+            <Field label="健康度">
+              <Select value={health} onValueChange={(v) => setHealth(v as ProjectHealth)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(HEALTH_LABEL) as ProjectHealth[]).map((h) =>
+                    <SelectItem key={h} value={h}>{HEALTH_LABEL[h]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div />
             <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
             <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
           </div>
@@ -282,9 +347,11 @@ function CreateProjectDialog({
 }: { open: boolean; onClose: () => void; appUser: AppUser; users: AppUser[]; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
+  const [scope, setScope] = useState("");
   const [description, setDescription] = useState("");
   const [ownerId, setOwnerId] = useState(appUser.id);
   const [status, setStatus] = useState<ProjectStatus>("planning");
+  const [health, setHealth] = useState<ProjectHealth>("on_track");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [busy, setBusy] = useState(false);
@@ -297,9 +364,11 @@ function CreateProjectDialog({
         tenant_id: appUser.tenant_id ?? DEFAULT_TENANT_ID,
         name: name.trim(),
         goal: goal.trim() || null,
+        scope: scope.trim() || null,
         description: description.trim() || null,
         owner_id: ownerId,
         status,
+        health,
         start_date: startDate || null,
         end_date: endDate || null,
       });
@@ -317,6 +386,7 @@ function CreateProjectDialog({
         <div className="grid gap-3 py-2">
           <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="目標"><Input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="一句話描述專案目標" /></Field>
+          <Field label="範疇"><Textarea rows={2} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="專案範疇,含括與排除項目" /></Field>
           <Field label="描述"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="負責人">
@@ -334,6 +404,16 @@ function CreateProjectDialog({
                 </SelectContent>
               </Select>
             </Field>
+            <Field label="健康度">
+              <Select value={health} onValueChange={(v) => setHealth(v as ProjectHealth)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(HEALTH_LABEL) as ProjectHealth[]).map((h) =>
+                    <SelectItem key={h} value={h}>{HEALTH_LABEL[h]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div />
             <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
             <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
           </div>
@@ -347,165 +427,6 @@ function CreateProjectDialog({
   );
 }
 
-function ProjectDetailDialog({
-  project, users, appUser, onClose, onChanged,
-}: { project: Project; users: AppUser[]; appUser: AppUser | null; onClose: () => void; onChanged: () => void }) {
-  const qc = useQueryClient();
-  const canEdit = canManageEip(appUser?.role) || appUser?.id === project.owner_id;
-  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-
-  const membersQ = useQuery({
-    queryKey: ["eip", "project-members", project.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("project_member").select("*").eq("project_id", project.id);
-      if (error) throw error;
-      return (data ?? []) as Database["public"]["Tables"]["project_member"]["Row"][];
-    },
-  });
-  const milestonesQ = useQuery({
-    queryKey: ["eip", "milestones", project.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("milestone").select("*").eq("project_id", project.id).order("due_date", { ascending: true, nullsFirst: false });
-      if (error) throw error;
-      return (data ?? []) as Milestone[];
-    },
-  });
-  const tasksQ = useQuery({
-    queryKey: ["eip", "project-tasks", project.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("task").select("*").eq("project_id", project.id);
-      if (error) throw error;
-      return (data ?? []) as Task[];
-    },
-  });
-
-  const [status, setStatus] = useState<ProjectStatus>(project.status);
-  const saveStatus = async (v: ProjectStatus) => {
-    setStatus(v);
-    const { error } = await supabase.from("project").update({ status: v }).eq("id", project.id);
-    if (error) toast.error(error.message); else { toast.success("已更新狀態"); onChanged(); }
-  };
-
-  const [newMilestone, setNewMilestone] = useState("");
-  const [newMsDue, setNewMsDue] = useState("");
-  const addMilestone = async () => {
-    if (!newMilestone.trim() || !appUser) return;
-    const { error } = await supabase.from("milestone").insert({
-      tenant_id: appUser.tenant_id, project_id: project.id,
-      name: newMilestone.trim(), due_date: newMsDue || null, status: "pending",
-    });
-    if (error) toast.error(error.message);
-    else { setNewMilestone(""); setNewMsDue(""); qc.invalidateQueries({ queryKey: ["eip", "milestones", project.id] }); }
-  };
-  const toggleMilestone = async (m: Milestone) => {
-    const next: MilestoneStatus = m.status === "done" ? "pending" : "done";
-    const { error } = await supabase.from("milestone").update({ status: next }).eq("id", m.id);
-    if (error) toast.error(error.message);
-    else qc.invalidateQueries({ queryKey: ["eip", "milestones", project.id] });
-  };
-
-  const [newMember, setNewMember] = useState<string>("none");
-  const addMember = async () => {
-    if (newMember === "none") return;
-    const { error } = await supabase.from("project_member").insert({ project_id: project.id, user_id: newMember, role: "member" });
-    if (error) toast.error(error.message);
-    else { setNewMember("none"); qc.invalidateQueries({ queryKey: ["eip", "project-members", project.id] }); }
-  };
-  const removeMember = async (uid: string) => {
-    const { error } = await supabase.from("project_member").delete().eq("project_id", project.id).eq("user_id", uid);
-    if (error) toast.error(error.message);
-    else qc.invalidateQueries({ queryKey: ["eip", "project-members", project.id] });
-  };
-
-  const totalTasks = (tasksQ.data ?? []).length;
-  const doneTasks = (tasksQ.data ?? []).filter((t) => t.progress >= 100).length;
-  const overallProgress = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader><DialogTitle>{project.name}</DialogTitle></DialogHeader>
-        <div className="grid gap-4 py-2 max-h-[70vh] overflow-y-auto pr-1">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">負責人：</span>
-            <span>{userMap.get(project.owner_id)?.name ?? "—"}</span>
-            <span className="text-muted-foreground ml-3">狀態：</span>
-            {canEdit ? (
-              <Select value={status} onValueChange={(v) => saveStatus(v as ProjectStatus)}>
-                <SelectTrigger className="h-7 w-[120px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(PROJECT_STATUS_LABEL) as ProjectStatus[]).map((s) =>
-                    <SelectItem key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Badge className={PROJECT_STATUS_COLOR[project.status]} variant="secondary">{PROJECT_STATUS_LABEL[project.status]}</Badge>
-            )}
-          </div>
-          {project.goal && <div className="text-sm">{project.goal}</div>}
-          {project.description && <div className="text-sm text-muted-foreground whitespace-pre-wrap">{project.description}</div>}
-
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-1">整體進度</div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full bg-primary transition-all" style={{ width: `${overallProgress}%` }} />
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">{doneTasks}/{totalTasks} 任務完成（{overallProgress}%）</div>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-2">里程碑</div>
-            <div className="space-y-1.5">
-              {(milestonesQ.data ?? []).map((m) => (
-                <div key={m.id} className="flex items-center gap-2 p-2 rounded-md border">
-                  <input type="checkbox" checked={m.status === "done"} onChange={() => toggleMilestone(m)} disabled={!canEdit} className="w-4 h-4" />
-                  <span className={`flex-1 text-sm ${m.status === "done" ? "line-through text-muted-foreground" : ""}`}>{m.name}</span>
-                  {m.due_date && <span className="text-xs text-muted-foreground">{m.due_date}</span>}
-                </div>
-              ))}
-              {(milestonesQ.data ?? []).length === 0 && <div className="text-xs text-muted-foreground py-1">尚無里程碑</div>}
-            </div>
-            {canEdit && (
-              <div className="mt-2 flex gap-2">
-                <Input placeholder="新增里程碑…" value={newMilestone} onChange={(e) => setNewMilestone(e.target.value)} />
-                <Input type="date" className="w-[150px]" value={newMsDue} onChange={(e) => setNewMsDue(e.target.value)} />
-                <Button onClick={addMilestone}>新增</Button>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-2">專案成員</div>
-            <div className="flex flex-wrap gap-1.5">
-              {(membersQ.data ?? []).map((pm) => (
-                <Badge key={pm.user_id} variant="secondary" className="gap-1">
-                  {userMap.get(pm.user_id)?.name ?? pm.user_id.slice(0, 6)}
-                  {canEdit && (
-                    <button onClick={() => removeMember(pm.user_id)} className="ml-1 text-muted-foreground hover:text-destructive">×</button>
-                  )}
-                </Badge>
-              ))}
-              {(membersQ.data ?? []).length === 0 && <span className="text-xs text-muted-foreground">無</span>}
-            </div>
-            {canEdit && (
-              <div className="mt-2 flex gap-2">
-                <Select value={newMember} onValueChange={setNewMember}>
-                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="選擇成員…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">—</SelectItem>
-                    {users.filter((u) => !(membersQ.data ?? []).some((pm) => pm.user_id === u.id))
-                      .map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button onClick={addMember}>加入</Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
