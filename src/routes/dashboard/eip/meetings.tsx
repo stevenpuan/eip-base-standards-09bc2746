@@ -671,7 +671,7 @@ function ActionItemsTracker({ meetings, users, userMap }: { meetings: Meeting[];
   );
 }
 
-function StructuredAgenda({ meetingId, tenantId, users }: { meetingId: string; tenantId: string; users: AppUser[] }) {
+function StructuredAgenda({ meetingId, tenantId, users, canManage }: { meetingId: string; tenantId: string; users: AppUser[]; canManage: boolean }) {
   const qc = useQueryClient();
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const itemsQ = useQuery({
