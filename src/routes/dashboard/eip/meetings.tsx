@@ -115,23 +115,51 @@ function MeetingsPage() {
         </TabsList>
         <TabsContent value="list">
           <div className="space-y-2">
-            {(meetingsQ.data ?? []).map((m) => (
-              <Card key={m.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(m)}>
-                <CardContent className="p-3 flex items-center gap-3">
-                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{m.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(m.meeting_date).toLocaleString("zh-TW")}
-                      {m.location && ` ・ ${m.location}`}
+            {(meetingsQ.data ?? []).map((m) => {
+              const canManage = canManageMeeting(m, appUser);
+              return (
+                <Card key={m.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(m)}>
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{m.title}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(m.meeting_date).toLocaleString("zh-TW")}
+                        {m.location && ` ・ ${m.location}`}
+                      </div>
                     </div>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {userMap.get(m.created_by)?.name ?? "—"}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
+                    <Badge variant="outline" className="text-xs">
+                      {userMap.get(m.created_by)?.name ?? "—"}
+                    </Badge>
+                    {canManage && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"
+                            aria-label="更多操作"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelected(m); }}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); setDeleteMeeting(m); }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
             {(meetingsQ.data ?? []).length === 0 && (
               <Card><CardContent className="py-10 text-center text-muted-foreground">尚無會議</CardContent></Card>
             )}
@@ -157,9 +185,43 @@ function MeetingsPage() {
           meeting={selected}
           users={usersQ.data ?? []}
           appUser={appUser}
+          canManage={canManageMeeting(selected, appUser)}
+          onAskDelete={() => setDeleteMeeting(selected)}
           onClose={() => setSelected(null)}
         />
       )}
+
+      <AlertDialog open={!!deleteMeeting} onOpenChange={(o) => !o && !deleting && setDeleteMeeting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除會議？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteMeeting?.title}」,相關議程與行動項目可能一併移除。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteMeeting) return;
+                setDeleting(true);
+                const { error } = await supabase.from("meeting").delete().eq("id", deleteMeeting.id);
+                setDeleting(false);
+                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                toast.success("會議已刪除");
+                if (selected?.id === deleteMeeting.id) setSelected(null);
+                setDeleteMeeting(null);
+                qc.invalidateQueries({ queryKey: ["eip", "meetings"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
