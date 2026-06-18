@@ -708,7 +708,7 @@ function DocDetailDialog({
                 <Button variant="outline" onClick={() => void publish("published")}>還原為已發布</Button>
               )}
               {canEdit && <Button onClick={() => onEdit(doc)}><Pencil className="w-4 h-4 mr-1" /> 編輯內容</Button>}
-              {canDelete && <Button variant="destructive" onClick={() => void remove()}><Trash2 className="w-4 h-4 mr-1" /> 刪除</Button>}
+              {canDelete && <Button variant="destructive" onClick={() => onAskDelete(doc)}><Trash2 className="w-4 h-4 mr-1" /> 刪除</Button>}
               <Button variant="ghost" onClick={onClose}>關閉</Button>
             </DialogFooter>
           </>
