@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { Button } from "@/components/ui/button";
@@ -17,27 +16,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-type AppUserLite = { id: string; name: string | null };
 
 export function QuickReportButton() {
   const { appUser } = useEipUser();
-  const { roles } = useAuth();
-  const isManager =
-    roles.includes("admin") ||
-    roles.includes("manager") ||
-    roles.includes("company_admin") ||
-    roles.includes("dept_manager");
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"late" | "leave" | "assign">("late");
+  const [tab, setTab] = useState<"late" | "leave" | "other">("late");
   const [busy, setBusy] = useState(false);
 
   // 遲到
@@ -49,24 +33,8 @@ export function QuickReportButton() {
   const [leaveTo, setLeaveTo] = useState("");
   const [leaveDetail, setLeaveDetail] = useState("");
 
-  // 交辦
-  const [assignOwner, setAssignOwner] = useState("");
-  const [assignTitle, setAssignTitle] = useState("");
-  const [assignDesc, setAssignDesc] = useState("");
-  const [assignDue, setAssignDue] = useState("");
-  const [users, setUsers] = useState<AppUserLite[]>([]);
-
-  useEffect(() => {
-    if (!open || !isManager) return;
-    void (async () => {
-      const { data } = await supabase
-        .from("app_user")
-        .select("id,name")
-        .eq("status", "active")
-        .order("name");
-      setUsers((data ?? []) as AppUserLite[]);
-    })();
-  }, [open, isManager]);
+  // 事件
+  const [otherDetail, setOtherDetail] = useState("");
 
   const reset = () => {
     setEta("");
@@ -74,10 +42,7 @@ export function QuickReportButton() {
     setLeaveFrom("");
     setLeaveTo("");
     setLeaveDetail("");
-    setAssignOwner("");
-    setAssignTitle("");
-    setAssignDesc("");
-    setAssignDue("");
+    setOtherDetail("");
   };
 
   const tenantId = appUser?.tenant_id ?? DEFAULT_TENANT_ID;
@@ -125,43 +90,21 @@ export function QuickReportButton() {
     setOpen(false);
   };
 
-  const submitAssign = async () => {
+  const submitOther = async () => {
     if (!appUser) return;
-    if (!assignOwner) return toast.error("請選擇負責人");
-    if (!assignTitle.trim()) return toast.error("請輸入事項標題");
+    if (!otherDetail.trim()) return toast.error("請填寫事件內容");
     setBusy(true);
-    try {
-      const { data: st } = await supabase
-        .from("task_status")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("is_default", true)
-        .eq("is_done_state", false)
-        .order("sort_order")
-        .limit(1)
-        .maybeSingle();
-      const sid = (st as { id: string } | null)?.id;
-      if (!sid) throw new Error("找不到預設任務狀態");
-      const { error } = await supabase.from("task").insert({
-        tenant_id: tenantId,
-        title: assignTitle.trim(),
-        description: assignDesc.trim() || null,
-        owner_id: assignOwner,
-        priority: "normal",
-        status_id: sid,
-        progress: 0,
-        due_date: assignDue || null,
-        created_by: appUser.id,
-      });
-      if (error) throw error;
-      toast.success("交辦任務已建立");
-      reset();
-      setOpen(false);
-    } catch (e) {
-      toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setBusy(false);
-    }
+    const { error } = await supabase.from("eip_quick_report").insert({
+      tenant_id: tenantId,
+      submitter_id: appUser.id,
+      type: "other",
+      detail: otherDetail.trim(),
+    });
+    setBusy(false);
+    if (error) return toast.error(`送出失敗：${error.message}`);
+    toast.success("事件回報已送出");
+    reset();
+    setOpen(false);
   };
 
   if (!appUser) return null;
@@ -181,10 +124,10 @@ export function QuickReportButton() {
             <DialogTitle>快速回報</DialogTitle>
           </DialogHeader>
           <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-            <TabsList className={isManager ? "grid w-full grid-cols-3" : "grid w-full grid-cols-2"}>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="late">遲到</TabsTrigger>
               <TabsTrigger value="leave">請假</TabsTrigger>
-              {isManager && <TabsTrigger value="assign">交辦</TabsTrigger>}
+              <TabsTrigger value="other">事件</TabsTrigger>
             </TabsList>
 
             <TabsContent value="late" className="space-y-3 pt-2">
@@ -236,37 +179,21 @@ export function QuickReportButton() {
               </DialogFooter>
             </TabsContent>
 
-            {isManager && (
-              <TabsContent value="assign" className="space-y-3 pt-2">
-                <div>
-                  <Label>指派給</Label>
-                  <Select value={assignOwner} onValueChange={setAssignOwner}>
-                    <SelectTrigger><SelectValue placeholder="選擇負責人" /></SelectTrigger>
-                    <SelectContent>
-                      {users.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>{u.name ?? u.id}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>事項標題</Label>
-                  <Input value={assignTitle} onChange={(e) => setAssignTitle(e.target.value)} />
-                </div>
-                <div>
-                  <Label>說明</Label>
-                  <Textarea rows={3} value={assignDesc} onChange={(e) => setAssignDesc(e.target.value)} />
-                </div>
-                <div>
-                  <Label>期限</Label>
-                  <Input type="date" value={assignDue} onChange={(e) => setAssignDue(e.target.value)} />
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
-                  <Button disabled={busy} onClick={submitAssign}>建立任務</Button>
-                </DialogFooter>
-              </TabsContent>
-            )}
+            <TabsContent value="other" className="space-y-3 pt-2">
+              <div>
+                <Label>事件內容</Label>
+                <Textarea
+                  rows={4}
+                  value={otherDetail}
+                  onChange={(e) => setOtherDetail(e.target.value)}
+                  placeholder="描述需要主管知悉或處理的事件"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
+                <Button disabled={busy} onClick={submitOther}>送出</Button>
+              </DialogFooter>
+            </TabsContent>
           </Tabs>
         </DialogContent>
       </Dialog>
