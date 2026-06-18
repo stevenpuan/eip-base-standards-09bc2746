@@ -37,9 +37,8 @@ function canManageProject(p: Project, appUser: AppUser | null): boolean {
 type Project = Database["public"]["Tables"]["project"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
 type Task = Database["public"]["Tables"]["task"]["Row"];
-type Milestone = Database["public"]["Tables"]["milestone"]["Row"];
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
-type MilestoneStatus = Database["public"]["Enums"]["milestone_status"];
+type ProjectHealth = Database["public"]["Enums"]["project_health"];
 
 const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   planning: "規劃中", active: "進行中", on_hold: "暫停", done: "已完成",
@@ -49,6 +48,12 @@ const PROJECT_STATUS_COLOR: Record<ProjectStatus, string> = {
   active: "bg-emerald-100 text-emerald-700",
   on_hold: "bg-amber-100 text-amber-700",
   done: "bg-blue-100 text-blue-700",
+};
+const HEALTH_LABEL: Record<ProjectHealth, string> = {
+  on_track: "綠燈", at_risk: "黃燈", off_track: "紅燈",
+};
+const HEALTH_DOT: Record<ProjectHealth, string> = {
+  on_track: "bg-emerald-500", at_risk: "bg-amber-500", off_track: "bg-red-500",
 };
 
 function ProjectsPage() {
