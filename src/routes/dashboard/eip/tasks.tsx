@@ -1103,3 +1103,130 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+/* ============ 任務詳情/編輯對話框 ============ */
+function EditTaskDialog({
+  task, readOnly, onClose, onSaved, statuses, users, departments, projects,
+}: {
+  task: Task; readOnly: boolean;
+  onClose: () => void; onSaved: () => void;
+  statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description ?? "");
+  const [statusId, setStatusId] = useState(task.status_id);
+  const [priority, setPriority] = useState<Priority>(task.priority);
+  const [ownerId, setOwnerId] = useState(task.owner_id);
+  const [deptId, setDeptId] = useState(task.department_id ?? "none");
+  const [projectId, setProjectId] = useState(task.project_id ?? "none");
+  const [dueDate, setDueDate] = useState(task.due_date ?? "");
+  const [progress, setProgress] = useState<number>(task.progress);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!title.trim()) { setErr("請輸入標題"); return; }
+    setBusy(true); setErr(null);
+    const status = statuses.find((s) => s.id === statusId);
+    const patch: Database["public"]["Tables"]["task"]["Update"] = {
+      title: title.trim(),
+      description: description.trim() || null,
+      status_id: statusId,
+      priority,
+      owner_id: ownerId,
+      department_id: deptId === "none" ? null : deptId,
+      project_id: projectId === "none" ? null : projectId,
+      due_date: dueDate || null,
+      progress: Math.max(0, Math.min(100, Number(progress) || 0)),
+    };
+    if (status?.is_done_state) {
+      patch.progress = 100;
+      patch.completed_at = new Date().toISOString();
+    } else {
+      patch.completed_at = null;
+    }
+    const { error } = await supabase.from("task").update(patch).eq("id", task.id);
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    toast.success("已儲存");
+    onSaved();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{readOnly ? "任務詳情" : "編輯任務"}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
+          <Field label="標題">
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} disabled={readOnly} />
+          </Field>
+          <Field label="說明">
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} disabled={readOnly} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="狀態">
+              <Select value={statusId} onValueChange={setStatusId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {statuses.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="優先級">
+              <Select value={priority} onValueChange={(v) => setPriority(v as Priority)} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_PRIORITIES.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABEL[p]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="負責人">
+              <Select value={ownerId} onValueChange={setOwnerId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="部門">
+              <Select value={deptId} onValueChange={setDeptId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">無</SelectItem>
+                  {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="專案">
+              <Select value={projectId} onValueChange={setProjectId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">無</SelectItem>
+                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="期限">
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly} />
+            </Field>
+            <Field label="進度 (%)">
+              <Input type="number" min={0} max={100} value={progress}
+                onChange={(e) => setProgress(Number(e.target.value))} disabled={readOnly} />
+            </Field>
+          </div>
+          {err && <div className="text-sm text-destructive">{err}</div>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            {readOnly ? "關閉" : "取消"}
+          </Button>
+          {!readOnly && (
+            <Button onClick={save} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
