@@ -612,16 +612,9 @@ function DocDetailDialog({
     setViewVersionId(null);
   };
 
-  const remove = async () => {
-    if (!doc) return;
-    if (!window.confirm(`確定刪除文件「${doc.title}」?所有版本將一併移除。`)) return;
-    await supabase.from("eip_document_version").delete().eq("document_id", doc.id);
-    const { error } = await supabase.from("eip_document").delete().eq("id", doc.id);
-    if (error) return toast.error(error.message);
-    toast.success("已刪除");
-    qc.invalidateQueries({ queryKey: ["eip_document"] });
-    onClose();
-  };
+  // 刪除走父層 AlertDialog,由 onAskDelete 觸發
+
+
 
   return (
     <Dialog open onOpenChange={onClose}>
