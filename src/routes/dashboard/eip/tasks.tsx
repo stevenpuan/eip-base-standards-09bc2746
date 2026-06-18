@@ -341,6 +341,7 @@ function TasksPage() {
             appUser={appUser}
             canManage={canManageEip(appUser?.role)}
             onChanged={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
+            onOpenDetail={(t) => setDetailTask(t)}
           />
         </TabsContent>
 
