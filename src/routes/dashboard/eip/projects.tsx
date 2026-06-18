@@ -82,8 +82,36 @@ function ProjectsPage() {
       return (data ?? []) as AppUser[];
     },
   });
+  const tasksQ = useQuery({
+    queryKey: ["eip", "all-project-tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task").select("id,project_id,status_id,progress").not("project_id", "is", null);
+      if (error) throw error;
+      return (data ?? []) as Pick<Task, "id" | "project_id" | "status_id" | "progress">[];
+    },
+  });
+  const statusesQ = useQuery({
+    queryKey: ["eip", "task-statuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task_status").select("id,is_done_state");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
+  const doneStatusIds = useMemo(() => new Set((statusesQ.data ?? []).filter((s: any) => s.is_done_state).map((s: any) => s.id as string)), [statusesQ.data]);
+  const progressByProject = useMemo(() => {
+    const m = new Map<string, { done: number; total: number }>();
+    for (const t of tasksQ.data ?? []) {
+      if (!t.project_id) continue;
+      const cur = m.get(t.project_id) ?? { done: 0, total: 0 };
+      cur.total += 1;
+      if (doneStatusIds.has(t.status_id) || (t.progress ?? 0) >= 100) cur.done += 1;
+      m.set(t.project_id, cur);
+    }
+    return m;
+  }, [tasksQ.data, doneStatusIds]);
 
   if (projectsQ.isLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
 
