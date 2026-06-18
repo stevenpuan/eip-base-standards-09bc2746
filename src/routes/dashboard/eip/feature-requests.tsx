@@ -426,11 +426,20 @@ function FeatureRequestsPage() {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell
-                    colSpan={9}
-                    className="py-10 text-center text-muted-foreground"
-                  >
-                    無符合條件的需求
+                  <TableCell colSpan={9} className="py-12 text-center">
+                    <div className="space-y-3">
+                      <div className="text-sm text-muted-foreground">
+                        {/* 若有套用任何篩選就提示篩選;否則引導新增 */}
+                        目前沒有需求,點「新增需求」提出第一個想法。
+                      </div>
+                      {appUser && (
+                        <Button size="sm" asChild>
+                          <Link to="/dashboard/eip/feature-requests/new">
+                            <Plus className="w-4 h-4" /> 新增需求
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
