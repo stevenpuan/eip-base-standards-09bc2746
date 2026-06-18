@@ -151,7 +151,16 @@ function ProjectsPage() {
           );
         })}
         {(projectsQ.data ?? []).length === 0 && (
-          <Card className="md:col-span-2 lg:col-span-3"><CardContent className="py-10 text-center text-muted-foreground">尚無專案</CardContent></Card>
+          <Card className="md:col-span-2 lg:col-span-3">
+            <CardContent className="py-12 text-center space-y-3">
+              <div className="text-sm text-muted-foreground">目前沒有專案,點「新增專案」建立第一個專案。</div>
+              {canCreate && (
+                <Button size="sm" onClick={() => setOpenCreate(true)}>
+                  <Plus className="w-4 h-4" /> 新增專案
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
 

@@ -2,6 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Inbox } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
@@ -45,12 +46,50 @@ type Row = {
 const TYPE_LABEL: Record<string, string> = {
   late: "遲到",
   leave: "請假",
-  event: "事件",
+  other: "事件",
+};
+const TYPE_COLOR: Record<string, string> = {
+  late: "bg-amber-100 text-amber-700 border-amber-300",
+  leave: "bg-blue-100 text-blue-700 border-blue-300",
+  other: "bg-slate-100 text-slate-700 border-slate-300",
 };
 const STATUS_LABEL: Record<string, string> = {
   open: "待處理",
-  acknowledged: "已確認",
+  acknowledged: "已處理",
+  done: "已處理",
+  closed: "已處理",
 };
+const DONE_STATUSES = new Set(["acknowledged", "done", "closed"]);
+
+function formatDateTimeZh(iso: string) {
+  const d = new Date(iso);
+  const date = `${d.getMonth() + 1}/${d.getDate()}`;
+  const time = d.toLocaleTimeString("zh-TW", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${date} ${time}`;
+}
+function formatLeave(from: string | null, to: string | null) {
+  if (!from && !to) return "—";
+  if (from && to) return `${formatDateTimeZh(from)} ～ ${formatDateTimeZh(to)}`;
+  return formatDateTimeZh((from ?? to) as string);
+}
+function formatEta(eta: string | null) {
+  if (!eta) return "—";
+  // eta 可能為 "HH:mm" 字串或完整 ISO
+  if (/^\d{2}:\d{2}/.test(eta)) return eta.slice(0, 5);
+  try {
+    return new Date(eta).toLocaleTimeString("zh-TW", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return eta;
+  }
+}
 
 function QuickReportsPage() {
   const { roles, loading: authLoading } = useAuth();
@@ -96,7 +135,11 @@ function QuickReportsPage() {
     const all = listQ.data ?? [];
     return all.filter((r) => {
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (statusFilter !== "all") {
+        if (statusFilter === "done") {
+          if (!DONE_STATUSES.has(r.status)) return false;
+        } else if (r.status !== statusFilter) return false;
+      }
       if (dateFilter && r.report_date !== dateFilter) return false;
       if (keyword) {
         const kw = keyword.toLowerCase();
@@ -117,9 +160,11 @@ function QuickReportsPage() {
       .update({ status: "acknowledged" })
       .eq("id", id);
     if (error) return toast.error(`更新失敗：${error.message}`);
-    toast.success("已確認");
+    toast.success("已標記為已處理");
     void listQ.refetch();
   };
+
+  const hasFilter = typeFilter !== "all" || statusFilter !== "all" || dateFilter || keyword;
 
   return (
     <div className="space-y-4">
@@ -132,7 +177,7 @@ function QuickReportsPage() {
             <SelectItem value="all">全部類型</SelectItem>
             <SelectItem value="late">遲到</SelectItem>
             <SelectItem value="leave">請假</SelectItem>
-            <SelectItem value="event">事件</SelectItem>
+            <SelectItem value="other">事件</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -140,7 +185,7 @@ function QuickReportsPage() {
           <SelectContent>
             <SelectItem value="all">全部狀態</SelectItem>
             <SelectItem value="open">待處理</SelectItem>
-            <SelectItem value="acknowledged">已確認</SelectItem>
+            <SelectItem value="done">已處理</SelectItem>
           </SelectContent>
         </Select>
         <Input
@@ -155,7 +200,7 @@ function QuickReportsPage() {
           onChange={(e) => setKeyword(e.target.value)}
           className="w-56"
         />
-        {(typeFilter !== "all" || statusFilter !== "all" || dateFilter || keyword) && (
+        {hasFilter && (
           <Button variant="ghost" size="sm" onClick={() => { setTypeFilter("all"); setStatusFilter("all"); setDateFilter(""); setKeyword(""); }}>
             清除
           </Button>
@@ -165,7 +210,14 @@ function QuickReportsPage() {
       {listQ.isLoading ? (
         <div className="text-muted-foreground py-12 text-center">載入中…</div>
       ) : rows.length === 0 ? (
-        <div className="text-muted-foreground py-12 text-center border rounded-md">尚無資料</div>
+        <div className="border rounded-md py-16 px-6 flex flex-col items-center text-center gap-3">
+          <Inbox className="w-10 h-10 text-muted-foreground/40" />
+          <div className="text-sm text-muted-foreground max-w-md">
+            {hasFilter
+              ? "沒有符合篩選條件的回報,試著清除篩選看看。"
+              : "目前沒有同仁回報。員工可點右下角「快速回報」提交遲到／請假／事件回報。"}
+          </div>
+        </div>
       ) : (
         <div className="border rounded-md overflow-hidden">
           <Table>
@@ -180,47 +232,60 @@ function QuickReportsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <Badge variant="outline">{TYPE_LABEL[r.type] ?? r.type}</Badge>
-                  </TableCell>
-                  <TableCell>{nameMap.get(r.submitter_id) ?? r.submitter_id}</TableCell>
-                  <TableCell className="max-w-md">
-                    {r.type === "late" && (
-                      <div className="text-sm">
-                        預計到達：{r.eta ?? "—"}
-                        {r.detail && <div className="text-muted-foreground">{r.detail}</div>}
+              {rows.map((r) => {
+                const isDone = DONE_STATUSES.has(r.status);
+                return (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <Badge variant="outline" className={TYPE_COLOR[r.type] ?? ""}>
+                        {TYPE_LABEL[r.type] ?? r.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{nameMap.get(r.submitter_id) ?? r.submitter_id}</TableCell>
+                    <TableCell className="max-w-md">
+                      {r.type === "late" && (
+                        <div className="text-sm">
+                          預計到達 {formatEta(r.eta)}
+                          {r.detail && <div className="text-muted-foreground text-xs mt-0.5">{r.detail}</div>}
+                        </div>
+                      )}
+                      {r.type === "leave" && (
+                        <div className="text-sm">
+                          {formatLeave(r.leave_from, r.leave_to)}
+                          {r.detail && <div className="text-muted-foreground text-xs mt-0.5">{r.detail}</div>}
+                        </div>
+                      )}
+                      {r.type === "other" && (
+                        <div className="text-sm">{r.detail ?? "—"}</div>
+                      )}
+                      {r.type !== "late" && r.type !== "leave" && r.type !== "other" && (
+                        <div className="text-sm text-muted-foreground">{r.detail ?? "—"}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">
+                      {r.report_date}
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(r.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
                       </div>
-                    )}
-                    {r.type === "leave" && (
-                      <div className="text-sm">
-                        {r.leave_from} ~ {r.leave_to}
-                        {r.detail && <div className="text-muted-foreground">{r.detail}</div>}
-                      </div>
-                    )}
-                    {r.type !== "late" && r.type !== "leave" && (
-                      <div className="text-sm text-muted-foreground">{r.detail ?? "—"}</div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    {r.report_date}
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(r.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={r.status === "acknowledged" ? "secondary" : "default"}>
-                      {STATUS_LABEL[r.status] ?? r.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {r.status !== "acknowledged" && (
-                      <Button size="sm" variant="outline" onClick={() => ack(r.id)}>確認</Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={isDone
+                          ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                          : "bg-amber-100 text-amber-700 border-amber-300"}
+                      >
+                        {STATUS_LABEL[r.status] ?? r.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!isDone && (
+                        <Button size="sm" variant="outline" onClick={() => ack(r.id)}>確認</Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

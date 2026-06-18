@@ -264,7 +264,20 @@ function MeetingsPage() {
               );
             })}
             {filtered.length === 0 && (
-              <Card><CardContent className="py-10 text-center text-muted-foreground">無符合條件的會議</CardContent></Card>
+              <Card>
+                <CardContent className="py-12 text-center space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    {keyword || statusFilter !== "all" || typeFilter !== "all"
+                      ? "沒有符合篩選條件的會議。"
+                      : "目前沒有會議,點右上「新增會議」建立第一場會議。"}
+                  </div>
+                  {canCreate && appUser && !(keyword || statusFilter !== "all" || typeFilter !== "all") && (
+                    <Button size="sm" onClick={() => setOpenCreate(true)}>
+                      <Plus className="w-4 h-4" /> 新增會議
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
         </TabsContent>

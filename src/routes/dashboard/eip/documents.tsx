@@ -273,8 +273,17 @@ function DocumentsPage() {
               {docsQ.isLoading ? (
                 <div className="text-muted-foreground py-12 text-center">載入中…</div>
               ) : filteredDocs.length === 0 ? (
-                <div className="text-muted-foreground py-12 text-center">
-                  尚無文件{search || typeFilter !== "all" || statusFilter !== "all" ? "(已套用篩選)" : ""}
+                <div className="py-12 text-center space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    {search || typeFilter !== "all" || statusFilter !== "all"
+                      ? "沒有符合篩選條件的文件。"
+                      : "此資料夾沒有文件,點「新增文件」上傳第一份文件。"}
+                  </div>
+                  {canCreate && !(search || typeFilter !== "all" || statusFilter !== "all") && (
+                    <Button size="sm" onClick={() => setEditingDoc("new")}>
+                      <Plus className="w-4 h-4 mr-1" /> 新增文件
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y">
