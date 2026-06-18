@@ -2363,6 +2363,10 @@ export type Database = {
         Returns: boolean
       }
       eip_run_recurring: { Args: { p_date?: string }; Returns: undefined }
+      eip_set_user_roles: {
+        Args: { p_role_ids: string[]; p_user_id: string }
+        Returns: undefined
+      }
       is_admin: { Args: { _uid: string }; Returns: boolean }
       redeem_invitation: { Args: { p_code: string }; Returns: string }
     }
