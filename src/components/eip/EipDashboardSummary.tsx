@@ -292,7 +292,7 @@ function MiniCard({
 }) {
   return (
     <Link to={to as any} className="block">
-      <Card className="hover:shadow-md transition-shadow">
+      <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
         <CardContent className="p-3">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {icon} {label}
