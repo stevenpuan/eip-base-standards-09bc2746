@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, FolderKanban, Download } from "lucide-react";
+import { Plus, FolderKanban, Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,9 +17,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/dashboard/eip/projects")({ component: ProjectsPage });
+
+function canManageProject(p: Project, appUser: AppUser | null): boolean {
+  if (!appUser) return false;
+  if (appUser.role === "company_admin" || appUser.role === "dept_manager") return true;
+  return p.owner_id === appUser.id;
+}
 
 type Project = Database["public"]["Tables"]["project"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
@@ -43,6 +56,9 @@ function ProjectsPage() {
   const { appUser } = useEipUser();
   const canCreate = canManageEip(appUser?.role);
   const [openCreate, setOpenCreate] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
   
 
   const projectsQ = useQuery({
@@ -80,28 +96,60 @@ function ProjectsPage() {
         }
       />
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {(projectsQ.data ?? []).map((p) => (
-          <Link key={p.id} to="/dashboard/eip/projects/$id" params={{ id: p.id }}>
-            <Card className="cursor-pointer hover:shadow-md transition-shadow">
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start gap-2">
-                  <FolderKanban className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{p.name}</div>
-                    {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
-                  </div>
-                  <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
-                    {PROJECT_STATUS_LABEL[p.status]}
-                  </Badge>
+        {(projectsQ.data ?? []).map((p) => {
+          const canManage = canManageProject(p, appUser);
+          return (
+            <div key={p.id} className="relative">
+              <Link to="/dashboard/eip/projects/$id" params={{ id: p.id }}>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <FolderKanban className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                      <div className="flex-1 min-w-0 pr-8">
+                        <div className="font-medium truncate">{p.name}</div>
+                        {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
+                      </div>
+                      <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
+                        {PROJECT_STATUS_LABEL[p.status]}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
+                      {p.end_date && <span>截止 {p.end_date}</span>}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              {canManage && (
+                <div className="absolute top-2 right-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground bg-background/80 backdrop-blur"
+                        aria-label="更多操作"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => { e.preventDefault(); setEditProject(p); }}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => { e.preventDefault(); setDeleteProject(p); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                  <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
-                  {p.end_date && <span>截止 {p.end_date}</span>}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+              )}
+            </div>
+          );
+        })}
         {(projectsQ.data ?? []).length === 0 && (
           <Card className="md:col-span-2 lg:col-span-3"><CardContent className="py-10 text-center text-muted-foreground">尚無專案</CardContent></Card>
         )}
@@ -113,9 +161,112 @@ function ProjectsPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
         />
       )}
+      {editProject && appUser && (
+        <EditProjectDialog
+          project={editProject} users={usersQ.data ?? []} onClose={() => setEditProject(null)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["eip", "projects-full"] }); setEditProject(null); }}
+        />
+      )}
+      <AlertDialog open={!!deleteProject} onOpenChange={(o) => !o && !deleting && setDeleteProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除專案？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteProject?.name}」,相關里程碑/成員紀錄可能一併移除。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteProject) return;
+                setDeleting(true);
+                const { error } = await supabase.from("project").delete().eq("id", deleteProject.id);
+                setDeleting(false);
+                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                toast.success("專案已刪除");
+                setDeleteProject(null);
+                qc.invalidateQueries({ queryKey: ["eip", "projects-full"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
+function EditProjectDialog({
+  project, users, onClose, onSaved,
+}: { project: Project; users: AppUser[]; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(project.name);
+  const [goal, setGoal] = useState(project.goal ?? "");
+  const [description, setDescription] = useState(project.description ?? "");
+  const [ownerId, setOwnerId] = useState(project.owner_id);
+  const [status, setStatus] = useState<ProjectStatus>(project.status);
+  const [startDate, setStartDate] = useState(project.start_date ?? "");
+  const [endDate, setEndDate] = useState(project.end_date ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error("請輸入專案名稱");
+    setBusy(true);
+    const { error } = await supabase.from("project").update({
+      name: name.trim(),
+      goal: goal.trim() || null,
+      description: description.trim() || null,
+      owner_id: ownerId,
+      status,
+      start_date: startDate || null,
+      end_date: endDate || null,
+    }).eq("id", project.id);
+    setBusy(false);
+    if (error) { toast.error(`儲存失敗：${error.message}`); return; }
+    toast.success("已儲存"); onSaved();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>編輯專案</DialogTitle></DialogHeader>
+        <div className="grid gap-3 py-2">
+          <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label="目標"><Input value={goal} onChange={(e) => setGoal(e.target.value)} /></Field>
+          <Field label="描述"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="負責人">
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="狀態">
+              <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PROJECT_STATUS_LABEL) as ProjectStatus[]).map((s) =>
+                    <SelectItem key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+            <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function CreateProjectDialog({
   open, onClose, appUser, users, onCreated,

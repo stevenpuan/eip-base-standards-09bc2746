@@ -8,7 +8,7 @@ import {
   Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -21,6 +21,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -79,14 +87,22 @@ const STATUS_COLOR: Record<string, string> = {
   archived: "bg-amber-100 text-amber-700",
 };
 
+function canEditDoc(d: Doc, role: string | undefined | null, uid: string | undefined | null): boolean {
+  if (!role || !uid) return false;
+  if (role === "company_admin" || role === "dept_manager") return true;
+  return d.owner_id === uid || d.created_by === uid;
+}
+function canDeleteDoc(d: Doc, role: string | undefined | null, uid: string | undefined | null): boolean {
+  if (!role || !uid) return false;
+  if (role === "company_admin") return true;
+  return d.owner_id === uid;
+}
+
 function DocumentsPage() {
   const qc = useQueryClient();
-  const { can } = useAuth();
   const { appUser } = useEipUser();
-  const isManager = canManageEip(appUser?.role) || can("eip_documents", "delete");
-  const canCreate = can("eip_documents", "create");
-  const canEdit = can("eip_documents", "edit");
-  const canDelete = can("eip_documents", "delete");
+  const isManager = canManageEip(appUser?.role);
+  const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -95,6 +111,8 @@ function DocumentsPage() {
 
   const [editingDoc, setEditingDoc] = useState<Doc | "new" | null>(null);
   const [detailDocId, setDetailDocId] = useState<string | null>(null);
+  const [deleteDoc, setDeleteDoc] = useState<Doc | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // 資料夾
   const foldersQ = useQuery({
@@ -260,33 +278,68 @@ function DocumentsPage() {
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredDocs.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => setDetailDocId(d.id)}
-                      className="w-full text-left p-4 hover:bg-accent/50 flex items-start gap-3"
-                    >
-                      <FileText className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium truncate">{d.title}</span>
-                          <Badge variant="secondary" className="text-[10px]">v{d.current_version}</Badge>
-                          <span className={cn("text-[10px] px-2 py-0.5 rounded-full", STATUS_COLOR[d.status])}>
-                            {STATUS_LABEL[d.status] ?? d.status}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {DOC_TYPE_LABEL[d.doc_type] ?? d.doc_type}
-                          </span>
-                        </div>
-                        {d.summary && (
-                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.summary}</div>
+                  {filteredDocs.map((d) => {
+                    const cE = canEditDoc(d, appUser?.role, appUser?.id);
+                    const cD = canDeleteDoc(d, appUser?.role, appUser?.id);
+                    return (
+                      <div key={d.id} className="relative">
+                        <button
+                          onClick={() => setDetailDocId(d.id)}
+                          className="w-full text-left p-4 hover:bg-accent/50 flex items-start gap-3"
+                        >
+                          <FileText className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1 pr-10">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium truncate">{d.title}</span>
+                              <Badge variant="secondary" className="text-[10px]">v{d.current_version}</Badge>
+                              <span className={cn("text-[10px] px-2 py-0.5 rounded-full", STATUS_COLOR[d.status])}>
+                                {STATUS_LABEL[d.status] ?? d.status}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {DOC_TYPE_LABEL[d.doc_type] ?? d.doc_type}
+                              </span>
+                            </div>
+                            {d.summary && (
+                              <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.summary}</div>
+                            )}
+                            <div className="text-[11px] text-muted-foreground mt-1">
+                              負責人:{userMap.get(d.owner_id ?? "") ?? "—"} · 更新於 {new Date(d.updated_at).toLocaleString()}
+                            </div>
+                          </div>
+                        </button>
+                        {(cE || cD) && (
+                          <div className="absolute top-3 right-3">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"
+                                  aria-label="更多操作"
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {cE && (
+                                  <DropdownMenuItem onClick={() => setEditingDoc(d)}>
+                                    <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                                  </DropdownMenuItem>
+                                )}
+                                {cD && (
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setDeleteDoc(d)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         )}
-                        <div className="text-[11px] text-muted-foreground mt-1">
-                          負責人:{userMap.get(d.owner_id ?? "") ?? "—"} · 更新於 {new Date(d.updated_at).toLocaleString()}
-                        </div>
                       </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -300,9 +353,9 @@ function DocumentsPage() {
           docId={detailDocId}
           onClose={() => setDetailDocId(null)}
           onEdit={(doc) => { setDetailDocId(null); setEditingDoc(doc); }}
+          onAskDelete={(doc) => { setDetailDocId(null); setDeleteDoc(doc); }}
           userMap={userMap}
-          canEdit={canEdit}
-          canDelete={canDelete}
+          appUser={appUser}
         />
       )}
 
@@ -320,6 +373,38 @@ function DocumentsPage() {
           onClose={() => setEditingDoc(null)}
         />
       )}
+
+      <AlertDialog open={!!deleteDoc} onOpenChange={(o) => !o && !deleting && setDeleteDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除文件？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteDoc?.title}」,所有版本將一併移除。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteDoc) return;
+                setDeleting(true);
+                await supabase.from("eip_document_version").delete().eq("document_id", deleteDoc.id);
+                const { error } = await supabase.from("eip_document").delete().eq("id", deleteDoc.id);
+                setDeleting(false);
+                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                toast.success("文件已刪除");
+                setDeleteDoc(null);
+                qc.invalidateQueries({ queryKey: ["eip_document"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -464,10 +549,10 @@ function FolderRow({
 // ============ 詳情對話框 ============
 
 function DocDetailDialog({
-  docId, onClose, onEdit, userMap, canEdit, canDelete,
+  docId, onClose, onEdit, onAskDelete, userMap, appUser,
 }: {
-  docId: string; onClose: () => void; onEdit: (d: Doc) => void;
-  userMap: Map<string, string>; canEdit: boolean; canDelete: boolean;
+  docId: string; onClose: () => void; onEdit: (d: Doc) => void; onAskDelete: (d: Doc) => void;
+  userMap: Map<string, string>; appUser: { id: string; role: string } | null;
 }) {
   const qc = useQueryClient();
   const [showHistory, setShowHistory] = useState(false);
@@ -498,6 +583,8 @@ function DocDetailDialog({
   const viewing = viewVersionId
     ? versions.find((v) => v.id === viewVersionId)
     : versions.find((v) => v.version_no === doc?.current_version) ?? versions[0];
+  const canEdit = doc ? canEditDoc(doc, appUser?.role, appUser?.id) : false;
+  const canDelete = doc ? canDeleteDoc(doc, appUser?.role, appUser?.id) : false;
 
   const publish = async (status: string) => {
     if (!doc) return;
@@ -527,16 +614,9 @@ function DocDetailDialog({
     setViewVersionId(null);
   };
 
-  const remove = async () => {
-    if (!doc) return;
-    if (!window.confirm(`確定刪除文件「${doc.title}」?所有版本將一併移除。`)) return;
-    await supabase.from("eip_document_version").delete().eq("document_id", doc.id);
-    const { error } = await supabase.from("eip_document").delete().eq("id", doc.id);
-    if (error) return toast.error(error.message);
-    toast.success("已刪除");
-    qc.invalidateQueries({ queryKey: ["eip_document"] });
-    onClose();
-  };
+  // 刪除走父層 AlertDialog,由 onAskDelete 觸發
+
+
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -628,7 +708,7 @@ function DocDetailDialog({
                 <Button variant="outline" onClick={() => void publish("published")}>還原為已發布</Button>
               )}
               {canEdit && <Button onClick={() => onEdit(doc)}><Pencil className="w-4 h-4 mr-1" /> 編輯內容</Button>}
-              {canDelete && <Button variant="destructive" onClick={() => void remove()}><Trash2 className="w-4 h-4 mr-1" /> 刪除</Button>}
+              {canDelete && <Button variant="destructive" onClick={() => onAskDelete(doc)}><Trash2 className="w-4 h-4 mr-1" /> 刪除</Button>}
               <Button variant="ghost" onClick={onClose}>關閉</Button>
             </DialogFooter>
           </>

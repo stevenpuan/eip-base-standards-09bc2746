@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, CalendarDays, Download } from "lucide-react";
+import { Plus, CalendarDays, Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,8 +17,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Database } from "@/integrations/supabase/types";
+
+function canManageMeeting(m: Meeting, appUser: AppUser | null): boolean {
+  if (!appUser) return false;
+  if (appUser.role === "company_admin" || appUser.role === "dept_manager") return true;
+  return m.created_by === appUser.id;
+}
 
 export const Route = createFileRoute("/dashboard/eip/meetings")({ component: MeetingsPage });
 
@@ -37,6 +50,8 @@ function MeetingsPage() {
 
   const [openCreate, setOpenCreate] = useState(false);
   const [selected, setSelected] = useState<Meeting | null>(null);
+  const [deleteMeeting, setDeleteMeeting] = useState<Meeting | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const meetingsQ = useQuery({
     queryKey: ["eip", "meetings"],
@@ -100,23 +115,51 @@ function MeetingsPage() {
         </TabsList>
         <TabsContent value="list">
           <div className="space-y-2">
-            {(meetingsQ.data ?? []).map((m) => (
-              <Card key={m.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(m)}>
-                <CardContent className="p-3 flex items-center gap-3">
-                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{m.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(m.meeting_date).toLocaleString("zh-TW")}
-                      {m.location && ` ・ ${m.location}`}
+            {(meetingsQ.data ?? []).map((m) => {
+              const canManage = canManageMeeting(m, appUser);
+              return (
+                <Card key={m.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(m)}>
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{m.title}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(m.meeting_date).toLocaleString("zh-TW")}
+                        {m.location && ` ・ ${m.location}`}
+                      </div>
                     </div>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {userMap.get(m.created_by)?.name ?? "—"}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
+                    <Badge variant="outline" className="text-xs">
+                      {userMap.get(m.created_by)?.name ?? "—"}
+                    </Badge>
+                    {canManage && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"
+                            aria-label="更多操作"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelected(m); }}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); setDeleteMeeting(m); }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
             {(meetingsQ.data ?? []).length === 0 && (
               <Card><CardContent className="py-10 text-center text-muted-foreground">尚無會議</CardContent></Card>
             )}
@@ -142,9 +185,43 @@ function MeetingsPage() {
           meeting={selected}
           users={usersQ.data ?? []}
           appUser={appUser}
+          canManage={canManageMeeting(selected, appUser)}
+          onAskDelete={() => setDeleteMeeting(selected)}
           onClose={() => setSelected(null)}
         />
       )}
+
+      <AlertDialog open={!!deleteMeeting} onOpenChange={(o) => !o && !deleting && setDeleteMeeting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除會議？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteMeeting?.title}」,相關議程與行動項目可能一併移除。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteMeeting) return;
+                setDeleting(true);
+                const { error } = await supabase.from("meeting").delete().eq("id", deleteMeeting.id);
+                setDeleting(false);
+                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                toast.success("會議已刪除");
+                if (selected?.id === deleteMeeting.id) setSelected(null);
+                setDeleteMeeting(null);
+                qc.invalidateQueries({ queryKey: ["eip", "meetings"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -241,8 +318,11 @@ function CreateMeetingDialog({
 }
 
 function MeetingDetailDialog({
-  meeting, users, appUser, onClose,
-}: { meeting: Meeting; users: AppUser[]; appUser: AppUser | null; onClose: () => void }) {
+  meeting, users, appUser, canManage, onAskDelete, onClose,
+}: {
+  meeting: Meeting; users: AppUser[]; appUser: AppUser | null;
+  canManage: boolean; onAskDelete: () => void; onClose: () => void;
+}) {
   const qc = useQueryClient();
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
@@ -267,15 +347,33 @@ function MeetingDetailDialog({
     },
   });
 
+  const localDate = (iso: string) => {
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  const [title, setTitle] = useState(meeting.title);
+  const [dateStr, setDateStr] = useState(localDate(meeting.meeting_date));
+  const [location, setLocation] = useState(meeting.location ?? "");
+  const [agenda, setAgenda] = useState(meeting.agenda ?? "");
   const [notes, setNotes] = useState(meeting.notes ?? "");
   const [newItem, setNewItem] = useState("");
   const [newOwner, setNewOwner] = useState<string>(appUser?.id ?? "none");
   const [newDue, setNewDue] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const saveNotes = async () => {
-    const { error } = await supabase.from("meeting").update({ notes }).eq("id", meeting.id);
+  const saveAll = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("meeting").update({
+      title: title.trim(),
+      meeting_date: new Date(dateStr).toISOString(),
+      location: location.trim() || null,
+      agenda: agenda.trim() || null,
+      notes,
+    }).eq("id", meeting.id);
+    setSaving(false);
     if (error) toast.error(`儲存失敗：${error.message}`);
-    else { toast.success("會議紀錄已儲存"); qc.invalidateQueries({ queryKey: ["eip", "meetings"] }); }
+    else { toast.success("已儲存"); qc.invalidateQueries({ queryKey: ["eip", "meetings"] }); onClose(); }
   };
 
   const addItem = async () => {
@@ -327,21 +425,34 @@ function MeetingDetailDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{meeting.title}</DialogTitle>
+          <DialogTitle>{canManage ? "編輯會議" : meeting.title}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2 max-h-[70vh] overflow-y-auto pr-1">
-          <div className="text-sm text-muted-foreground">
-            {new Date(meeting.meeting_date).toLocaleString("zh-TW")}
-            {meeting.location && ` ・ ${meeting.location}`}
-          </div>
-          {meeting.agenda && (
-            <div>
-              <div className="text-xs font-semibold text-muted-foreground mb-1">議程備註</div>
-              <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/40 p-2">{meeting.agenda}</div>
-            </div>
+          {canManage ? (
+            <>
+              <Field label="標題"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="時間"><Input type="datetime-local" value={dateStr} onChange={(e) => setDateStr(e.target.value)} /></Field>
+                <Field label="地點"><Input value={location} onChange={(e) => setLocation(e.target.value)} /></Field>
+              </div>
+              <Field label="議程備註"><Textarea rows={3} value={agenda} onChange={(e) => setAgenda(e.target.value)} /></Field>
+            </>
+          ) : (
+            <>
+              <div className="text-sm text-muted-foreground">
+                {new Date(meeting.meeting_date).toLocaleString("zh-TW")}
+                {meeting.location && ` ・ ${meeting.location}`}
+              </div>
+              {meeting.agenda && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-1">議程備註</div>
+                  <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/40 p-2">{meeting.agenda}</div>
+                </div>
+              )}
+            </>
           )}
           {appUser && (
-            <StructuredAgenda meetingId={meeting.id} tenantId={meeting.tenant_id} users={users} />
+            <StructuredAgenda meetingId={meeting.id} tenantId={meeting.tenant_id} users={users} canManage={canManage} />
           )}
           <div>
             <div className="text-xs font-semibold text-muted-foreground mb-1">與會者</div>
@@ -355,11 +466,12 @@ function MeetingDetailDialog({
             </div>
           </div>
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label className="text-xs font-semibold text-muted-foreground">會議紀錄</Label>
-              <Button size="sm" variant="outline" onClick={saveNotes}>儲存紀錄</Button>
-            </div>
-            <Textarea rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Label className="text-xs font-semibold text-muted-foreground mb-1 block">會議紀錄</Label>
+            {canManage ? (
+              <Textarea rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            ) : (
+              <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/40 p-2 min-h-[40px]">{notes || <span className="text-muted-foreground">(尚無紀錄)</span>}</div>
+            )}
           </div>
           <div>
             <div className="text-xs font-semibold text-muted-foreground mb-2">行動項目</div>
@@ -393,20 +505,33 @@ function MeetingDetailDialog({
                 <div className="text-xs text-muted-foreground py-2 text-center">尚無行動項目</div>
               )}
             </div>
-            <div className="mt-2 flex gap-2">
-              <Input placeholder="新增行動項目…" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
-              <Select value={newOwner} onValueChange={setNewOwner}>
-                <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">未指派</SelectItem>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Input type="date" className="w-[150px]" value={newDue} onChange={(e) => setNewDue(e.target.value)} />
-              <Button onClick={addItem}>新增</Button>
-            </div>
+            {canManage && (
+              <div className="mt-2 flex gap-2">
+                <Input placeholder="新增行動項目…" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
+                <Select value={newOwner} onValueChange={setNewOwner}>
+                  <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">未指派</SelectItem>
+                    {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="date" className="w-[150px]" value={newDue} onChange={(e) => setNewDue(e.target.value)} />
+                <Button onClick={addItem}>新增</Button>
+              </div>
+            )}
           </div>
         </div>
+        <DialogFooter className="gap-2 flex-wrap">
+          {canManage && (
+            <Button variant="destructive" onClick={onAskDelete} disabled={saving}>
+              <Trash2 className="w-4 h-4 mr-1" /> 刪除
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose} disabled={saving}>關閉</Button>
+          {canManage && (
+            <Button onClick={saveAll} disabled={saving}>{saving ? "儲存中…" : "儲存"}</Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -546,7 +671,7 @@ function ActionItemsTracker({ meetings, users, userMap }: { meetings: Meeting[];
   );
 }
 
-function StructuredAgenda({ meetingId, tenantId, users }: { meetingId: string; tenantId: string; users: AppUser[] }) {
+function StructuredAgenda({ meetingId, tenantId, users, canManage }: { meetingId: string; tenantId: string; users: AppUser[]; canManage: boolean }) {
   const qc = useQueryClient();
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const itemsQ = useQuery({
@@ -609,25 +734,27 @@ function StructuredAgenda({ meetingId, tenantId, users }: { meetingId: string; t
                 {it.notes && ` ・ ${it.notes}`}
               </div>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => move(it, -1)} disabled={i === 0}>↑</Button>
-            <Button size="sm" variant="ghost" onClick={() => move(it, 1)} disabled={i === items.length - 1}>↓</Button>
-            <Button size="sm" variant="ghost" onClick={() => remove(it.id)} className="text-destructive">刪</Button>
+            {canManage && <Button size="sm" variant="ghost" onClick={() => move(it, -1)} disabled={i === 0}>↑</Button>}
+            {canManage && <Button size="sm" variant="ghost" onClick={() => move(it, 1)} disabled={i === items.length - 1}>↓</Button>}
+            {canManage && <Button size="sm" variant="ghost" onClick={() => remove(it.id)} className="text-destructive">刪</Button>}
           </div>
         ))}
         {items.length === 0 && <div className="text-xs text-muted-foreground py-1">尚無議程項目</div>}
       </div>
-      <div className="mt-2 flex gap-2">
-        <Input placeholder="議題標題…" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <Input type="number" className="w-20" value={mins} onChange={(e) => setMins(e.target.value)} placeholder="分鐘" />
-        <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">未指派</SelectItem>
-            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button onClick={add}>新增</Button>
-      </div>
+      {canManage && (
+        <div className="mt-2 flex gap-2">
+          <Input placeholder="議題標題…" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input type="number" className="w-20" value={mins} onChange={(e) => setMins(e.target.value)} placeholder="分鐘" />
+          <Select value={owner} onValueChange={setOwner}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">未指派</SelectItem>
+              {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button onClick={add}>新增</Button>
+        </div>
+      )}
     </div>
   );
 }
