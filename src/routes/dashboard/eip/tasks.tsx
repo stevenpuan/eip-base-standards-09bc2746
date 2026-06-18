@@ -615,7 +615,11 @@ function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpe
       className="cursor-pointer hover:shadow-md transition-shadow">
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start gap-2">
-          <GripVertical className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
+          <GripVertical
+            className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium leading-snug line-clamp-2">{task.title}</div>
           </div>
