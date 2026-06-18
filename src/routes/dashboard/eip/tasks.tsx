@@ -344,6 +344,57 @@ function TasksPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
         />
       )}
+
+      {detailTask && (
+        <EditTaskDialog
+          key={detailTask.id}
+          task={detailTask}
+          readOnly={!canEditTask(detailTask, appUser)}
+          onClose={() => setDetailTask(null)}
+          statuses={statusesQ.data ?? []}
+          users={usersQ.data ?? []}
+          departments={deptsQ.data ?? []}
+          projects={projectsQ.data ?? []}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+            setDetailTask(null);
+          }}
+        />
+      )}
+
+      <AlertDialog open={!!deleteTask} onOpenChange={(o) => !o && !deleting && setDeleteTask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除任務？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteTask?.title}」。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteTask) return;
+                setDeleting(true);
+                const { error } = await supabase.from("task").delete().eq("id", deleteTask.id);
+                setDeleting(false);
+                if (error) {
+                  toast.error(`刪除失敗：${error.message}`);
+                  return;
+                }
+                toast.success("任務已刪除");
+                setDeleteTask(null);
+                qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
