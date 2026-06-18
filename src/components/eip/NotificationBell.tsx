@@ -106,9 +106,14 @@ export function NotificationBell() {
                 <li key={n.id}>
                   <button
                     onClick={() => handleClick(n)}
-                    className={`w-full text-left px-3 py-2 hover:bg-accent/50 ${n.is_read ? "" : "bg-accent/30"}`}
+                    className={`w-full text-left px-3 py-2 hover:bg-accent/50 transition-colors ${
+                      n.is_read ? "opacity-70" : "bg-accent/40 border-l-2 border-primary"
+                    }`}
                   >
-                    <div className="text-sm leading-snug">{n.message}</div>
+                    <div className={`text-sm leading-snug ${n.is_read ? "" : "font-semibold"}`}>
+                      {!n.is_read && <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mr-1.5 align-middle" />}
+                      {n.message}
+                    </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5">
                       {new Date(n.created_at).toLocaleString("zh-TW")}
                     </div>
