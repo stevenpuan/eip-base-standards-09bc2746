@@ -583,6 +583,8 @@ function DocDetailDialog({
   const viewing = viewVersionId
     ? versions.find((v) => v.id === viewVersionId)
     : versions.find((v) => v.version_no === doc?.current_version) ?? versions[0];
+  const canEdit = doc ? canEditDoc(doc, appUser?.role, appUser?.id) : false;
+  const canDelete = doc ? canDeleteDoc(doc, appUser?.role, appUser?.id) : false;
 
   const publish = async (status: string) => {
     if (!doc) return;
