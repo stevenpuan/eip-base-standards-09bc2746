@@ -59,11 +59,6 @@ export function DocPage({ docKey, title, description }: { docKey: string; title:
       ) : (
         <DocRenderer content={content} />
       )}
-      <Card className="hidden">
-        <CardContent />
-
-        </CardContent>
-      </Card>
     </div>
   );
 }
