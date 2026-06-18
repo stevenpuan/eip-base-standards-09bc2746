@@ -456,12 +456,15 @@ function MiniSelect({ value, onChange, options }: {
 
 /* ============ 看板視圖 ============ */
 function BoardView({
-  tasks, statuses, userMap, subtaskMap, onMove,
+  tasks, statuses, userMap, subtaskMap, appUser, onMove, onOpenDetail, onAskDelete,
 }: {
   tasks: Task[]; statuses: Status[];
   userMap: Map<string, AppUser>;
   subtaskMap: Map<string, { total: number; done: number }>;
+  appUser: AppUser | null;
   onMove: (taskId: string, toStatusId: string, newPosition: number) => void;
+  onOpenDetail: (t: Task) => void;
+  onAskDelete: (t: Task) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -504,7 +507,11 @@ function BoardView({
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleColumnDrop(s.id, t.id); }}>
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
                     subtask={subtaskMap.get(t.id)}
-                    onDragStart={() => setDragId(t.id)} />
+                    canEdit={canEditTask(t, appUser)}
+                    canDelete={canDeleteTask(t, appUser)}
+                    onDragStart={() => setDragId(t.id)}
+                    onOpenDetail={() => onOpenDetail(t)}
+                    onAskDelete={() => onAskDelete(t)} />
                 </div>
               ))}
               {list.length === 0 && (
@@ -520,21 +527,26 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, subtask, onDragStart }: {
+function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
   task: Task; owner?: AppUser;
   subtask?: { total: number; done: number };
+  canEdit: boolean; canDelete: boolean;
   onDragStart: () => void;
+  onOpenDetail: () => void;
+  onAskDelete: () => void;
 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const overdue = task.due_date &&
     new Date(task.due_date) < new Date(new Date().toDateString()) && task.progress < 100;
   const initial = owner?.name ? owner.name.slice(0, 1) : "?";
+  const showMenu = canEdit || canDelete;
   return (
     <Card draggable onDragStart={onDragStart}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow">
+      onClick={onOpenDetail}
+      className="cursor-pointer hover:shadow-md transition-shadow">
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start gap-2">
-          <GripVertical className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+          <GripVertical className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium leading-snug line-clamp-2">{task.title}</div>
           </div>
@@ -544,6 +556,35 @@ function TaskCard({ task, owner, subtask, onDragStart }: {
           <Badge className={`text-[10px] ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
             {PRIORITY_LABEL[task.priority]}
           </Badge>
+          {showMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground shrink-0"
+                  aria-label="更多操作"
+                >
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                {canEdit && (
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}>
+                    <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); onAskDelete(); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5 min-w-0">
