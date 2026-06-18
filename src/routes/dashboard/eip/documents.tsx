@@ -515,7 +515,7 @@ function FolderNode({
         <span className="truncate flex-1">{folder.name}</span>
         <span className="text-[10px] text-muted-foreground">{docCount}</span>
         {isManager && (
-          <span className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+          <span className="lg:opacity-0 lg:group-hover:opacity-100 flex items-center gap-0.5">
             <button title="新增子資料夾" className="p-0.5 hover:text-foreground" onClick={(e) => { e.stopPropagation(); void promptCreateFolder(folder.id, tenantId, qc); }}>
               <FolderPlus className="w-3.5 h-3.5" />
             </button>
