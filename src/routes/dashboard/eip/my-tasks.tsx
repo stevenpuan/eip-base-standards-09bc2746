@@ -90,6 +90,7 @@ function MyTasksPage() {
 }
 
 function TaskList({ tasks, statusMap }: { tasks: Task[]; statusMap: Map<string, Status> }) {
+  const navigate = useNavigate();
   if (!tasks.length) {
     return (
       <Card>
@@ -104,12 +105,14 @@ function TaskList({ tasks, statusMap }: { tasks: Task[]; statusMap: Map<string, 
         const overdue =
           t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()) && t.progress < 100;
         return (
-          <Card key={t.id}>
+          <Card
+            key={t.id}
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate({ to: "/dashboard/eip/tasks", search: { openTask: t.id } })}
+          >
             <CardContent className="p-3 flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">
-                  <Link to="/dashboard/eip/tasks" className="hover:underline">{t.title}</Link>
-                </div>
+                <div className="text-sm font-medium truncate">{t.title}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {status?.name ?? "—"}
                   {t.due_date && (
