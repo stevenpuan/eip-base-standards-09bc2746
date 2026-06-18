@@ -178,14 +178,6 @@ function AnnouncementsPage() {
           onSaved={refetchList}
         />
       )}
-      {selected && appUser && (
-        <AnnouncementDetailDialog
-          announcement={selected} appUser={appUser} users={usersQ.data ?? []}
-          onClose={() => setSelected(null)}
-          onEdit={() => { setEditing(selected); setSelected(null); }}
-          onDelete={() => { setDeleting(selected); }}
-        />
-      )}
 
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && !deleteBusy && setDeleting(null)}>
         <AlertDialogContent>
