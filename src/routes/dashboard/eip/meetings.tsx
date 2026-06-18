@@ -318,8 +318,11 @@ function CreateMeetingDialog({
 }
 
 function MeetingDetailDialog({
-  meeting, users, appUser, onClose,
-}: { meeting: Meeting; users: AppUser[]; appUser: AppUser | null; onClose: () => void }) {
+  meeting, users, appUser, canManage, onAskDelete, onClose,
+}: {
+  meeting: Meeting; users: AppUser[]; appUser: AppUser | null;
+  canManage: boolean; onAskDelete: () => void; onClose: () => void;
+}) {
   const qc = useQueryClient();
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
@@ -344,15 +347,33 @@ function MeetingDetailDialog({
     },
   });
 
+  const localDate = (iso: string) => {
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  const [title, setTitle] = useState(meeting.title);
+  const [dateStr, setDateStr] = useState(localDate(meeting.meeting_date));
+  const [location, setLocation] = useState(meeting.location ?? "");
+  const [agenda, setAgenda] = useState(meeting.agenda ?? "");
   const [notes, setNotes] = useState(meeting.notes ?? "");
   const [newItem, setNewItem] = useState("");
   const [newOwner, setNewOwner] = useState<string>(appUser?.id ?? "none");
   const [newDue, setNewDue] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const saveNotes = async () => {
-    const { error } = await supabase.from("meeting").update({ notes }).eq("id", meeting.id);
+  const saveAll = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("meeting").update({
+      title: title.trim(),
+      meeting_date: new Date(dateStr).toISOString(),
+      location: location.trim() || null,
+      agenda: agenda.trim() || null,
+      notes,
+    }).eq("id", meeting.id);
+    setSaving(false);
     if (error) toast.error(`儲存失敗：${error.message}`);
-    else { toast.success("會議紀錄已儲存"); qc.invalidateQueries({ queryKey: ["eip", "meetings"] }); }
+    else { toast.success("已儲存"); qc.invalidateQueries({ queryKey: ["eip", "meetings"] }); onClose(); }
   };
 
   const addItem = async () => {
@@ -404,21 +425,34 @@ function MeetingDetailDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{meeting.title}</DialogTitle>
+          <DialogTitle>{canManage ? "編輯會議" : meeting.title}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2 max-h-[70vh] overflow-y-auto pr-1">
-          <div className="text-sm text-muted-foreground">
-            {new Date(meeting.meeting_date).toLocaleString("zh-TW")}
-            {meeting.location && ` ・ ${meeting.location}`}
-          </div>
-          {meeting.agenda && (
-            <div>
-              <div className="text-xs font-semibold text-muted-foreground mb-1">議程備註</div>
-              <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/40 p-2">{meeting.agenda}</div>
-            </div>
+          {canManage ? (
+            <>
+              <Field label="標題"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="時間"><Input type="datetime-local" value={dateStr} onChange={(e) => setDateStr(e.target.value)} /></Field>
+                <Field label="地點"><Input value={location} onChange={(e) => setLocation(e.target.value)} /></Field>
+              </div>
+              <Field label="議程備註"><Textarea rows={3} value={agenda} onChange={(e) => setAgenda(e.target.value)} /></Field>
+            </>
+          ) : (
+            <>
+              <div className="text-sm text-muted-foreground">
+                {new Date(meeting.meeting_date).toLocaleString("zh-TW")}
+                {meeting.location && ` ・ ${meeting.location}`}
+              </div>
+              {meeting.agenda && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-1">議程備註</div>
+                  <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/40 p-2">{meeting.agenda}</div>
+                </div>
+              )}
+            </>
           )}
           {appUser && (
-            <StructuredAgenda meetingId={meeting.id} tenantId={meeting.tenant_id} users={users} />
+            <StructuredAgenda meetingId={meeting.id} tenantId={meeting.tenant_id} users={users} canManage={canManage} />
           )}
           <div>
             <div className="text-xs font-semibold text-muted-foreground mb-1">與會者</div>
@@ -432,11 +466,12 @@ function MeetingDetailDialog({
             </div>
           </div>
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label className="text-xs font-semibold text-muted-foreground">會議紀錄</Label>
-              <Button size="sm" variant="outline" onClick={saveNotes}>儲存紀錄</Button>
-            </div>
-            <Textarea rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Label className="text-xs font-semibold text-muted-foreground mb-1 block">會議紀錄</Label>
+            {canManage ? (
+              <Textarea rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            ) : (
+              <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/40 p-2 min-h-[40px]">{notes || <span className="text-muted-foreground">(尚無紀錄)</span>}</div>
+            )}
           </div>
           <div>
             <div className="text-xs font-semibold text-muted-foreground mb-2">行動項目</div>
@@ -470,20 +505,33 @@ function MeetingDetailDialog({
                 <div className="text-xs text-muted-foreground py-2 text-center">尚無行動項目</div>
               )}
             </div>
-            <div className="mt-2 flex gap-2">
-              <Input placeholder="新增行動項目…" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
-              <Select value={newOwner} onValueChange={setNewOwner}>
-                <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">未指派</SelectItem>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Input type="date" className="w-[150px]" value={newDue} onChange={(e) => setNewDue(e.target.value)} />
-              <Button onClick={addItem}>新增</Button>
-            </div>
+            {canManage && (
+              <div className="mt-2 flex gap-2">
+                <Input placeholder="新增行動項目…" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
+                <Select value={newOwner} onValueChange={setNewOwner}>
+                  <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">未指派</SelectItem>
+                    {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="date" className="w-[150px]" value={newDue} onChange={(e) => setNewDue(e.target.value)} />
+                <Button onClick={addItem}>新增</Button>
+              </div>
+            )}
           </div>
         </div>
+        <DialogFooter className="gap-2 flex-wrap">
+          {canManage && (
+            <Button variant="destructive" onClick={onAskDelete} disabled={saving}>
+              <Trash2 className="w-4 h-4 mr-1" /> 刪除
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose} disabled={saving}>關閉</Button>
+          {canManage && (
+            <Button onClick={saveAll} disabled={saving}>{saving ? "儲存中…" : "儲存"}</Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
