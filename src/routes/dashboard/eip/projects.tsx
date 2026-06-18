@@ -56,6 +56,9 @@ function ProjectsPage() {
   const { appUser } = useEipUser();
   const canCreate = canManageEip(appUser?.role);
   const [openCreate, setOpenCreate] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
   
 
   const projectsQ = useQuery({
