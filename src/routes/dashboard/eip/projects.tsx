@@ -96,28 +96,60 @@ function ProjectsPage() {
         }
       />
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {(projectsQ.data ?? []).map((p) => (
-          <Link key={p.id} to="/dashboard/eip/projects/$id" params={{ id: p.id }}>
-            <Card className="cursor-pointer hover:shadow-md transition-shadow">
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start gap-2">
-                  <FolderKanban className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{p.name}</div>
-                    {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
-                  </div>
-                  <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
-                    {PROJECT_STATUS_LABEL[p.status]}
-                  </Badge>
+        {(projectsQ.data ?? []).map((p) => {
+          const canManage = canManageProject(p, appUser);
+          return (
+            <div key={p.id} className="relative">
+              <Link to="/dashboard/eip/projects/$id" params={{ id: p.id }}>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <FolderKanban className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                      <div className="flex-1 min-w-0 pr-8">
+                        <div className="font-medium truncate">{p.name}</div>
+                        {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
+                      </div>
+                      <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
+                        {PROJECT_STATUS_LABEL[p.status]}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
+                      {p.end_date && <span>截止 {p.end_date}</span>}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              {canManage && (
+                <div className="absolute top-2 right-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground bg-background/80 backdrop-blur"
+                        aria-label="更多操作"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => { e.preventDefault(); setEditProject(p); }}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => { e.preventDefault(); setDeleteProject(p); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                  <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
-                  {p.end_date && <span>截止 {p.end_date}</span>}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+              )}
+            </div>
+          );
+        })}
         {(projectsQ.data ?? []).length === 0 && (
           <Card className="md:col-span-2 lg:col-span-3"><CardContent className="py-10 text-center text-muted-foreground">尚無專案</CardContent></Card>
         )}
@@ -129,6 +161,42 @@ function ProjectsPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
         />
       )}
+      {editProject && appUser && (
+        <EditProjectDialog
+          project={editProject} users={usersQ.data ?? []} onClose={() => setEditProject(null)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["eip", "projects-full"] }); setEditProject(null); }}
+        />
+      )}
+      <AlertDialog open={!!deleteProject} onOpenChange={(o) => !o && !deleting && setDeleteProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除專案？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteProject?.name}」,相關里程碑/成員紀錄可能一併移除。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteProject) return;
+                setDeleting(true);
+                const { error } = await supabase.from("project").delete().eq("id", deleteProject.id);
+                setDeleting(false);
+                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                toast.success("專案已刪除");
+                setDeleteProject(null);
+                qc.invalidateQueries({ queryKey: ["eip", "projects-full"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
