@@ -74,55 +74,42 @@ function AssistantPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messagesQ.data, optimistic, sending]);
 
-  const fetchMessages = async (cid: string) => {
-    const { data, error } = await supabase
-      .from("eip_assistant_message")
-      .select("*")
-      .eq("conversation_id", cid)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as Message[];
-  };
-
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || sending) return;
     setError(null);
     setInput("");
     setSending(true);
+    const prevConversationId = conversationId;
     const userMsg: PendingMsg = { id: `u-${Date.now()}`, role: "user", content };
     const thinkingMsg: PendingMsg = { id: `a-${Date.now()}`, role: "assistant", content: "思考中…", pending: true };
     setOptimistic((prev) => [...prev, userMsg, thinkingMsg]);
     try {
-      const { data, error } = await supabase.functions.invoke("eip-assistant", {
-        body: { conversation_id: conversationId, user_message: content },
+      const invokePromise = supabase.functions.invoke("eip-assistant", {
+        body: { conversation_id: prevConversationId, user_message: content },
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("回覆逾時，請稍後再試")), 60000)
+      );
+      const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as any;
       if (error) throw new Error(error.message || "呼叫失敗");
       if (data?.error) throw new Error(data.error);
-      const newId = (data?.conversation_id as string | undefined) ?? conversationId;
+      const newId = (data?.conversation_id as string | undefined) ?? prevConversationId;
       const reply = (data?.reply as string | undefined) ?? "";
 
-      // Replace the "thinking" placeholder with the actual reply immediately
+      // Immediately replace "thinking" with reply — do not wait for refetch
       setOptimistic((prev) =>
         prev.map((m) => (m.pending ? { ...m, content: reply, pending: false } : m))
       );
 
-      if (newId && newId !== conversationId) {
+      if (newId && newId !== prevConversationId) {
         setConversationId(newId);
-        qc.invalidateQueries({ queryKey: ["eip", "assistant", "conversations"] });
       }
 
-      // Refetch persisted messages for the (possibly new) conversation, then clear optimistic
+      // Non-blocking background sync
+      qc.invalidateQueries({ queryKey: ["eip", "assistant", "conversations"] });
       if (newId) {
-        try {
-          const fresh = await qc.fetchQuery({
-            queryKey: ["eip", "assistant", "messages", newId],
-            queryFn: () => fetchMessages(newId),
-          });
-          if (fresh.length > 0) setOptimistic([]);
-        } catch {
-          // keep optimistic visible if fetch fails
-        }
+        qc.invalidateQueries({ queryKey: ["eip", "assistant", "messages", newId] });
       }
     } catch (e: any) {
       setError(e?.message ?? "未知錯誤");
