@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Pin, Megaphone, Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pin, Megaphone, Download, MoreHorizontal, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,10 +52,16 @@ function AnnouncementsPage() {
   const { appUser } = useEipUser();
   const canPublish = canManageEip(appUser?.role);
   const [openCreate, setOpenCreate] = useState(false);
-  const [selected, setSelected] = useState<Announcement | null>(null);
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [deleting, setDeleting] = useState<Announcement | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
 
   const listQ = useQuery({
     queryKey: ["eip", "announcements"],
@@ -101,7 +108,7 @@ function AnnouncementsPage() {
     setDeleteBusy(false);
     if (error) { toast.error(`刪除失敗：${error.message}`); return; }
     toast.success("公告已刪除");
-    if (selected?.id === deleting.id) setSelected(null);
+    setExpandedIds((prev) => { const n = new Set(prev); n.delete(deleting.id); return n; });
     setDeleting(null);
     refetchList();
   };
@@ -122,59 +129,20 @@ function AnnouncementsPage() {
         }
       />
       <div className="space-y-2">
-        {(listQ.data ?? []).map((a) => {
-          const canEdit = canEditAnnouncement(a, appUser);
-          const canDel = canDeleteAnnouncement(a, appUser);
-          return (
-            <Card key={a.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelected(a)}>
-              <CardContent className="p-3 flex items-start gap-3">
-                <Megaphone className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {a.is_pinned && <Pin className="w-3 h-3 text-amber-600" />}
-                    <span className="font-medium text-sm truncate">{a.title}</span>
-                    {!a.published_at && <Badge variant="outline" className="text-[10px]">草稿</Badge>}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{a.body}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {userMap.get(a.created_by)?.name ?? "—"}
-                    {a.published_at && ` ・ ${new Date(a.published_at).toLocaleString("zh-TW")}`}
-                  </div>
-                </div>
-                <Badge variant="secondary" className="text-[10px]">{AUDIENCE_LABEL[a.audience_type]}</Badge>
-                {(canEdit || canDel) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"
-                        aria-label="更多操作"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                      {canEdit && (
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditing(a); }}>
-                          <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
-                        </DropdownMenuItem>
-                      )}
-                      {canDel && (
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); setDeleting(a); }}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+        {(listQ.data ?? []).map((a) => (
+          <AnnouncementRow
+            key={a.id}
+            announcement={a}
+            appUser={appUser ?? null}
+            users={usersQ.data ?? []}
+            userMap={userMap}
+            expanded={expandedIds.has(a.id)}
+            onToggle={() => toggleExpand(a.id)}
+            onEdit={() => setEditing(a)}
+            onDelete={() => setDeleting(a)}
+            onChanged={refetchList}
+          />
+        ))}
         {(listQ.data ?? []).length === 0 && (
           <Card>
             <CardContent className="py-12 text-center space-y-3">
@@ -208,14 +176,6 @@ function AnnouncementsPage() {
           open={!!editing} onClose={() => setEditing(null)} appUser={appUser}
           users={usersQ.data ?? []} departments={deptsQ.data ?? []}
           onSaved={refetchList}
-        />
-      )}
-      {selected && appUser && (
-        <AnnouncementDetailDialog
-          announcement={selected} appUser={appUser} users={usersQ.data ?? []}
-          onClose={() => setSelected(null)}
-          onEdit={() => { setEditing(selected); setSelected(null); }}
-          onDelete={() => { setDeleting(selected); }}
         />
       )}
 
@@ -405,42 +365,48 @@ function AnnouncementFormDialog({
   );
 }
 
-function AnnouncementDetailDialog({
-  announcement, appUser, users, onClose, onEdit, onDelete,
+function AnnouncementRow({
+  announcement: a, appUser, users, userMap, expanded, onToggle, onEdit, onDelete, onChanged,
 }: {
-  announcement: Announcement; appUser: AppUser; users: AppUser[];
-  onClose: () => void; onEdit: () => void; onDelete: () => void;
+  announcement: Announcement;
+  appUser: AppUser | null;
+  users: AppUser[];
+  userMap: Map<string, AppUser>;
+  expanded: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onChanged: () => void;
 }) {
   const qc = useQueryClient();
-  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-  const isOwnerOrAdmin = appUser.role === "company_admin" || appUser.id === announcement.created_by;
-  const canEdit = canEditAnnouncement(announcement, appUser);
-  const canDel = canDeleteAnnouncement(announcement, appUser);
+  const canEdit = canEditAnnouncement(a, appUser);
+  const canDel = canDeleteAnnouncement(a, appUser);
+  const isOwnerOrAdmin = !!appUser && (appUser.role === "company_admin" || appUser.id === a.created_by);
 
-  // 標為已讀
+  // 展開時若已發布且當前使用者尚未讀，標為已讀
   useEffect(() => {
-    if (!announcement.published_at) return;
+    if (!expanded || !appUser || !a.published_at) return;
     void supabase.from("announcement_read")
-      .upsert({ announcement_id: announcement.id, user_id: appUser.id }, { onConflict: "announcement_id,user_id" });
-  }, [announcement.id, announcement.published_at, appUser.id]);
+      .upsert({ announcement_id: a.id, user_id: appUser.id }, { onConflict: "announcement_id,user_id" });
+  }, [expanded, a.id, a.published_at, appUser?.id]);
 
   const readsQ = useQuery({
-    enabled: isOwnerOrAdmin,
-    queryKey: ["eip", "ann-reads", announcement.id],
+    enabled: expanded && isOwnerOrAdmin,
+    queryKey: ["eip", "ann-reads", a.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("announcement_read").select("user_id,read_at").eq("announcement_id", announcement.id);
+        .from("announcement_read").select("user_id,read_at").eq("announcement_id", a.id);
       if (error) throw error;
       return (data ?? []) as { user_id: string; read_at: string }[];
     },
   });
 
   const targetsQ = useQuery({
-    enabled: isOwnerOrAdmin,
-    queryKey: ["eip", "ann-targets", announcement.id],
+    enabled: expanded && isOwnerOrAdmin,
+    queryKey: ["eip", "ann-targets", a.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("announcement_target").select("*").eq("announcement_id", announcement.id);
+        .from("announcement_target").select("*").eq("announcement_id", a.id);
       if (error) throw error;
       return data ?? [];
     },
@@ -448,87 +414,137 @@ function AnnouncementDetailDialog({
 
   const audienceUserIds = useMemo(() => {
     if (!isOwnerOrAdmin) return [] as string[];
-    if (announcement.audience_type === "all") return users.map((u) => u.id);
+    if (a.audience_type === "all") return users.map((u) => u.id);
     const targets = targetsQ.data ?? [];
-    if (announcement.audience_type === "users") {
+    if (a.audience_type === "users") {
       return targets.map((t: any) => t.user_id).filter(Boolean);
     }
     const deptIds = targets.map((t: any) => t.department_id).filter(Boolean);
     return users.filter((u) => u.department_id && deptIds.includes(u.department_id)).map((u) => u.id);
-  }, [isOwnerOrAdmin, announcement.audience_type, targetsQ.data, users]);
+  }, [isOwnerOrAdmin, a.audience_type, targetsQ.data, users]);
 
   const readIds = new Set((readsQ.data ?? []).map((r) => r.user_id));
   const unread = audienceUserIds.filter((id) => !readIds.has(id));
+  const [opErr, setOpErr] = useState<string | null>(null);
 
   const togglePin = async () => {
+    setOpErr(null);
     const { error } = await supabase.from("announcement")
-      .update({ is_pinned: !announcement.is_pinned }).eq("id", announcement.id);
-    if (error) toast.error(error.message);
-    else { toast.success("已更新"); qc.invalidateQueries({ queryKey: ["eip", "announcements"] }); onClose(); }
+      .update({ is_pinned: !a.is_pinned }).eq("id", a.id);
+    if (error) { setOpErr(error.message); toast.error(error.message); return; }
+    toast.success("已更新"); qc.invalidateQueries({ queryKey: ["eip", "announcements"] }); onChanged();
   };
   const publish = async () => {
+    setOpErr(null);
     const { error } = await supabase.from("announcement")
-      .update({ published_at: new Date().toISOString() }).eq("id", announcement.id);
-    if (error) toast.error(error.message);
-    else { toast.success("已發布"); qc.invalidateQueries({ queryKey: ["eip", "announcements"] }); onClose(); }
+      .update({ published_at: new Date().toISOString() }).eq("id", a.id);
+    if (error) { setOpErr(error.message); toast.error(error.message); return; }
+    toast.success("已發布"); qc.invalidateQueries({ queryKey: ["eip", "announcements"] }); onChanged();
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {announcement.is_pinned && <Pin className="w-4 h-4 text-amber-600" />}
-            {announcement.title}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-3 py-2 max-h-[65vh] overflow-y-auto pr-1">
-          <div className="text-xs text-muted-foreground">
-            {userMap.get(announcement.created_by)?.name ?? "—"}
-            {announcement.published_at
-              ? ` ・ 發布於 ${new Date(announcement.published_at).toLocaleString("zh-TW")}`
-              : " ・ 草稿"}
-            ・ 對象：{AUDIENCE_LABEL[announcement.audience_type]}
-          </div>
-          <div className="text-sm whitespace-pre-wrap">{announcement.body}</div>
-
-          {isOwnerOrAdmin && announcement.published_at && (
-            <div className="rounded-md border p-3 bg-muted/30">
-              <div className="text-xs font-semibold text-muted-foreground mb-1">
-                已讀 {readIds.size}/{audienceUserIds.length}
+    <Collapsible open={expanded} onOpenChange={onToggle} asChild>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <div className="p-3 flex items-start gap-3 cursor-pointer hover:bg-accent/40 transition-colors select-none">
+            <Megaphone className="w-4 h-4 mt-0.5 text-muted-foreground" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                {a.is_pinned && <Pin className="w-3 h-3 text-amber-600" />}
+                <span className="font-medium text-sm truncate">{a.title}</span>
+                {!a.published_at && <Badge variant="outline" className="text-[10px]">草稿</Badge>}
               </div>
-              {unread.length > 0 && (
-                <div className="text-xs">
-                  <span className="text-muted-foreground">未讀：</span>
-                  {unread.map((id) => userMap.get(id)?.name ?? id.slice(0, 6)).join("、")}
+              {!expanded && (
+                <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{a.body}</div>
+              )}
+              <div className="text-xs text-muted-foreground mt-1">
+                {userMap.get(a.created_by)?.name ?? "—"}
+                {a.published_at && ` ・ ${new Date(a.published_at).toLocaleString("zh-TW")}`}
+              </div>
+            </div>
+            <Badge variant="secondary" className="text-[10px]">{AUDIENCE_LABEL[a.audience_type]}</Badge>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
+            {(canEdit || canDel) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"
+                    aria-label="更多操作"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  {canEdit && (
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+                      <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                    </DropdownMenuItem>
+                  )}
+                  {canDel && (
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+          <div className="px-3 pb-3 pt-0 border-t">
+            <div className="text-xs text-muted-foreground mt-3">
+              對象：{AUDIENCE_LABEL[a.audience_type]}
+              {!a.published_at && " ・ 尚未發布（草稿）"}
+            </div>
+            <div className="text-sm whitespace-pre-wrap mt-2">{a.body}</div>
+
+            {isOwnerOrAdmin && a.published_at && (
+              <div className="rounded-md border p-3 bg-muted/30 mt-3">
+                <div className="text-xs font-semibold text-muted-foreground mb-1">
+                  已讀 {readIds.size}/{audienceUserIds.length}
                 </div>
+                {unread.length > 0 ? (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">未讀：</span>
+                    {unread.map((id) => userMap.get(id)?.name ?? id.slice(0, 6)).join("、")}
+                  </div>
+                ) : audienceUserIds.length > 0 && (
+                  <div className="text-xs text-muted-foreground">全部已讀</div>
+                )}
+              </div>
+            )}
+
+            {opErr && <div className="text-xs text-destructive mt-2">{opErr}</div>}
+
+            <div className="flex flex-wrap gap-2 mt-3">
+              {canEdit && (
+                <Button size="sm" variant="outline" onClick={onEdit}>
+                  <Pencil className="w-4 h-4 mr-1" /> 編輯
+                </Button>
+              )}
+              {isOwnerOrAdmin && !a.published_at && (
+                <Button size="sm" onClick={publish}>立即發布</Button>
+              )}
+              {isOwnerOrAdmin && (
+                <Button size="sm" variant="outline" onClick={togglePin}>
+                  {a.is_pinned ? "取消置頂" : "置頂"}
+                </Button>
+              )}
+              {canDel && (
+                <Button size="sm" variant="destructive" onClick={onDelete}>
+                  <Trash2 className="w-4 h-4 mr-1" /> 刪除
+                </Button>
               )}
             </div>
-          )}
-        </div>
-        <DialogFooter className="gap-2 flex-wrap">
-          {canDel && (
-            <Button variant="destructive" onClick={onDelete}>
-              <Trash2 className="w-4 h-4 mr-1" /> 刪除
-            </Button>
-          )}
-          {canEdit && (
-            <Button variant="outline" onClick={onEdit}>
-              <Pencil className="w-4 h-4 mr-1" /> 編輯
-            </Button>
-          )}
-          {isOwnerOrAdmin && !announcement.published_at && (
-            <Button onClick={publish}>立即發布</Button>
-          )}
-          {isOwnerOrAdmin && (
-            <Button variant="outline" onClick={togglePin}>
-              {announcement.is_pinned ? "取消置頂" : "置頂"}
-            </Button>
-          )}
-          <Button variant="ghost" onClick={onClose}>關閉</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
 
