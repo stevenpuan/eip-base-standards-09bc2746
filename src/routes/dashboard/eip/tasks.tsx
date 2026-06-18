@@ -62,7 +62,12 @@ function canDeleteTask(task: Task, appUser: AppUser | null): boolean {
   return false;
 }
 
-export const Route = createFileRoute("/dashboard/eip/tasks")({ component: TasksPage });
+export const Route = createFileRoute("/dashboard/eip/tasks")({
+  component: TasksPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    openTask: typeof s.openTask === "string" ? s.openTask : undefined,
+  }),
+});
 
 type Task = Database["public"]["Tables"]["task"]["Row"];
 type Status = Database["public"]["Tables"]["task_status"]["Row"];
