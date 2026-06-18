@@ -278,33 +278,68 @@ function DocumentsPage() {
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredDocs.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => setDetailDocId(d.id)}
-                      className="w-full text-left p-4 hover:bg-accent/50 flex items-start gap-3"
-                    >
-                      <FileText className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium truncate">{d.title}</span>
-                          <Badge variant="secondary" className="text-[10px]">v{d.current_version}</Badge>
-                          <span className={cn("text-[10px] px-2 py-0.5 rounded-full", STATUS_COLOR[d.status])}>
-                            {STATUS_LABEL[d.status] ?? d.status}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {DOC_TYPE_LABEL[d.doc_type] ?? d.doc_type}
-                          </span>
-                        </div>
-                        {d.summary && (
-                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.summary}</div>
+                  {filteredDocs.map((d) => {
+                    const cE = canEditDoc(d, appUser?.role, appUser?.id);
+                    const cD = canDeleteDoc(d, appUser?.role, appUser?.id);
+                    return (
+                      <div key={d.id} className="relative">
+                        <button
+                          onClick={() => setDetailDocId(d.id)}
+                          className="w-full text-left p-4 hover:bg-accent/50 flex items-start gap-3"
+                        >
+                          <FileText className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1 pr-10">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium truncate">{d.title}</span>
+                              <Badge variant="secondary" className="text-[10px]">v{d.current_version}</Badge>
+                              <span className={cn("text-[10px] px-2 py-0.5 rounded-full", STATUS_COLOR[d.status])}>
+                                {STATUS_LABEL[d.status] ?? d.status}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {DOC_TYPE_LABEL[d.doc_type] ?? d.doc_type}
+                              </span>
+                            </div>
+                            {d.summary && (
+                              <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.summary}</div>
+                            )}
+                            <div className="text-[11px] text-muted-foreground mt-1">
+                              負責人:{userMap.get(d.owner_id ?? "") ?? "—"} · 更新於 {new Date(d.updated_at).toLocaleString()}
+                            </div>
+                          </div>
+                        </button>
+                        {(cE || cD) && (
+                          <div className="absolute top-3 right-3">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground"
+                                  aria-label="更多操作"
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {cE && (
+                                  <DropdownMenuItem onClick={() => setEditingDoc(d)}>
+                                    <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                                  </DropdownMenuItem>
+                                )}
+                                {cD && (
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setDeleteDoc(d)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         )}
-                        <div className="text-[11px] text-muted-foreground mt-1">
-                          負責人:{userMap.get(d.owner_id ?? "") ?? "—"} · 更新於 {new Date(d.updated_at).toLocaleString()}
-                        </div>
                       </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -318,9 +353,9 @@ function DocumentsPage() {
           docId={detailDocId}
           onClose={() => setDetailDocId(null)}
           onEdit={(doc) => { setDetailDocId(null); setEditingDoc(doc); }}
+          onAskDelete={(doc) => { setDetailDocId(null); setDeleteDoc(doc); }}
           userMap={userMap}
-          canEdit={canEdit}
-          canDelete={canDelete}
+          appUser={appUser}
         />
       )}
 
