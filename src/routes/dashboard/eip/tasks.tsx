@@ -303,9 +303,12 @@ function TasksPage() {
             statuses={statusesQ.data ?? []}
             userMap={userMap}
             subtaskMap={subtaskMap}
+            appUser={appUser}
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
             }
+            onOpenDetail={(t) => setDetailTask(t)}
+            onAskDelete={(t) => setDeleteTask(t)}
           />
         </TabsContent>
 
