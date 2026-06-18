@@ -164,14 +164,12 @@ function UsersPage() {
       toast.error("指派「部門主管」時必須同時設定部門");
       return;
     }
-    // 重置 user_roles：先刪後插（簡單可靠）
-    const del = await supabase.from("user_roles").delete().eq("user_id", editing.id);
-    if (del.error) { toast.error(del.error.message); return; }
-    if (editRoleIds.length > 0) {
-      const ins = await supabase.from("user_roles")
-        .insert(editRoleIds.map((rid) => ({ user_id: editing.id, role_id: rid })));
-      if (ins.error) { toast.error(ins.error.message); return; }
-    }
+    // 透過後端 RPC 一次完成角色更新（避免 RLS 中間態錯誤）
+    const { error: rpcErr } = await supabase.rpc("eip_set_user_roles", {
+      p_user_id: editing.id,
+      p_role_ids: editRoleIds,
+    });
+    if (rpcErr) { toast.error(rpcErr.message); return; }
     // upsert app_user（部門/LINE）
     const existing = appUserMap[editing.id];
     if (existing) {
