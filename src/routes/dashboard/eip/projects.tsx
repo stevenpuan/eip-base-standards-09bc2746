@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, FolderKanban, Download } from "lucide-react";
+import { Plus, FolderKanban, Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,9 +17,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/dashboard/eip/projects")({ component: ProjectsPage });
+
+function canManageProject(p: Project, appUser: AppUser | null): boolean {
+  if (!appUser) return false;
+  if (appUser.role === "company_admin" || appUser.role === "dept_manager") return true;
+  return p.owner_id === appUser.id;
+}
 
 type Project = Database["public"]["Tables"]["project"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
