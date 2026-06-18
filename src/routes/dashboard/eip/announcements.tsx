@@ -176,7 +176,20 @@ function AnnouncementsPage() {
           );
         })}
         {(listQ.data ?? []).length === 0 && (
-          <Card><CardContent className="py-10 text-center text-muted-foreground">尚無公告</CardContent></Card>
+          <Card>
+            <CardContent className="py-12 text-center space-y-3">
+              <div className="text-sm text-muted-foreground">
+                {canPublish
+                  ? "目前沒有公告,點右上「發布公告」建立第一則公告。"
+                  : "目前沒有公告。"}
+              </div>
+              {canPublish && appUser && (
+                <Button size="sm" onClick={() => setOpenCreate(true)}>
+                  <Plus className="w-4 h-4" /> 發布公告
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
 
