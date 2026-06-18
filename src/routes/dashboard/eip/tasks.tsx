@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal } from "lucide-react";
+import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -31,6 +47,20 @@ import {
 } from "@/components/ui/table";
 import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
+
+function canEditTask(task: Task, appUser: AppUser | null): boolean {
+  if (!appUser) return false;
+  if (appUser.role === "company_admin") return true;
+  if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
+  if (task.owner_id === appUser.id) return true;
+  return false;
+}
+function canDeleteTask(task: Task, appUser: AppUser | null): boolean {
+  if (!appUser) return false;
+  if (appUser.role === "company_admin") return true;
+  if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
+  return false;
+}
 
 export const Route = createFileRoute("/dashboard/eip/tasks")({ component: TasksPage });
 
@@ -61,6 +91,9 @@ function TasksPage() {
   const [dueTo, setDueTo] = useState("");
   const [keyword, setKeyword] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [deleteTask, setDeleteTask] = useState<Task | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const statusesQ = useQuery({
     queryKey: ["eip", "task_status"],
@@ -270,9 +303,12 @@ function TasksPage() {
             statuses={statusesQ.data ?? []}
             userMap={userMap}
             subtaskMap={subtaskMap}
+            appUser={appUser}
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
             }
+            onOpenDetail={(t) => setDetailTask(t)}
+            onAskDelete={(t) => setDeleteTask(t)}
           />
         </TabsContent>
 
@@ -308,6 +344,57 @@ function TasksPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
         />
       )}
+
+      {detailTask && (
+        <EditTaskDialog
+          key={detailTask.id}
+          task={detailTask}
+          readOnly={!canEditTask(detailTask, appUser)}
+          onClose={() => setDetailTask(null)}
+          statuses={statusesQ.data ?? []}
+          users={usersQ.data ?? []}
+          departments={deptsQ.data ?? []}
+          projects={projectsQ.data ?? []}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+            setDetailTask(null);
+          }}
+        />
+      )}
+
+      <AlertDialog open={!!deleteTask} onOpenChange={(o) => !o && !deleting && setDeleteTask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除任務？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteTask?.title}」。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteTask) return;
+                setDeleting(true);
+                const { error } = await supabase.from("task").delete().eq("id", deleteTask.id);
+                setDeleting(false);
+                if (error) {
+                  toast.error(`刪除失敗：${error.message}`);
+                  return;
+                }
+                toast.success("任務已刪除");
+                setDeleteTask(null);
+                qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -420,12 +507,15 @@ function MiniSelect({ value, onChange, options }: {
 
 /* ============ 看板視圖 ============ */
 function BoardView({
-  tasks, statuses, userMap, subtaskMap, onMove,
+  tasks, statuses, userMap, subtaskMap, appUser, onMove, onOpenDetail, onAskDelete,
 }: {
   tasks: Task[]; statuses: Status[];
   userMap: Map<string, AppUser>;
   subtaskMap: Map<string, { total: number; done: number }>;
+  appUser: AppUser | null;
   onMove: (taskId: string, toStatusId: string, newPosition: number) => void;
+  onOpenDetail: (t: Task) => void;
+  onAskDelete: (t: Task) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -468,7 +558,11 @@ function BoardView({
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleColumnDrop(s.id, t.id); }}>
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
                     subtask={subtaskMap.get(t.id)}
-                    onDragStart={() => setDragId(t.id)} />
+                    canEdit={canEditTask(t, appUser)}
+                    canDelete={canDeleteTask(t, appUser)}
+                    onDragStart={() => setDragId(t.id)}
+                    onOpenDetail={() => onOpenDetail(t)}
+                    onAskDelete={() => onAskDelete(t)} />
                 </div>
               ))}
               {list.length === 0 && (
@@ -484,21 +578,26 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, subtask, onDragStart }: {
+function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
   task: Task; owner?: AppUser;
   subtask?: { total: number; done: number };
+  canEdit: boolean; canDelete: boolean;
   onDragStart: () => void;
+  onOpenDetail: () => void;
+  onAskDelete: () => void;
 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const overdue = task.due_date &&
     new Date(task.due_date) < new Date(new Date().toDateString()) && task.progress < 100;
   const initial = owner?.name ? owner.name.slice(0, 1) : "?";
+  const showMenu = canEdit || canDelete;
   return (
     <Card draggable onDragStart={onDragStart}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow">
+      onClick={onOpenDetail}
+      className="cursor-pointer hover:shadow-md transition-shadow">
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start gap-2">
-          <GripVertical className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+          <GripVertical className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium leading-snug line-clamp-2">{task.title}</div>
           </div>
@@ -508,6 +607,35 @@ function TaskCard({ task, owner, subtask, onDragStart }: {
           <Badge className={`text-[10px] ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
             {PRIORITY_LABEL[task.priority]}
           </Badge>
+          {showMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground shrink-0"
+                  aria-label="更多操作"
+                >
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                {canEdit && (
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}>
+                    <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); onAskDelete(); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -973,5 +1101,132 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label className="text-xs">{label}</Label>
       {children}
     </div>
+  );
+}
+
+/* ============ 任務詳情/編輯對話框 ============ */
+function EditTaskDialog({
+  task, readOnly, onClose, onSaved, statuses, users, departments, projects,
+}: {
+  task: Task; readOnly: boolean;
+  onClose: () => void; onSaved: () => void;
+  statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description ?? "");
+  const [statusId, setStatusId] = useState(task.status_id);
+  const [priority, setPriority] = useState<Priority>(task.priority);
+  const [ownerId, setOwnerId] = useState(task.owner_id);
+  const [deptId, setDeptId] = useState(task.department_id ?? "none");
+  const [projectId, setProjectId] = useState(task.project_id ?? "none");
+  const [dueDate, setDueDate] = useState(task.due_date ?? "");
+  const [progress, setProgress] = useState<number>(task.progress);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!title.trim()) { setErr("請輸入標題"); return; }
+    setBusy(true); setErr(null);
+    const status = statuses.find((s) => s.id === statusId);
+    const patch: Database["public"]["Tables"]["task"]["Update"] = {
+      title: title.trim(),
+      description: description.trim() || null,
+      status_id: statusId,
+      priority,
+      owner_id: ownerId,
+      department_id: deptId === "none" ? null : deptId,
+      project_id: projectId === "none" ? null : projectId,
+      due_date: dueDate || null,
+      progress: Math.max(0, Math.min(100, Number(progress) || 0)),
+    };
+    if (status?.is_done_state) {
+      patch.progress = 100;
+      patch.completed_at = new Date().toISOString();
+    } else {
+      patch.completed_at = null;
+    }
+    const { error } = await supabase.from("task").update(patch).eq("id", task.id);
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    toast.success("已儲存");
+    onSaved();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{readOnly ? "任務詳情" : "編輯任務"}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
+          <Field label="標題">
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} disabled={readOnly} />
+          </Field>
+          <Field label="說明">
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} disabled={readOnly} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="狀態">
+              <Select value={statusId} onValueChange={setStatusId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {statuses.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="優先級">
+              <Select value={priority} onValueChange={(v) => setPriority(v as Priority)} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_PRIORITIES.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABEL[p]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="負責人">
+              <Select value={ownerId} onValueChange={setOwnerId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="部門">
+              <Select value={deptId} onValueChange={setDeptId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">無</SelectItem>
+                  {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="專案">
+              <Select value={projectId} onValueChange={setProjectId} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">無</SelectItem>
+                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="期限">
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly} />
+            </Field>
+            <Field label="進度 (%)">
+              <Input type="number" min={0} max={100} value={progress}
+                onChange={(e) => setProgress(Number(e.target.value))} disabled={readOnly} />
+            </Field>
+          </div>
+          {err && <div className="text-sm text-destructive">{err}</div>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            {readOnly ? "關閉" : "取消"}
+          </Button>
+          {!readOnly && (
+            <Button onClick={save} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
