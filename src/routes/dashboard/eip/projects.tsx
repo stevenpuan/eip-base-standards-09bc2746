@@ -201,6 +201,73 @@ function ProjectsPage() {
   );
 }
 
+function EditProjectDialog({
+  project, users, onClose, onSaved,
+}: { project: Project; users: AppUser[]; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(project.name);
+  const [goal, setGoal] = useState(project.goal ?? "");
+  const [description, setDescription] = useState(project.description ?? "");
+  const [ownerId, setOwnerId] = useState(project.owner_id);
+  const [status, setStatus] = useState<ProjectStatus>(project.status);
+  const [startDate, setStartDate] = useState(project.start_date ?? "");
+  const [endDate, setEndDate] = useState(project.end_date ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error("請輸入專案名稱");
+    setBusy(true);
+    const { error } = await supabase.from("project").update({
+      name: name.trim(),
+      goal: goal.trim() || null,
+      description: description.trim() || null,
+      owner_id: ownerId,
+      status,
+      start_date: startDate || null,
+      end_date: endDate || null,
+    }).eq("id", project.id);
+    setBusy(false);
+    if (error) { toast.error(`儲存失敗：${error.message}`); return; }
+    toast.success("已儲存"); onSaved();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>編輯專案</DialogTitle></DialogHeader>
+        <div className="grid gap-3 py-2">
+          <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label="目標"><Input value={goal} onChange={(e) => setGoal(e.target.value)} /></Field>
+          <Field label="描述"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="負責人">
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="狀態">
+              <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PROJECT_STATUS_LABEL) as ProjectStatus[]).map((s) =>
+                    <SelectItem key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+            <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 function CreateProjectDialog({
   open, onClose, appUser, users, onCreated,
 }: { open: boolean; onClose: () => void; appUser: AppUser; users: AppUser[]; onCreated: () => void }) {
