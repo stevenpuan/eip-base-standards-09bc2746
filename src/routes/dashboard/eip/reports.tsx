@@ -5,7 +5,8 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { Download } from "lucide-react";
+import { Download, CheckCircle, AlertTriangle, Clock, Repeat, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
@@ -407,10 +408,10 @@ function ReportsPage() {
         <>
           {/* KPI */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Metric label="任務完成率" value={`${doneRate}%`} sub={`${done} / ${total}`} progress={doneRate} />
-            <Metric label="逾期率" value={`${overdueRate}%`} sub={`${overdue} 筆逾期`} progress={overdueRate} tone="danger" />
-            <Metric label="平均週期(天)" value={cycleDays.toString()} sub="完成任務" />
-            <Metric label="常態工作達成率" value={`${recRate}%`} sub={`${recDone} / ${recurring.length}`} progress={recRate} />
+            <Metric label="任務完成率" value={`${doneRate}%`} sub={`${done} / ${total}`} progress={doneRate} icon={CheckCircle} accent="primary" />
+            <Metric label="逾期率" value={`${overdueRate}%`} sub={`${overdue} 筆逾期`} progress={overdueRate} tone="danger" icon={AlertTriangle} accent="destructive" />
+            <Metric label="平均週期(天)" value={cycleDays.toString()} sub="完成任務" icon={Clock} accent="accent" />
+            <Metric label="常態工作達成率" value={`${recRate}%`} sub={`${recDone} / ${recurring.length}`} progress={recRate} icon={Repeat} accent="primary" />
           </div>
 
           {/* 圖表第一列 */}
@@ -547,15 +548,33 @@ function ReportsPage() {
 }
 
 function Metric({
-  label, value, sub, progress, tone,
-}: { label: string; value: string; sub?: string; progress?: number; tone?: "danger" }) {
+  label, value, sub, progress, tone, icon: Icon, accent = "primary",
+}: {
+  label: string; value: string; sub?: string; progress?: number; tone?: "danger";
+  icon?: LucideIcon; accent?: "primary" | "accent" | "destructive";
+}) {
+  const borderClass =
+    accent === "accent" ? "border-l-accent"
+    : accent === "destructive" ? "border-l-destructive"
+    : "border-l-primary";
+  const iconWrap =
+    accent === "accent" ? "bg-accent/10 text-accent"
+    : accent === "destructive" ? "bg-destructive/10 text-destructive"
+    : "bg-primary/10 text-primary";
   return (
-    <Card>
-      <CardContent className="p-4 space-y-1">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className={`text-2xl font-bold ${tone === "danger" ? "text-destructive" : ""}`}>{value}</div>
-        {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
-        {progress !== undefined && <Progress value={progress} className="h-1.5 mt-1" />}
+    <Card className={cn("border-l-4", borderClass)}>
+      <CardContent className="p-4 flex items-start gap-3">
+        {Icon && (
+          <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0", iconWrap)}>
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="text-xs text-muted-foreground">{label}</div>
+          <div className={`text-2xl font-bold ${tone === "danger" ? "text-destructive" : ""}`}>{value}</div>
+          {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+          {progress !== undefined && <Progress value={progress} className="h-1.5 mt-1" />}
+        </div>
       </CardContent>
     </Card>
   );
