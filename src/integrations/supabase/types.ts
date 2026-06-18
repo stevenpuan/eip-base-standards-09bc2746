@@ -1182,8 +1182,10 @@ export type Database = {
           id: string
           location: string | null
           meeting_date: string
+          meeting_type: Database["public"]["Enums"]["meeting_type"]
           notes: string | null
           project_id: string | null
+          status: Database["public"]["Enums"]["meeting_status"]
           tenant_id: string
           title: string
           updated_at: string
@@ -1195,8 +1197,10 @@ export type Database = {
           id?: string
           location?: string | null
           meeting_date: string
+          meeting_type?: Database["public"]["Enums"]["meeting_type"]
           notes?: string | null
           project_id?: string | null
+          status?: Database["public"]["Enums"]["meeting_status"]
           tenant_id: string
           title: string
           updated_at?: string
@@ -1208,8 +1212,10 @@ export type Database = {
           id?: string
           location?: string | null
           meeting_date?: string
+          meeting_type?: Database["public"]["Enums"]["meeting_type"]
           notes?: string | null
           project_id?: string | null
+          status?: Database["public"]["Enums"]["meeting_status"]
           tenant_id?: string
           title?: string
           updated_at?: string
@@ -1373,14 +1379,20 @@ export type Database = {
       }
       meeting_attendee: {
         Row: {
+          attend_status: Database["public"]["Enums"]["attendee_status"]
+          is_required: boolean
           meeting_id: string
           user_id: string
         }
         Insert: {
+          attend_status?: Database["public"]["Enums"]["attendee_status"]
+          is_required?: boolean
           meeting_id: string
           user_id: string
         }
         Update: {
+          attend_status?: Database["public"]["Enums"]["attendee_status"]
+          is_required?: boolean
           meeting_id?: string
           user_id?: string
         }
@@ -2374,7 +2386,15 @@ export type Database = {
       action_item_status: "open" | "converted" | "done"
       announcement_audience: "all" | "department" | "users"
       attachment_entity: "task" | "meeting" | "project" | "announcement"
+      attendee_status: "invited" | "present" | "absent" | "leave"
       comment_entity: "task" | "meeting" | "project"
+      meeting_status:
+        | "draft"
+        | "scheduled"
+        | "in_progress"
+        | "done"
+        | "cancelled"
+      meeting_type: "regular" | "project" | "adhoc"
       milestone_status: "pending" | "done"
       notification_entity:
         | "task"
@@ -2525,7 +2545,16 @@ export const Constants = {
       action_item_status: ["open", "converted", "done"],
       announcement_audience: ["all", "department", "users"],
       attachment_entity: ["task", "meeting", "project", "announcement"],
+      attendee_status: ["invited", "present", "absent", "leave"],
       comment_entity: ["task", "meeting", "project"],
+      meeting_status: [
+        "draft",
+        "scheduled",
+        "in_progress",
+        "done",
+        "cancelled",
+      ],
+      meeting_type: ["regular", "project", "adhoc"],
       milestone_status: ["pending", "done"],
       notification_entity: [
         "task",
