@@ -734,25 +734,27 @@ function StructuredAgenda({ meetingId, tenantId, users, canManage }: { meetingId
                 {it.notes && ` ・ ${it.notes}`}
               </div>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => move(it, -1)} disabled={i === 0}>↑</Button>
-            <Button size="sm" variant="ghost" onClick={() => move(it, 1)} disabled={i === items.length - 1}>↓</Button>
-            <Button size="sm" variant="ghost" onClick={() => remove(it.id)} className="text-destructive">刪</Button>
+            {canManage && <Button size="sm" variant="ghost" onClick={() => move(it, -1)} disabled={i === 0}>↑</Button>}
+            {canManage && <Button size="sm" variant="ghost" onClick={() => move(it, 1)} disabled={i === items.length - 1}>↓</Button>}
+            {canManage && <Button size="sm" variant="ghost" onClick={() => remove(it.id)} className="text-destructive">刪</Button>}
           </div>
         ))}
         {items.length === 0 && <div className="text-xs text-muted-foreground py-1">尚無議程項目</div>}
       </div>
-      <div className="mt-2 flex gap-2">
-        <Input placeholder="議題標題…" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <Input type="number" className="w-20" value={mins} onChange={(e) => setMins(e.target.value)} placeholder="分鐘" />
-        <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">未指派</SelectItem>
-            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button onClick={add}>新增</Button>
-      </div>
+      {canManage && (
+        <div className="mt-2 flex gap-2">
+          <Input placeholder="議題標題…" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input type="number" className="w-20" value={mins} onChange={(e) => setMins(e.target.value)} placeholder="分鐘" />
+          <Select value={owner} onValueChange={setOwner}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="負責人" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">未指派</SelectItem>
+              {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button onClick={add}>新增</Button>
+        </div>
+      )}
     </div>
   );
 }
