@@ -265,9 +265,11 @@ function EditProjectDialog({
 }: { project: Project; users: AppUser[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
+  const [scope, setScope] = useState(project.scope ?? "");
   const [description, setDescription] = useState(project.description ?? "");
   const [ownerId, setOwnerId] = useState(project.owner_id);
   const [status, setStatus] = useState<ProjectStatus>(project.status);
+  const [health, setHealth] = useState<ProjectHealth>(project.health);
   const [startDate, setStartDate] = useState(project.start_date ?? "");
   const [endDate, setEndDate] = useState(project.end_date ?? "");
   const [busy, setBusy] = useState(false);
@@ -278,9 +280,11 @@ function EditProjectDialog({
     const { error } = await supabase.from("project").update({
       name: name.trim(),
       goal: goal.trim() || null,
+      scope: scope.trim() || null,
       description: description.trim() || null,
       owner_id: ownerId,
       status,
+      health,
       start_date: startDate || null,
       end_date: endDate || null,
     }).eq("id", project.id);
@@ -296,6 +300,7 @@ function EditProjectDialog({
         <div className="grid gap-3 py-2">
           <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="目標"><Input value={goal} onChange={(e) => setGoal(e.target.value)} /></Field>
+          <Field label="範疇"><Textarea rows={2} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="專案範疇,含括與排除項目" /></Field>
           <Field label="描述"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="負責人">
@@ -313,6 +318,16 @@ function EditProjectDialog({
                 </SelectContent>
               </Select>
             </Field>
+            <Field label="健康度">
+              <Select value={health} onValueChange={(v) => setHealth(v as ProjectHealth)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(HEALTH_LABEL) as ProjectHealth[]).map((h) =>
+                    <SelectItem key={h} value={h}>{HEALTH_LABEL[h]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div />
             <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
             <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
           </div>
