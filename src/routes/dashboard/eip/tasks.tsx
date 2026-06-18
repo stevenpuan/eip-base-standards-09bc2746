@@ -208,6 +208,17 @@ function TasksPage() {
     });
   }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword]);
 
+  // 從 URL openTask=<id> 自動開啟對應任務詳情/編輯
+  useEffect(() => {
+    const id = search.openTask;
+    if (!id) return;
+    const t = (tasksQ.data ?? []).find((x) => x.id === id);
+    if (t) {
+      setDetailTask(t);
+      void navigate({ search: { openTask: undefined }, replace: true });
+    }
+  }, [search.openTask, tasksQ.data, navigate]);
+
   const moveMutation = useMutation({
     mutationFn: async (vars: { taskId: string; toStatusId: string; newPosition: number }) => {
       if (!appUser) throw new Error("尚未取得 EIP 身分");
