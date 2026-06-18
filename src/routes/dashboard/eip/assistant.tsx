@@ -71,12 +71,18 @@ function AssistantPage() {
   });
 
   useEffect(() => {
-    setOptimistic([]);
-  }, [conversationId]);
-
-  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messagesQ.data, optimistic, sending]);
+
+  const fetchMessages = async (cid: string) => {
+    const { data, error } = await supabase
+      .from("eip_assistant_message")
+      .select("*")
+      .eq("conversation_id", cid)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as Message[];
+  };
 
   const send = async (text: string) => {
     const content = text.trim();
@@ -84,26 +90,40 @@ function AssistantPage() {
     setError(null);
     setInput("");
     setSending(true);
-    setOptimistic((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}`, role: "user", content },
-      { id: `a-${Date.now()}`, role: "assistant", content: "思考中…", pending: true },
-    ]);
+    const userMsg: PendingMsg = { id: `u-${Date.now()}`, role: "user", content };
+    const thinkingMsg: PendingMsg = { id: `a-${Date.now()}`, role: "assistant", content: "思考中…", pending: true };
+    setOptimistic((prev) => [...prev, userMsg, thinkingMsg]);
     try {
       const { data, error } = await supabase.functions.invoke("eip-assistant", {
         body: { conversation_id: conversationId, user_message: content },
       });
       if (error) throw new Error(error.message || "呼叫失敗");
       if (data?.error) throw new Error(data.error);
-      const newId = data?.conversation_id as string | undefined;
+      const newId = (data?.conversation_id as string | undefined) ?? conversationId;
+      const reply = (data?.reply as string | undefined) ?? "";
+
+      // Replace the "thinking" placeholder with the actual reply immediately
+      setOptimistic((prev) =>
+        prev.map((m) => (m.pending ? { ...m, content: reply, pending: false } : m))
+      );
+
       if (newId && newId !== conversationId) {
         setConversationId(newId);
         qc.invalidateQueries({ queryKey: ["eip", "assistant", "conversations"] });
       }
-      setOptimistic([]);
-      qc.invalidateQueries({
-        queryKey: ["eip", "assistant", "messages", newId ?? conversationId],
-      });
+
+      // Refetch persisted messages for the (possibly new) conversation, then clear optimistic
+      if (newId) {
+        try {
+          const fresh = await qc.fetchQuery({
+            queryKey: ["eip", "assistant", "messages", newId],
+            queryFn: () => fetchMessages(newId),
+          });
+          if (fresh.length > 0) setOptimistic([]);
+        } catch {
+          // keep optimistic visible if fetch fails
+        }
+      }
     } catch (e: any) {
       setError(e?.message ?? "未知錯誤");
       setOptimistic((prev) => prev.filter((m) => !m.pending));
@@ -118,6 +138,12 @@ function AssistantPage() {
     setError(null);
   };
 
+  const selectConversation = (id: string) => {
+    setOptimistic([]);
+    setError(null);
+    setConversationId(id);
+  };
+
   const messages: PendingMsg[] = [
     ...((messagesQ.data ?? []).map((m) => ({
       id: m.id,
@@ -126,6 +152,7 @@ function AssistantPage() {
     }))),
     ...optimistic,
   ];
+
 
   const Sidebar = (
     <div className="flex flex-col h-full">
@@ -138,7 +165,7 @@ function AssistantPage() {
         {(conversationsQ.data ?? []).map((c) => (
           <button
             key={c.id}
-            onClick={() => setConversationId(c.id)}
+            onClick={() => selectConversation(c.id)}
             className={cn(
               "w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent flex items-start gap-2",
               conversationId === c.id && "bg-accent font-medium"
