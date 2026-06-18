@@ -1601,9 +1601,11 @@ export type Database = {
           description: string | null
           end_date: string | null
           goal: string | null
+          health: Database["public"]["Enums"]["project_health"]
           id: string
           name: string
           owner_id: string
+          scope: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
           tenant_id: string
@@ -1614,9 +1616,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           goal?: string | null
+          health?: Database["public"]["Enums"]["project_health"]
           id?: string
           name: string
           owner_id: string
+          scope?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           tenant_id: string
@@ -1627,9 +1631,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           goal?: string | null
+          health?: Database["public"]["Enums"]["project_health"]
           id?: string
           name?: string
           owner_id?: string
+          scope?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           tenant_id?: string
@@ -1648,6 +1654,50 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_kpi: {
+        Row: {
+          created_at: string
+          current_value: string | null
+          id: string
+          name: string
+          project_id: string
+          sort_order: number | null
+          target_value: string | null
+          tenant_id: string
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_value?: string | null
+          id?: string
+          name: string
+          project_id: string
+          sort_order?: number | null
+          target_value?: string | null
+          tenant_id?: string
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_value?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          sort_order?: number | null
+          target_value?: string | null
+          tenant_id?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_kpi_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project"
             referencedColumns: ["id"]
           },
         ]
@@ -1681,6 +1731,53 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_risk: {
+        Row: {
+          created_at: string
+          id: string
+          impact: string | null
+          likelihood: string | null
+          mitigation: string | null
+          owner_id: string | null
+          project_id: string
+          status: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          impact?: string | null
+          likelihood?: string | null
+          mitigation?: string | null
+          owner_id?: string | null
+          project_id: string
+          status?: string
+          tenant_id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          impact?: string | null
+          likelihood?: string | null
+          mitigation?: string | null
+          owner_id?: string | null
+          project_id?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_risk_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project"
             referencedColumns: ["id"]
           },
         ]
@@ -2411,6 +2508,7 @@ export type Database = {
         | "review_needed"
         | "announcement"
         | "quick_report"
+      project_health: "on_track" | "at_risk" | "off_track"
       project_status: "planning" | "active" | "on_hold" | "done"
       task_priority: "low" | "normal" | "high" | "urgent"
       user_role: "company_admin" | "dept_manager" | "member" | "viewer"
@@ -2573,6 +2671,7 @@ export const Constants = {
         "announcement",
         "quick_report",
       ],
+      project_health: ["on_track", "at_risk", "off_track"],
       project_status: ["planning", "active", "on_hold", "done"],
       task_priority: ["low", "normal", "high", "urgent"],
       user_role: ["company_admin", "dept_manager", "member", "viewer"],
