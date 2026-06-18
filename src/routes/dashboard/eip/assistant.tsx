@@ -165,7 +165,7 @@ function AssistantPage() {
         {(conversationsQ.data ?? []).map((c) => (
           <button
             key={c.id}
-            onClick={() => setConversationId(c.id)}
+            onClick={() => selectConversation(c.id)}
             className={cn(
               "w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent flex items-start gap-2",
               conversationId === c.id && "bg-accent font-medium"
