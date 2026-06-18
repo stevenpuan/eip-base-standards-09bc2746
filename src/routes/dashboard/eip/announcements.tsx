@@ -108,7 +108,7 @@ function AnnouncementsPage() {
     setDeleteBusy(false);
     if (error) { toast.error(`刪除失敗：${error.message}`); return; }
     toast.success("公告已刪除");
-    if (selected?.id === deleting.id) setSelected(null);
+    setExpandedIds((prev) => { const n = new Set(prev); n.delete(deleting.id); return n; });
     setDeleting(null);
     refetchList();
   };
