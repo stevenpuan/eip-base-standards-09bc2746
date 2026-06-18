@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -62,7 +62,12 @@ function canDeleteTask(task: Task, appUser: AppUser | null): boolean {
   return false;
 }
 
-export const Route = createFileRoute("/dashboard/eip/tasks")({ component: TasksPage });
+export const Route = createFileRoute("/dashboard/eip/tasks")({
+  component: TasksPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    openTask: typeof s.openTask === "string" ? s.openTask : undefined,
+  }),
+});
 
 type Task = Database["public"]["Tables"]["task"]["Row"];
 type Status = Database["public"]["Tables"]["task_status"]["Row"];
@@ -78,6 +83,8 @@ function TasksPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
   const { can } = useAuth();
+  const navigate = Route.useNavigate();
+  const search = Route.useSearch();
   const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
   const canExport = can("eip_tasks", "export");
 
@@ -201,6 +208,17 @@ function TasksPage() {
     });
   }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword]);
 
+  // 從 URL openTask=<id> 自動開啟對應任務詳情/編輯
+  useEffect(() => {
+    const id = search.openTask;
+    if (!id) return;
+    const t = (tasksQ.data ?? []).find((x) => x.id === id);
+    if (t) {
+      setDetailTask(t);
+      void navigate({ search: { openTask: undefined }, replace: true });
+    }
+  }, [search.openTask, tasksQ.data, navigate]);
+
   const moveMutation = useMutation({
     mutationFn: async (vars: { taskId: string; toStatusId: string; newPosition: number }) => {
       if (!appUser) throw new Error("尚未取得 EIP 身分");
@@ -323,6 +341,7 @@ function TasksPage() {
             appUser={appUser}
             canManage={canManageEip(appUser?.role)}
             onChanged={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
+            onOpenDetail={(t) => setDetailTask(t)}
           />
         </TabsContent>
 
@@ -597,7 +616,11 @@ function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpe
       className="cursor-pointer hover:shadow-md transition-shadow">
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start gap-2">
-          <GripVertical className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
+          <GripVertical
+            className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium leading-snug line-clamp-2">{task.title}</div>
           </div>
@@ -685,13 +708,14 @@ function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpe
 type SortKey = "title" | "owner" | "status" | "priority" | "progress" | "due" | "project";
 
 function ListView({
-  tasks, statusMap, userMap, projectMap, statuses, users, appUser, canManage, onChanged,
+  tasks, statusMap, userMap, projectMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
 }: {
   tasks: Task[];
   statusMap: Map<string, Status>; userMap: Map<string, AppUser>; projectMap: Map<string, Project>;
   statuses: Status[]; users: AppUser[];
   appUser: AppUser | null; canManage: boolean;
   onChanged: () => void;
+  onOpenDetail: (t: Task) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -805,9 +829,13 @@ function ListView({
               {paged.map((t) => {
                 const overdue = t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()) && t.progress < 100;
                 return (
-                  <TableRow key={t.id} className={overdue ? "text-destructive" : ""}>
+                  <TableRow
+                    key={t.id}
+                    className={`cursor-pointer hover:bg-accent/40 ${overdue ? "text-destructive" : ""}`}
+                    onClick={() => onOpenDetail(t)}
+                  >
                     {canBulk && (
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selected.has(t.id)}
                           onCheckedChange={(v) => {
