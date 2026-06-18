@@ -50,6 +50,8 @@ function MeetingsPage() {
 
   const [openCreate, setOpenCreate] = useState(false);
   const [selected, setSelected] = useState<Meeting | null>(null);
+  const [deleteMeeting, setDeleteMeeting] = useState<Meeting | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const meetingsQ = useQuery({
     queryKey: ["eip", "meetings"],
