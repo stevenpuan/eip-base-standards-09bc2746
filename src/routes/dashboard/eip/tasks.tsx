@@ -829,9 +829,13 @@ function ListView({
               {paged.map((t) => {
                 const overdue = t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()) && t.progress < 100;
                 return (
-                  <TableRow key={t.id} className={overdue ? "text-destructive" : ""}>
+                  <TableRow
+                    key={t.id}
+                    className={`cursor-pointer hover:bg-accent/40 ${overdue ? "text-destructive" : ""}`}
+                    onClick={() => onOpenDetail(t)}
+                  >
                     {canBulk && (
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selected.has(t.id)}
                           onCheckedChange={(v) => {
