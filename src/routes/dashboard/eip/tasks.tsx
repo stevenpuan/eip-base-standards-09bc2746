@@ -83,6 +83,8 @@ function TasksPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
   const { can } = useAuth();
+  const navigate = Route.useNavigate();
+  const search = Route.useSearch();
   const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
   const canExport = can("eip_tasks", "export");
 
