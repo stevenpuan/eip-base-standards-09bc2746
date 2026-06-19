@@ -645,6 +645,7 @@ function DocDetailDialog({
     const { error: vErr } = await supabase.from("eip_document_version").insert({
       tenant_id: doc.tenant_id, document_id: doc.id, version_no: newVer,
       content: v.content, file_url: v.file_url, file_name: v.file_name,
+      storage_path: v.storage_path, file_size: v.file_size, mime_type: v.mime_type,
       note: `還原自 v${v.version_no}`,
     });
     if (vErr) return toast.error(vErr.message);
