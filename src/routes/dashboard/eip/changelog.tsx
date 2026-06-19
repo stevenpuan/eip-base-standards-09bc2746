@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -35,14 +35,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Database } from "@/integrations/supabase/types";
-
 export const Route = createFileRoute("/dashboard/eip/changelog")({
   component: ChangelogPage,
 });
 
-type Changelog = Database["public"]["Tables"]["eip_changelog"]["Row"];
-type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
+type Changelog = {
+  id: string;
+  tenant_id: string;
+  version: string | null;
+  title: string;
+  type: string;
+  content: string | null;
+  released_at: string;
+  created_by: string | null;
+  created_at: string;
+};
+type AppUser = { id: string; name: string | null; email: string | null };
 
 const TYPE_LABEL: Record<string, string> = {
   feature: "功能",
