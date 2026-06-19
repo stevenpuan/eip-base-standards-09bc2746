@@ -689,6 +689,11 @@ function TaskCard({ task, owner, subtask, source, canEdit, canDelete, onDragStar
             )}
           </div>
         </div>
+        {source && (
+          <div className="flex items-center gap-1">
+            <TaskSourceBadge source={source} />
+          </div>
+        )}
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
