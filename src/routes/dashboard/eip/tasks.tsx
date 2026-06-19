@@ -583,6 +583,7 @@ function BoardView({
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleColumnDrop(s.id, t.id); }}>
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
                     subtask={subtaskMap.get(t.id)}
+                    source={sourceMap.get(t.id)}
                     canEdit={canEditTask(t, appUser)}
                     canDelete={canDeleteTask(t, appUser)}
                     onDragStart={() => setDragId(t.id)}
