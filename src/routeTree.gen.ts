@@ -33,6 +33,7 @@ import { Route as DashboardEipTasksRouteImport } from './routes/dashboard/eip/ta
 import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/reports'
 import { Route as DashboardEipRecurringRouteImport } from './routes/dashboard/eip/recurring'
 import { Route as DashboardEipQuickReportsRouteImport } from './routes/dashboard/eip/quick-reports'
+import { Route as DashboardEipProjectsRouteImport } from './routes/dashboard/eip/projects'
 import { Route as DashboardEipMyTasksRouteImport } from './routes/dashboard/eip/my-tasks'
 import { Route as DashboardEipMembersRouteImport } from './routes/dashboard/eip/members'
 import { Route as DashboardEipMeetingsRouteImport } from './routes/dashboard/eip/meetings'
@@ -173,6 +174,11 @@ const DashboardEipQuickReportsRoute =
     path: '/quick-reports',
     getParentRoute: () => DashboardEipRoute,
   } as any)
+const DashboardEipProjectsRoute = DashboardEipProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => DashboardEipRoute,
+} as any)
 const DashboardEipMyTasksRoute = DashboardEipMyTasksRouteImport.update({
   id: '/my-tasks',
   path: '/my-tasks',
@@ -222,9 +228,9 @@ const DashboardEipAnnouncementsRoute =
   } as any)
 const DashboardEipProjectsIndexRoute =
   DashboardEipProjectsIndexRouteImport.update({
-    id: '/projects/',
-    path: '/projects/',
-    getParentRoute: () => DashboardEipRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardEipProjectsRoute,
   } as any)
 const DashboardEipMeetingsIndexRoute =
   DashboardEipMeetingsIndexRouteImport.update({
@@ -233,9 +239,9 @@ const DashboardEipMeetingsIndexRoute =
     getParentRoute: () => DashboardEipMeetingsRoute,
   } as any)
 const DashboardEipProjectsIdRoute = DashboardEipProjectsIdRouteImport.update({
-  id: '/projects/$id',
-  path: '/projects/$id',
-  getParentRoute: () => DashboardEipRoute,
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => DashboardEipProjectsRoute,
 } as any)
 const DashboardEipMeetingsIdRoute = DashboardEipMeetingsIdRouteImport.update({
   id: '/$id',
@@ -291,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRouteWithChildren
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
+  '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
   '/dashboard/eip/reports': typeof DashboardEipReportsRoute
@@ -374,6 +381,7 @@ export interface FileRoutesById {
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRouteWithChildren
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
+  '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
   '/dashboard/eip/reports': typeof DashboardEipReportsRoute
@@ -418,6 +426,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/meetings'
     | '/dashboard/eip/members'
     | '/dashboard/eip/my-tasks'
+    | '/dashboard/eip/projects'
     | '/dashboard/eip/quick-reports'
     | '/dashboard/eip/recurring'
     | '/dashboard/eip/reports'
@@ -500,6 +509,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/meetings'
     | '/dashboard/eip/members'
     | '/dashboard/eip/my-tasks'
+    | '/dashboard/eip/projects'
     | '/dashboard/eip/quick-reports'
     | '/dashboard/eip/recurring'
     | '/dashboard/eip/reports'
@@ -689,6 +699,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEipQuickReportsRouteImport
       parentRoute: typeof DashboardEipRoute
     }
+    '/dashboard/eip/projects': {
+      id: '/dashboard/eip/projects'
+      path: '/projects'
+      fullPath: '/dashboard/eip/projects'
+      preLoaderRoute: typeof DashboardEipProjectsRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
     '/dashboard/eip/my-tasks': {
       id: '/dashboard/eip/my-tasks'
       path: '/my-tasks'
@@ -754,10 +771,10 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/eip/projects/': {
       id: '/dashboard/eip/projects/'
-      path: '/projects'
+      path: '/'
       fullPath: '/dashboard/eip/projects/'
       preLoaderRoute: typeof DashboardEipProjectsIndexRouteImport
-      parentRoute: typeof DashboardEipRoute
+      parentRoute: typeof DashboardEipProjectsRoute
     }
     '/dashboard/eip/meetings/': {
       id: '/dashboard/eip/meetings/'
@@ -768,10 +785,10 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/eip/projects/$id': {
       id: '/dashboard/eip/projects/$id'
-      path: '/projects/$id'
+      path: '/$id'
       fullPath: '/dashboard/eip/projects/$id'
       preLoaderRoute: typeof DashboardEipProjectsIdRouteImport
-      parentRoute: typeof DashboardEipRoute
+      parentRoute: typeof DashboardEipProjectsRoute
     }
     '/dashboard/eip/meetings/$id': {
       id: '/dashboard/eip/meetings/$id'
@@ -849,6 +866,19 @@ const DashboardEipMeetingsRouteChildren: DashboardEipMeetingsRouteChildren = {
 const DashboardEipMeetingsRouteWithChildren =
   DashboardEipMeetingsRoute._addFileChildren(DashboardEipMeetingsRouteChildren)
 
+interface DashboardEipProjectsRouteChildren {
+  DashboardEipProjectsIdRoute: typeof DashboardEipProjectsIdRoute
+  DashboardEipProjectsIndexRoute: typeof DashboardEipProjectsIndexRoute
+}
+
+const DashboardEipProjectsRouteChildren: DashboardEipProjectsRouteChildren = {
+  DashboardEipProjectsIdRoute: DashboardEipProjectsIdRoute,
+  DashboardEipProjectsIndexRoute: DashboardEipProjectsIndexRoute,
+}
+
+const DashboardEipProjectsRouteWithChildren =
+  DashboardEipProjectsRoute._addFileChildren(DashboardEipProjectsRouteChildren)
+
 interface DashboardEipRouteChildren {
   DashboardEipAnnouncementsRoute: typeof DashboardEipAnnouncementsRoute
   DashboardEipAssistantRoute: typeof DashboardEipAssistantRoute
@@ -859,12 +889,11 @@ interface DashboardEipRouteChildren {
   DashboardEipMeetingsRoute: typeof DashboardEipMeetingsRouteWithChildren
   DashboardEipMembersRoute: typeof DashboardEipMembersRoute
   DashboardEipMyTasksRoute: typeof DashboardEipMyTasksRoute
+  DashboardEipProjectsRoute: typeof DashboardEipProjectsRouteWithChildren
   DashboardEipQuickReportsRoute: typeof DashboardEipQuickReportsRoute
   DashboardEipRecurringRoute: typeof DashboardEipRecurringRoute
   DashboardEipReportsRoute: typeof DashboardEipReportsRoute
   DashboardEipTasksRoute: typeof DashboardEipTasksRoute
-  DashboardEipProjectsIdRoute: typeof DashboardEipProjectsIdRoute
-  DashboardEipProjectsIndexRoute: typeof DashboardEipProjectsIndexRoute
 }
 
 const DashboardEipRouteChildren: DashboardEipRouteChildren = {
@@ -878,12 +907,11 @@ const DashboardEipRouteChildren: DashboardEipRouteChildren = {
   DashboardEipMeetingsRoute: DashboardEipMeetingsRouteWithChildren,
   DashboardEipMembersRoute: DashboardEipMembersRoute,
   DashboardEipMyTasksRoute: DashboardEipMyTasksRoute,
+  DashboardEipProjectsRoute: DashboardEipProjectsRouteWithChildren,
   DashboardEipQuickReportsRoute: DashboardEipQuickReportsRoute,
   DashboardEipRecurringRoute: DashboardEipRecurringRoute,
   DashboardEipReportsRoute: DashboardEipReportsRoute,
   DashboardEipTasksRoute: DashboardEipTasksRoute,
-  DashboardEipProjectsIdRoute: DashboardEipProjectsIdRoute,
-  DashboardEipProjectsIndexRoute: DashboardEipProjectsIndexRoute,
 }
 
 const DashboardEipRouteWithChildren = DashboardEipRoute._addFileChildren(
