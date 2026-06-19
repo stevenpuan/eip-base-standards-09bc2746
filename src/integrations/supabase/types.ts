@@ -540,6 +540,51 @@ export type Database = {
           },
         ]
       }
+      eip_assistant_intent: {
+        Row: {
+          created_at: string
+          example_questions: string[]
+          feature: string
+          id: string
+          in_line_assistant: boolean
+          intent: string | null
+          keywords: string[]
+          note: string | null
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+          web_route: string | null
+        }
+        Insert: {
+          created_at?: string
+          example_questions?: string[]
+          feature: string
+          id?: string
+          in_line_assistant?: boolean
+          intent?: string | null
+          keywords?: string[]
+          note?: string | null
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+          web_route?: string | null
+        }
+        Update: {
+          created_at?: string
+          example_questions?: string[]
+          feature?: string
+          id?: string
+          in_line_assistant?: boolean
+          intent?: string | null
+          keywords?: string[]
+          note?: string | null
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+          web_route?: string | null
+        }
+        Relationships: []
+      }
       eip_assistant_message: {
         Row: {
           content: string
