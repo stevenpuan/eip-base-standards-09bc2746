@@ -796,10 +796,19 @@ function DocEditorDialog({
   const [ownerId, setOwnerId] = useState<string | null>(doc?.owner_id ?? currentUserId);
   const [departmentId, setDepartmentId] = useState<string | null>(doc?.department_id ?? null);
   const [fileUrl, setFileUrl] = useState("");
-  const [fileName, setFileName] = useState("");
+  // 既有附檔(編輯時從目前版本讀)
+  const [existingStoragePath, setExistingStoragePath] = useState<string | null>(null);
+  const [existingFileName, setExistingFileName] = useState<string | null>(null);
+  const [existingFileSize, setExistingFileSize] = useState<number | null>(null);
+  const [existingMimeType, setExistingMimeType] = useState<string | null>(null);
+  // 本次選擇要上傳的新檔
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [versionNote, setVersionNote] = useState("");
   const [busy, setBusy] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 編輯時:載入目前版本內容到編輯器
   const curVerQ = useQuery({
@@ -819,7 +828,10 @@ function DocEditorDialog({
     if (mode === "edit" && curVerQ.data) {
       editorRef.current.innerHTML = curVerQ.data.content ?? "";
       setFileUrl(curVerQ.data.file_url ?? "");
-      setFileName(curVerQ.data.file_name ?? "");
+      setExistingStoragePath(curVerQ.data.storage_path ?? null);
+      setExistingFileName(curVerQ.data.file_name ?? null);
+      setExistingFileSize(curVerQ.data.file_size ?? null);
+      setExistingMimeType(curVerQ.data.mime_type ?? null);
     } else if (mode === "new") {
       editorRef.current.innerHTML = "";
     }
@@ -834,8 +846,69 @@ function DocEditorDialog({
     if (url) exec("createLink", url);
   };
 
+  const validateFile = (f: File): string | null => {
+    if (f.size > MAX_UPLOAD_BYTES) return "檔案不可超過 50MB";
+    const ext = getExt(f.name);
+    if (!ALLOWED_ACCEPT.split(",").map((s) => s.replace(/^\./, "")).includes(ext)) {
+      return "不支援的檔案類型(僅支援 PDF / Office / 圖片 / txt / csv / zip)";
+    }
+    return null;
+  };
+
+  const onPick = (f: File | null) => {
+    setFileError(null);
+    if (!f) { setPickedFile(null); return; }
+    const err = validateFile(f);
+    if (err) { setFileError(err); setPickedFile(null); return; }
+    setPickedFile(f);
+  };
+
+  const removeExistingAttachment = async () => {
+    if (!existingStoragePath) return;
+    if (!window.confirm("確定刪除目前附檔?")) return;
+    const { error } = await supabase.storage.from("documents").remove([existingStoragePath]);
+    if (error) { toast.error(`刪除附檔失敗：${error.message}`); return; }
+    setExistingStoragePath(null);
+    setExistingFileName(null);
+    setExistingFileSize(null);
+    setExistingMimeType(null);
+    toast.success("附檔已刪除(將於儲存後生效)");
+  };
+
+  // 上傳檔案到 documents bucket;回傳要寫入版本表的欄位
+  const uploadIfNeeded = async (documentId: string): Promise<{
+    storage_path: string | null;
+    file_name: string | null;
+    file_size: number | null;
+    mime_type: string | null;
+  }> => {
+    if (pickedFile) {
+      const safe = safeFileName(pickedFile.name) || `file_${Date.now()}`;
+      const path = `${tenantId}/${documentId}/${Date.now()}_${safe}`;
+      const { error } = await supabase.storage.from("documents").upload(path, pickedFile, {
+        upsert: false,
+        contentType: pickedFile.type || undefined,
+      });
+      if (error) throw new Error(`上傳失敗：${error.message}`);
+      return {
+        storage_path: path,
+        file_name: pickedFile.name,
+        file_size: pickedFile.size,
+        mime_type: pickedFile.type || null,
+      };
+    }
+    // 沿用既有(編輯時若未換檔)
+    return {
+      storage_path: existingStoragePath,
+      file_name: existingFileName,
+      file_size: existingFileSize,
+      mime_type: existingMimeType,
+    };
+  };
+
   const submit = async () => {
     if (!title.trim()) return toast.error("請輸入標題");
+    if (fileError) return toast.error(fileError);
     const html = editorRef.current?.innerHTML ?? "";
     setBusy(true);
     try {
@@ -850,14 +923,21 @@ function DocEditorDialog({
           })
           .select("id").single();
         if (error) throw error;
+        const att = await uploadIfNeeded(ins.id);
         const { error: vErr } = await supabase.from("eip_document_version").insert({
           tenant_id: tenantId, document_id: ins.id, version_no: 1,
-          content: html || null, file_url: fileUrl || null, file_name: fileName || null,
+          content: html || null,
+          file_url: fileUrl || null,
+          file_name: att.file_name,
+          storage_path: att.storage_path,
+          file_size: att.file_size,
+          mime_type: att.mime_type,
           note: versionNote || "初版",
         });
         if (vErr) throw vErr;
         toast.success("已建立文件");
       } else if (doc) {
+        const att = await uploadIfNeeded(doc.id);
         const { error: dErr } = await supabase.from("eip_document")
           .update({
             title: title.trim(), folder_id: folderId, doc_type: docType,
@@ -869,7 +949,12 @@ function DocEditorDialog({
         const { error: vErr } = await supabase.from("eip_document_version").insert({
           tenant_id: doc.tenant_id, document_id: doc.id,
           version_no: doc.current_version + 1,
-          content: html || null, file_url: fileUrl || null, file_name: fileName || null,
+          content: html || null,
+          file_url: fileUrl || null,
+          file_name: att.file_name,
+          storage_path: att.storage_path,
+          file_size: att.file_size,
+          mime_type: att.mime_type,
           note: versionNote || `編輯於 ${new Date().toLocaleString()}`,
         });
         if (vErr) throw vErr;
