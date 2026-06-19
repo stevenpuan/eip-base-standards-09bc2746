@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/table";
 import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
+import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 
 function canEditTask(task: Task, appUser: AppUser | null): boolean {
   if (!appUser) return false;
