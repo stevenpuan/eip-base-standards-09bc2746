@@ -1059,14 +1059,63 @@ function DocEditorDialog({
             </div>
           </Field>
 
-          <div className="grid md:grid-cols-2 gap-3">
-            <Field label="附檔網址(選填)">
-              <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://…" />
-            </Field>
-            <Field label="附檔名稱(選填)">
-              <Input value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="檔案名稱.pdf" />
-            </Field>
-          </div>
+          <Field label="附檔(上傳檔案)">
+            <div className="space-y-2">
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const f = e.dataTransfer.files?.[0] ?? null;
+                  onPick(f);
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "border-2 border-dashed rounded-md p-4 text-center cursor-pointer transition-colors",
+                  dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50",
+                )}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={ALLOWED_ACCEPT}
+                  onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+                />
+                {pickedFile ? (
+                  <div className="text-sm">
+                    <div className="font-medium truncate">{pickedFile.name}</div>
+                    <div className="text-xs text-muted-foreground">{humanSize(pickedFile.size)} · 點擊更換</div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    <div>拖放檔案到此或<span className="text-primary">點擊選檔</span></div>
+                    <div className="text-xs mt-1">PDF / Word / Excel / PowerPoint / 圖片 / txt / csv / zip · 單檔上限 50MB</div>
+                  </div>
+                )}
+              </div>
+              {fileError && <div className="text-xs text-destructive">{fileError}</div>}
+              {pickedFile && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setPickedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                  取消選擇
+                </Button>
+              )}
+              {!pickedFile && existingStoragePath && (
+                <div className="flex items-center gap-2 flex-wrap text-sm border rounded p-2 bg-muted/30">
+                  <span className="font-medium truncate">{existingFileName ?? "已上傳附檔"}</span>
+                  <span className="text-xs text-muted-foreground">({humanSize(existingFileSize)})</span>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void downloadFromStorage(existingStoragePath)}>下載</Button>
+                  <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => void removeExistingAttachment()}>刪除附檔</Button>
+                </div>
+              )}
+            </div>
+          </Field>
+
+          <Field label="或貼外部連結(選填)">
+            <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://…(雲端硬碟連結等)" />
+          </Field>
+
 
           <Field label={mode === "new" ? "版本備註" : "本次修改說明"}>
             <Input value={versionNote} onChange={(e) => setVersionNote(e.target.value)} placeholder={mode === "new" ? "例:初版建立" : "例:更新章節三、修正錯字"} />
