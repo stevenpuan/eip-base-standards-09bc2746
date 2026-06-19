@@ -68,10 +68,44 @@ type Version = {
   content: string | null;
   file_url: string | null;
   file_name: string | null;
+  storage_path: string | null;
+  file_size: number | null;
+  mime_type: string | null;
   note: string | null;
   created_by: string | null;
   created_at: string;
 };
+
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const ALLOWED_EXT = [
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+  "png", "jpg", "jpeg", "gif", "webp", "txt", "csv", "zip",
+];
+const ALLOWED_ACCEPT =
+  ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.zip";
+
+function safeFileName(name: string): string {
+  return name.replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+}
+function getExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+function humanSize(bytes: number | null | undefined): string {
+  if (!bytes && bytes !== 0) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+async function downloadFromStorage(storagePath: string) {
+  const { data, error } = await supabase.storage.from("documents").createSignedUrl(storagePath, 60);
+  if (error || !data?.signedUrl) {
+    toast.error(`下載失敗：${error?.message ?? "無法產生連結"}`);
+    return;
+  }
+  window.open(data.signedUrl, "_blank");
+}
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   sop: "SOP/流程", policy: "制度規章", form: "表單", guide: "指南", general: "一般",
@@ -611,6 +645,7 @@ function DocDetailDialog({
     const { error: vErr } = await supabase.from("eip_document_version").insert({
       tenant_id: doc.tenant_id, document_id: doc.id, version_no: newVer,
       content: v.content, file_url: v.file_url, file_name: v.file_name,
+      storage_path: v.storage_path, file_size: v.file_size, mime_type: v.mime_type,
       note: `還原自 v${v.version_no}`,
     });
     if (vErr) return toast.error(vErr.message);
@@ -662,11 +697,22 @@ function DocDetailDialog({
                     </button>
                   </div>
                 )}
-                {viewing.file_url && (
-                  <div className="mb-3 text-sm">
-                    附檔:<a href={viewing.file_url} target="_blank" rel="noreferrer" className="text-primary underline">
-                      {viewing.file_name ?? viewing.file_url}
-                    </a>
+                {(viewing.storage_path || viewing.file_url) && (
+                  <div className="mb-3 text-sm flex items-center gap-2 flex-wrap">
+                    <span className="text-muted-foreground">附檔:</span>
+                    <span className="font-medium">{viewing.file_name ?? "附檔"}</span>
+                    {viewing.file_size != null && (
+                      <span className="text-xs text-muted-foreground">({humanSize(viewing.file_size)})</span>
+                    )}
+                    {viewing.storage_path ? (
+                      <Button size="sm" variant="outline" onClick={() => void downloadFromStorage(viewing.storage_path!)}>
+                        下載
+                      </Button>
+                    ) : viewing.file_url ? (
+                      <a href={viewing.file_url} target="_blank" rel="noreferrer" className="text-primary underline text-xs">
+                        開啟連結
+                      </a>
+                    ) : null}
                   </div>
                 )}
                 {viewing.content ? (
@@ -750,10 +796,19 @@ function DocEditorDialog({
   const [ownerId, setOwnerId] = useState<string | null>(doc?.owner_id ?? currentUserId);
   const [departmentId, setDepartmentId] = useState<string | null>(doc?.department_id ?? null);
   const [fileUrl, setFileUrl] = useState("");
-  const [fileName, setFileName] = useState("");
+  // 既有附檔(編輯時從目前版本讀)
+  const [existingStoragePath, setExistingStoragePath] = useState<string | null>(null);
+  const [existingFileName, setExistingFileName] = useState<string | null>(null);
+  const [existingFileSize, setExistingFileSize] = useState<number | null>(null);
+  const [existingMimeType, setExistingMimeType] = useState<string | null>(null);
+  // 本次選擇要上傳的新檔
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [versionNote, setVersionNote] = useState("");
   const [busy, setBusy] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 編輯時:載入目前版本內容到編輯器
   const curVerQ = useQuery({
@@ -773,7 +828,10 @@ function DocEditorDialog({
     if (mode === "edit" && curVerQ.data) {
       editorRef.current.innerHTML = curVerQ.data.content ?? "";
       setFileUrl(curVerQ.data.file_url ?? "");
-      setFileName(curVerQ.data.file_name ?? "");
+      setExistingStoragePath(curVerQ.data.storage_path ?? null);
+      setExistingFileName(curVerQ.data.file_name ?? null);
+      setExistingFileSize(curVerQ.data.file_size ?? null);
+      setExistingMimeType(curVerQ.data.mime_type ?? null);
     } else if (mode === "new") {
       editorRef.current.innerHTML = "";
     }
@@ -788,8 +846,69 @@ function DocEditorDialog({
     if (url) exec("createLink", url);
   };
 
+  const validateFile = (f: File): string | null => {
+    if (f.size > MAX_UPLOAD_BYTES) return "檔案不可超過 50MB";
+    const ext = getExt(f.name);
+    if (!ALLOWED_ACCEPT.split(",").map((s) => s.replace(/^\./, "")).includes(ext)) {
+      return "不支援的檔案類型(僅支援 PDF / Office / 圖片 / txt / csv / zip)";
+    }
+    return null;
+  };
+
+  const onPick = (f: File | null) => {
+    setFileError(null);
+    if (!f) { setPickedFile(null); return; }
+    const err = validateFile(f);
+    if (err) { setFileError(err); setPickedFile(null); return; }
+    setPickedFile(f);
+  };
+
+  const removeExistingAttachment = async () => {
+    if (!existingStoragePath) return;
+    if (!window.confirm("確定刪除目前附檔?")) return;
+    const { error } = await supabase.storage.from("documents").remove([existingStoragePath]);
+    if (error) { toast.error(`刪除附檔失敗：${error.message}`); return; }
+    setExistingStoragePath(null);
+    setExistingFileName(null);
+    setExistingFileSize(null);
+    setExistingMimeType(null);
+    toast.success("附檔已刪除(將於儲存後生效)");
+  };
+
+  // 上傳檔案到 documents bucket;回傳要寫入版本表的欄位
+  const uploadIfNeeded = async (documentId: string): Promise<{
+    storage_path: string | null;
+    file_name: string | null;
+    file_size: number | null;
+    mime_type: string | null;
+  }> => {
+    if (pickedFile) {
+      const safe = safeFileName(pickedFile.name) || `file_${Date.now()}`;
+      const path = `${tenantId}/${documentId}/${Date.now()}_${safe}`;
+      const { error } = await supabase.storage.from("documents").upload(path, pickedFile, {
+        upsert: false,
+        contentType: pickedFile.type || undefined,
+      });
+      if (error) throw new Error(`上傳失敗：${error.message}`);
+      return {
+        storage_path: path,
+        file_name: pickedFile.name,
+        file_size: pickedFile.size,
+        mime_type: pickedFile.type || null,
+      };
+    }
+    // 沿用既有(編輯時若未換檔)
+    return {
+      storage_path: existingStoragePath,
+      file_name: existingFileName,
+      file_size: existingFileSize,
+      mime_type: existingMimeType,
+    };
+  };
+
   const submit = async () => {
     if (!title.trim()) return toast.error("請輸入標題");
+    if (fileError) return toast.error(fileError);
     const html = editorRef.current?.innerHTML ?? "";
     setBusy(true);
     try {
@@ -804,14 +923,21 @@ function DocEditorDialog({
           })
           .select("id").single();
         if (error) throw error;
+        const att = await uploadIfNeeded(ins.id);
         const { error: vErr } = await supabase.from("eip_document_version").insert({
           tenant_id: tenantId, document_id: ins.id, version_no: 1,
-          content: html || null, file_url: fileUrl || null, file_name: fileName || null,
+          content: html || null,
+          file_url: fileUrl || null,
+          file_name: att.file_name,
+          storage_path: att.storage_path,
+          file_size: att.file_size,
+          mime_type: att.mime_type,
           note: versionNote || "初版",
         });
         if (vErr) throw vErr;
         toast.success("已建立文件");
       } else if (doc) {
+        const att = await uploadIfNeeded(doc.id);
         const { error: dErr } = await supabase.from("eip_document")
           .update({
             title: title.trim(), folder_id: folderId, doc_type: docType,
@@ -823,7 +949,12 @@ function DocEditorDialog({
         const { error: vErr } = await supabase.from("eip_document_version").insert({
           tenant_id: doc.tenant_id, document_id: doc.id,
           version_no: doc.current_version + 1,
-          content: html || null, file_url: fileUrl || null, file_name: fileName || null,
+          content: html || null,
+          file_url: fileUrl || null,
+          file_name: att.file_name,
+          storage_path: att.storage_path,
+          file_size: att.file_size,
+          mime_type: att.mime_type,
           note: versionNote || `編輯於 ${new Date().toLocaleString()}`,
         });
         if (vErr) throw vErr;
@@ -928,14 +1059,63 @@ function DocEditorDialog({
             </div>
           </Field>
 
-          <div className="grid md:grid-cols-2 gap-3">
-            <Field label="附檔網址(選填)">
-              <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://…" />
-            </Field>
-            <Field label="附檔名稱(選填)">
-              <Input value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="檔案名稱.pdf" />
-            </Field>
-          </div>
+          <Field label="附檔(上傳檔案)">
+            <div className="space-y-2">
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const f = e.dataTransfer.files?.[0] ?? null;
+                  onPick(f);
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "border-2 border-dashed rounded-md p-4 text-center cursor-pointer transition-colors",
+                  dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50",
+                )}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={ALLOWED_ACCEPT}
+                  onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+                />
+                {pickedFile ? (
+                  <div className="text-sm">
+                    <div className="font-medium truncate">{pickedFile.name}</div>
+                    <div className="text-xs text-muted-foreground">{humanSize(pickedFile.size)} · 點擊更換</div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    <div>拖放檔案到此或<span className="text-primary">點擊選檔</span></div>
+                    <div className="text-xs mt-1">PDF / Word / Excel / PowerPoint / 圖片 / txt / csv / zip · 單檔上限 50MB</div>
+                  </div>
+                )}
+              </div>
+              {fileError && <div className="text-xs text-destructive">{fileError}</div>}
+              {pickedFile && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setPickedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                  取消選擇
+                </Button>
+              )}
+              {!pickedFile && existingStoragePath && (
+                <div className="flex items-center gap-2 flex-wrap text-sm border rounded p-2 bg-muted/30">
+                  <span className="font-medium truncate">{existingFileName ?? "已上傳附檔"}</span>
+                  <span className="text-xs text-muted-foreground">({humanSize(existingFileSize)})</span>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void downloadFromStorage(existingStoragePath)}>下載</Button>
+                  <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => void removeExistingAttachment()}>刪除附檔</Button>
+                </div>
+              )}
+            </div>
+          </Field>
+
+          <Field label="或貼外部連結(選填)">
+            <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://…(雲端硬碟連結等)" />
+          </Field>
+
 
           <Field label={mode === "new" ? "版本備註" : "本次修改說明"}>
             <Input value={versionNote} onChange={(e) => setVersionNote(e.target.value)} placeholder={mode === "new" ? "例:初版建立" : "例:更新章節三、修正錯字"} />

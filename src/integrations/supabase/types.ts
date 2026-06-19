@@ -252,8 +252,11 @@ export type Database = {
           entity_id: string
           entity_type: Database["public"]["Enums"]["attachment_entity"]
           file_name: string
+          file_size: number | null
           file_url: string
           id: string
+          mime_type: string | null
+          storage_path: string | null
           tenant_id: string
           uploaded_by: string
         }
@@ -262,8 +265,11 @@ export type Database = {
           entity_id: string
           entity_type: Database["public"]["Enums"]["attachment_entity"]
           file_name: string
+          file_size?: number | null
           file_url: string
           id?: string
+          mime_type?: string | null
+          storage_path?: string | null
           tenant_id: string
           uploaded_by: string
         }
@@ -272,8 +278,11 @@ export type Database = {
           entity_id?: string
           entity_type?: Database["public"]["Enums"]["attachment_entity"]
           file_name?: string
+          file_size?: number | null
           file_url?: string
           id?: string
+          mime_type?: string | null
+          storage_path?: string | null
           tenant_id?: string
           uploaded_by?: string
         }
@@ -760,9 +769,12 @@ export type Database = {
           created_by: string | null
           document_id: string
           file_name: string | null
+          file_size: number | null
           file_url: string | null
           id: string
+          mime_type: string | null
           note: string | null
+          storage_path: string | null
           tenant_id: string
           version_no: number
         }
@@ -772,9 +784,12 @@ export type Database = {
           created_by?: string | null
           document_id: string
           file_name?: string | null
+          file_size?: number | null
           file_url?: string | null
           id?: string
+          mime_type?: string | null
           note?: string | null
+          storage_path?: string | null
           tenant_id: string
           version_no: number
         }
@@ -784,9 +799,12 @@ export type Database = {
           created_by?: string | null
           document_id?: string
           file_name?: string | null
+          file_size?: number | null
           file_url?: string | null
           id?: string
+          mime_type?: string | null
           note?: string | null
+          storage_path?: string | null
           tenant_id?: string
           version_no?: number
         }
