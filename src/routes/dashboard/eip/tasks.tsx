@@ -860,7 +860,12 @@ function ListView({
                         />
                       </TableCell>
                     )}
-                    <TableCell className="text-sm font-medium">{t.title}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{t.title}</span>
+                        {sourceMap.get(t.id) && <TaskSourceBadge source={sourceMap.get(t.id)!} />}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm">{userMap.get(t.owner_id)?.name ?? "—"}</TableCell>
                     <TableCell className="text-sm">{statusMap.get(t.status_id)?.name ?? "—"}</TableCell>
                     <TableCell>
