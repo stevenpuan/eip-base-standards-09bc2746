@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import type { Database } from "@/integrations/supabase/types";
+import { TaskSourceBadge, useTaskSources } from "@/components/eip/TaskSourceBadge";
+import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
   component: ProjectDetailPage,
@@ -245,7 +247,7 @@ function ProjectDetailPage() {
       </Section>
 
       {/* E. 任務 */}
-      <Section icon={ListChecks} title={`工作任務（完成 ${doneT}/${totalT}・${taskRate}%）`}>
+      <Section icon={ListChecks} title={`專案任務（完成 ${doneT}/${totalT}・${taskRate}%）`}>
         <TasksSection projectId={id} tenantId={project.tenant_id} tasks={tasks} statuses={statusesQ.data ?? []} userMap={userMap} doneStatusIds={doneStatusIds} canEdit={canEdit} appUser={appUser ?? null} />
       </Section>
 
@@ -490,7 +492,27 @@ function TasksSection({
 }) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [editTask, setEditTask] = useState<Task | null>(null);
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.id, s])), [statuses]);
+  const sourceMap = useTaskSources(tasks);
+
+  // for EditTaskDialog props
+  const deptsQ = useQuery({
+    queryKey: ["eip", "departments"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("department").select("*").order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const allProjectsQ = useQuery({
+    queryKey: ["eip", "projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project").select("*").order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   return (
     <>
@@ -500,15 +522,19 @@ function TasksSection({
         <div className="border rounded-md divide-y">
           {tasks.map((t) => {
             const done = doneStatusIds.has(t.status_id) || t.progress >= 100;
+            const src = sourceMap.get(t.id);
             return (
-              <Link
+              <button
                 key={t.id}
-                to="/dashboard/eip/tasks"
-                search={{ openTask: t.id }}
-                className="flex items-center gap-3 p-2.5 hover:bg-accent/50"
+                type="button"
+                onClick={() => setEditTask(t)}
+                className="w-full text-left flex items-center gap-3 p-2.5 hover:bg-accent/50"
               >
                 <div className="flex-1 min-w-0">
-                  <div className={`text-sm truncate ${done ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
+                  <div className={`text-sm truncate flex items-center gap-2 ${done ? "line-through text-muted-foreground" : ""}`}>
+                    <span className="truncate">{t.title}</span>
+                    {src && <TaskSourceBadge source={src} />}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {statusMap.get(t.status_id)?.name ?? "—"} · {userMap.get(t.owner_id)?.name ?? "—"}
                     {t.due_date && ` · 期限 ${t.due_date}`}
@@ -518,7 +544,7 @@ function TasksSection({
                   <Progress value={t.progress} className="h-1.5" />
                   <div className="text-[10px] text-muted-foreground text-right mt-0.5">{t.progress}%</div>
                 </div>
-              </Link>
+              </button>
             );
           })}
         </div>
@@ -532,6 +558,22 @@ function TasksSection({
           appUser={appUser}
           onClose={() => setAdding(false)}
           onCreated={() => { setAdding(false); qc.invalidateQueries({ queryKey: ["eip", "project-tasks", projectId] }); }}
+        />
+      )}
+      {editTask && (
+        <EditTaskDialog
+          key={editTask.id}
+          task={editTask}
+          readOnly={!canEdit && editTask.owner_id !== appUser?.id}
+          onClose={() => setEditTask(null)}
+          statuses={statuses as any}
+          users={Array.from(userMap.values())}
+          departments={(deptsQ.data ?? []) as any}
+          projects={(allProjectsQ.data ?? []) as any}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["eip", "project-tasks", projectId] });
+            setEditTask(null);
+          }}
         />
       )}
     </>

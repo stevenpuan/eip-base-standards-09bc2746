@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/table";
 import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
+import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 
 function canEditTask(task: Task, appUser: AppUser | null): boolean {
   if (!appUser) return false;
@@ -208,6 +209,8 @@ function TasksPage() {
     });
   }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword]);
 
+  const sourceMap = useTaskSources(filteredTasks);
+
   // 從 URL openTask=<id> 自動開啟對應任務詳情/編輯
   useEffect(() => {
     const id = search.openTask;
@@ -275,8 +278,8 @@ function TasksPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="任務"
-        description="支援看板 / 列表 / 行事曆三種視圖，所有篩選共用。"
+        title="任務看板"
+        description="全公司任務看板。支援看板 / 列表 / 行事曆三種視圖,所有篩選共用。"
         actions={
           <div className="flex items-center gap-2">
             {canExport && (
@@ -321,6 +324,7 @@ function TasksPage() {
             statuses={statusesQ.data ?? []}
             userMap={userMap}
             subtaskMap={subtaskMap}
+            sourceMap={sourceMap}
             appUser={appUser}
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
@@ -336,6 +340,7 @@ function TasksPage() {
             statusMap={statusMap}
             userMap={userMap}
             projectMap={projectMap}
+            sourceMap={sourceMap}
             statuses={statusesQ.data ?? []}
             users={usersQ.data ?? []}
             appUser={appUser}
@@ -526,11 +531,12 @@ function MiniSelect({ value, onChange, options }: {
 
 /* ============ 看板視圖 ============ */
 function BoardView({
-  tasks, statuses, userMap, subtaskMap, appUser, onMove, onOpenDetail, onAskDelete,
+  tasks, statuses, userMap, subtaskMap, sourceMap, appUser, onMove, onOpenDetail, onAskDelete,
 }: {
   tasks: Task[]; statuses: Status[];
   userMap: Map<string, AppUser>;
   subtaskMap: Map<string, { total: number; done: number }>;
+  sourceMap: Map<string, TaskSource>;
   appUser: AppUser | null;
   onMove: (taskId: string, toStatusId: string, newPosition: number) => void;
   onOpenDetail: (t: Task) => void;
@@ -577,6 +583,7 @@ function BoardView({
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleColumnDrop(s.id, t.id); }}>
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
                     subtask={subtaskMap.get(t.id)}
+                    source={sourceMap.get(t.id)}
                     canEdit={canEditTask(t, appUser)}
                     canDelete={canDeleteTask(t, appUser)}
                     onDragStart={() => setDragId(t.id)}
@@ -597,9 +604,10 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
+function TaskCard({ task, owner, subtask, source, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
   task: Task; owner?: AppUser;
   subtask?: { total: number; done: number };
+  source?: TaskSource;
   canEdit: boolean; canDelete: boolean;
   onDragStart: () => void;
   onOpenDetail: () => void;
@@ -681,6 +689,11 @@ function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpe
             )}
           </div>
         </div>
+        {source && (
+          <div className="flex items-center gap-1">
+            <TaskSourceBadge source={source} />
+          </div>
+        )}
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
@@ -708,10 +721,11 @@ function TaskCard({ task, owner, subtask, canEdit, canDelete, onDragStart, onOpe
 type SortKey = "title" | "owner" | "status" | "priority" | "progress" | "due" | "project";
 
 function ListView({
-  tasks, statusMap, userMap, projectMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
+  tasks, statusMap, userMap, projectMap, sourceMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
 }: {
   tasks: Task[];
   statusMap: Map<string, Status>; userMap: Map<string, AppUser>; projectMap: Map<string, Project>;
+  sourceMap: Map<string, TaskSource>;
   statuses: Status[]; users: AppUser[];
   appUser: AppUser | null; canManage: boolean;
   onChanged: () => void;
@@ -846,7 +860,12 @@ function ListView({
                         />
                       </TableCell>
                     )}
-                    <TableCell className="text-sm font-medium">{t.title}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{t.title}</span>
+                        {sourceMap.get(t.id) && <TaskSourceBadge source={sourceMap.get(t.id)!} />}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm">{userMap.get(t.owner_id)?.name ?? "—"}</TableCell>
                     <TableCell className="text-sm">{statusMap.get(t.status_id)?.name ?? "—"}</TableCell>
                     <TableCell>
@@ -1133,7 +1152,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /* ============ 任務詳情/編輯對話框 ============ */
-function EditTaskDialog({
+export function EditTaskDialog({
   task, readOnly, onClose, onSaved, statuses, users, departments, projects,
 }: {
   task: Task; readOnly: boolean;
