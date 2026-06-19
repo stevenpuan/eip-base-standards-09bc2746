@@ -554,57 +554,6 @@ export type Database = {
           },
         ]
       }
-      eip_changelog: {
-        Row: {
-          content: string | null
-          created_at: string
-          created_by: string | null
-          id: string
-          released_at: string
-          tenant_id: string
-          title: string
-          type: string
-          version: string
-        }
-        Insert: {
-          content?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          released_at?: string
-          tenant_id: string
-          title: string
-          type?: string
-          version: string
-        }
-        Update: {
-          content?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          released_at?: string
-          tenant_id?: string
-          title?: string
-          type?: string
-          version?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "eip_changelog_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "app_user"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "eip_changelog_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenant"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       eip_doc_folder: {
         Row: {
           created_at: string
@@ -1034,42 +983,6 @@ export type Database = {
           message?: string | null
           route?: string | null
           user_id?: string | null
-        }
-        Relationships: []
-      }
-      feature_requests: {
-        Row: {
-          area: string | null
-          created_at: string
-          description: string | null
-          id: string
-          points_cost: number
-          status: string
-          submitter_id: string | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          area?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          points_cost?: number
-          status?: string
-          submitter_id?: string | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          area?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          points_cost?: number
-          status?: string
-          submitter_id?: string | null
-          title?: string
-          updated_at?: string
         }
         Relationships: []
       }
