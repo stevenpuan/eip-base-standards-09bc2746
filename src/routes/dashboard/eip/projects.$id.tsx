@@ -256,8 +256,9 @@ function ProjectDetailPage() {
 
       {/* G. 會議 */}
       <Section icon={CalendarDays} title="關聯會議">
-        <MeetingsSection meetings={meetingsQ.data ?? []} />
+        <MeetingsSection projectId={id} meetings={meetingsQ.data ?? []} canEdit={canEdit} />
       </Section>
+
     </div>
   );
 }
