@@ -1,0 +1,459 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Plus, FolderKanban, Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { exportToExcel } from "@/lib/eip-export";
+import { supabase } from "@/integrations/supabase/client";
+import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { Database } from "@/integrations/supabase/types";
+
+export const Route = createFileRoute("/dashboard/eip/projects/")({ component: ProjectsPage });
+
+function canManageProject(p: Project, appUser: AppUser | null): boolean {
+  if (!appUser) return false;
+  if (appUser.role === "company_admin" || appUser.role === "dept_manager") return true;
+  return p.owner_id === appUser.id;
+}
+
+type Project = Database["public"]["Tables"]["project"]["Row"];
+type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
+type Task = Database["public"]["Tables"]["task"]["Row"];
+type ProjectStatus = Database["public"]["Enums"]["project_status"];
+type ProjectHealth = Database["public"]["Enums"]["project_health"];
+
+const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
+  planning: "規劃中", active: "進行中", on_hold: "暫停", done: "已完成",
+};
+const PROJECT_STATUS_COLOR: Record<ProjectStatus, string> = {
+  planning: "bg-slate-100 text-slate-700",
+  active: "bg-emerald-100 text-emerald-700",
+  on_hold: "bg-amber-100 text-amber-700",
+  done: "bg-blue-100 text-blue-700",
+};
+const HEALTH_LABEL: Record<ProjectHealth, string> = {
+  on_track: "綠燈", at_risk: "黃燈", off_track: "紅燈",
+};
+const HEALTH_DOT: Record<ProjectHealth, string> = {
+  on_track: "bg-emerald-500", at_risk: "bg-amber-500", off_track: "bg-red-500",
+};
+
+function ProjectsPage() {
+  const qc = useQueryClient();
+  const { appUser } = useEipUser();
+  const canCreate = canManageEip(appUser?.role);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  
+
+  const projectsQ = useQuery({
+    queryKey: ["eip", "projects-full"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("project").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Project[];
+    },
+  });
+  const usersQ = useQuery({
+    queryKey: ["eip", "users-min"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_user").select("*");
+      if (error) throw error;
+      return (data ?? []) as AppUser[];
+    },
+  });
+  const tasksQ = useQuery({
+    queryKey: ["eip", "all-project-tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task").select("id,project_id,status_id,progress").not("project_id", "is", null);
+      if (error) throw error;
+      return (data ?? []) as Pick<Task, "id" | "project_id" | "status_id" | "progress">[];
+    },
+  });
+  const statusesQ = useQuery({
+    queryKey: ["eip", "task-statuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task_status").select("id,is_done_state");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
+  const doneStatusIds = useMemo(() => new Set((statusesQ.data ?? []).filter((s: any) => s.is_done_state).map((s: any) => s.id as string)), [statusesQ.data]);
+  const progressByProject = useMemo(() => {
+    const m = new Map<string, { done: number; total: number }>();
+    for (const t of tasksQ.data ?? []) {
+      if (!t.project_id) continue;
+      const cur = m.get(t.project_id) ?? { done: 0, total: 0 };
+      cur.total += 1;
+      if (doneStatusIds.has(t.status_id) || (t.progress ?? 0) >= 100) cur.done += 1;
+      m.set(t.project_id, cur);
+    }
+    return m;
+  }, [tasksQ.data, doneStatusIds]);
+
+  if (projectsQ.isLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
+
+  return (
+    <div>
+      <PageHeader title="專案"
+        description="管理跨部門專案、里程碑與成員，並關聯任務與會議。"
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportProjectsBtn projects={projectsQ.data ?? []} userMap={userMap} />
+            {canCreate && appUser && (
+              <Button onClick={() => setOpenCreate(true)}><Plus className="w-4 h-4" />新增專案</Button>
+            )}
+          </div>
+        }
+      />
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {(projectsQ.data ?? []).map((p) => {
+          const canManage = canManageProject(p, appUser);
+          return (
+            <div key={p.id} className="relative">
+              <Link to="/dashboard/eip/projects/$id" params={{ id: p.id }}>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <FolderKanban className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                      <div className="flex-1 min-w-0 pr-8">
+                        <div className="font-medium truncate">{p.name}</div>
+                        {p.goal && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.goal}</div>}
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={`text-[10px] ${PROJECT_STATUS_COLOR[p.status]}`} variant="secondary">
+                          {PROJECT_STATUS_LABEL[p.status]}
+                        </Badge>
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <span className={`inline-block w-2 h-2 rounded-full ${HEALTH_DOT[p.health]}`} />{HEALTH_LABEL[p.health]}
+                        </span>
+                      </div>
+                    </div>
+                    {(() => {
+                      const s = progressByProject.get(p.id);
+                      const pct = s && s.total ? Math.round((s.done / s.total) * 100) : 0;
+                      return (
+                        <div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">進度 {pct}%{s ? ` · ${s.done}/${s.total} 任務` : ""}</div>
+                        </div>
+                      );
+                    })()}
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      <span>負責人：{userMap.get(p.owner_id)?.name ?? "—"}</span>
+                      {p.end_date && <span>截止 {p.end_date}</span>}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              {canManage && (
+                <div className="absolute top-2 right-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground bg-background/80 backdrop-blur"
+                        aria-label="更多操作"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => { e.preventDefault(); setEditProject(p); }}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" /> 編輯
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => { e.preventDefault(); setDeleteProject(p); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-2" /> 刪除
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {(projectsQ.data ?? []).length === 0 && (
+          <Card className="md:col-span-2 lg:col-span-3">
+            <CardContent className="py-12 text-center space-y-3">
+              <div className="text-sm text-muted-foreground">目前沒有專案,點「新增專案」建立第一個專案。</div>
+              {canCreate && (
+                <Button size="sm" onClick={() => setOpenCreate(true)}>
+                  <Plus className="w-4 h-4" /> 新增專案
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {openCreate && appUser && (
+        <CreateProjectDialog
+          open={openCreate} onClose={() => setOpenCreate(false)} appUser={appUser} users={usersQ.data ?? []}
+          onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
+        />
+      )}
+      {editProject && appUser && (
+        <EditProjectDialog
+          project={editProject} users={usersQ.data ?? []} onClose={() => setEditProject(null)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["eip", "projects-full"] }); setEditProject(null); }}
+        />
+      )}
+      <AlertDialog open={!!deleteProject} onOpenChange={(o) => !o && !deleting && setDeleteProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除專案？</AlertDialogTitle>
+            <AlertDialogDescription>
+              即將刪除「{deleteProject?.name}」,相關里程碑/成員紀錄可能一併移除。刪除後無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteProject) return;
+                setDeleting(true);
+                const { error } = await supabase.from("project").delete().eq("id", deleteProject.id);
+                setDeleting(false);
+                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                toast.success("專案已刪除");
+                setDeleteProject(null);
+                qc.invalidateQueries({ queryKey: ["eip", "projects-full"] });
+              }}
+            >
+              {deleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function EditProjectDialog({
+  project, users, onClose, onSaved,
+}: { project: Project; users: AppUser[]; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(project.name);
+  const [goal, setGoal] = useState(project.goal ?? "");
+  const [scope, setScope] = useState(project.scope ?? "");
+  const [description, setDescription] = useState(project.description ?? "");
+  const [ownerId, setOwnerId] = useState(project.owner_id);
+  const [status, setStatus] = useState<ProjectStatus>(project.status);
+  const [health, setHealth] = useState<ProjectHealth>(project.health);
+  const [startDate, setStartDate] = useState(project.start_date ?? "");
+  const [endDate, setEndDate] = useState(project.end_date ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error("請輸入專案名稱");
+    setBusy(true);
+    const { error } = await supabase.from("project").update({
+      name: name.trim(),
+      goal: goal.trim() || null,
+      scope: scope.trim() || null,
+      description: description.trim() || null,
+      owner_id: ownerId,
+      status,
+      health,
+      start_date: startDate || null,
+      end_date: endDate || null,
+    }).eq("id", project.id);
+    setBusy(false);
+    if (error) { toast.error(`儲存失敗：${error.message}`); return; }
+    toast.success("已儲存"); onSaved();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>編輯專案</DialogTitle></DialogHeader>
+        <div className="grid gap-3 py-2">
+          <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label="目標"><Input value={goal} onChange={(e) => setGoal(e.target.value)} /></Field>
+          <Field label="範疇"><Textarea rows={2} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="專案範疇,含括與排除項目" /></Field>
+          <Field label="描述"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="負責人">
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="狀態">
+              <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PROJECT_STATUS_LABEL) as ProjectStatus[]).map((s) =>
+                    <SelectItem key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="健康度">
+              <Select value={health} onValueChange={(v) => setHealth(v as ProjectHealth)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(HEALTH_LABEL) as ProjectHealth[]).map((h) =>
+                    <SelectItem key={h} value={h}>{HEALTH_LABEL[h]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div />
+            <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+            <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+function CreateProjectDialog({
+  open, onClose, appUser, users, onCreated,
+}: { open: boolean; onClose: () => void; appUser: AppUser; users: AppUser[]; onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [goal, setGoal] = useState("");
+  const [scope, setScope] = useState("");
+  const [description, setDescription] = useState("");
+  const [ownerId, setOwnerId] = useState(appUser.id);
+  const [status, setStatus] = useState<ProjectStatus>("planning");
+  const [health, setHealth] = useState<ProjectHealth>("on_track");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error("請輸入專案名稱");
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("project").insert({
+        tenant_id: appUser.tenant_id ?? DEFAULT_TENANT_ID,
+        name: name.trim(),
+        goal: goal.trim() || null,
+        scope: scope.trim() || null,
+        description: description.trim() || null,
+        owner_id: ownerId,
+        status,
+        health,
+        start_date: startDate || null,
+        end_date: endDate || null,
+      });
+      if (error) throw error;
+      toast.success("專案已建立");
+      onCreated(); onClose();
+    } catch (e) { toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>新增專案</DialogTitle></DialogHeader>
+        <div className="grid gap-3 py-2">
+          <Field label="名稱"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label="目標"><Input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="一句話描述專案目標" /></Field>
+          <Field label="範疇"><Textarea rows={2} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="專案範疇,含括與排除項目" /></Field>
+          <Field label="描述"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="負責人">
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+            <Field label="狀態">
+              <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PROJECT_STATUS_LABEL) as ProjectStatus[]).map((s) =>
+                    <SelectItem key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="健康度">
+              <Select value={health} onValueChange={(v) => setHealth(v as ProjectHealth)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(HEALTH_LABEL) as ProjectHealth[]).map((h) =>
+                    <SelectItem key={h} value={h}>{HEALTH_LABEL[h]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div />
+            <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+            <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={submit} disabled={busy}>建立</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function ExportProjectsBtn({ projects, userMap }: { projects: Project[]; userMap: Map<string, AppUser> }) {
+  const { can } = useAuth();
+  if (!can("eip_projects", "export")) return null;
+  return (
+    <Button variant="outline" onClick={() => exportToExcel({
+      filename: "EIP專案", sheetName: "專案", rows: projects,
+      columns: [
+        { header: "名稱", key: "name" },
+        { header: "狀態", key: "status", map: (r) => PROJECT_STATUS_LABEL[r.status] ?? r.status },
+        { header: "負責人", key: "owner_id", map: (r) => r.owner_id ? userMap.get(r.owner_id)?.name ?? "" : "" },
+        { header: "開始", key: "start_date", map: (r) => r.start_date ?? "" },
+        { header: "結束", key: "end_date", map: (r) => r.end_date ?? "" },
+        { header: "描述", key: "description", map: (r) => r.description ?? "" },
+        { header: "建立時間", key: "created_at", map: (r) => new Date(r.created_at).toLocaleString("zh-TW") },
+      ],
+    })}>
+      <Download className="w-4 h-4" /> 匯出 Excel
+    </Button>
+  );
+}
