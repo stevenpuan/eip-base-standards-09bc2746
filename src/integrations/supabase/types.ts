@@ -174,6 +174,24 @@ export type Database = {
           },
         ]
       }
+      app_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       app_user: {
         Row: {
           created_at: string
@@ -1056,6 +1074,44 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      line_bind_code: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          tenant_id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          tenant_id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          tenant_id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "line_bind_code_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lookups: {
         Row: {
@@ -2373,6 +2429,7 @@ export type Database = {
       }
       eip_can_manage_task: { Args: { p_task_id: string }; Returns: boolean }
       eip_can_see_task: { Args: { p_task_id: string }; Returns: boolean }
+      eip_generate_line_bind_code: { Args: never; Returns: string }
       eip_is_task_collaborator: {
         Args: { p_task_id: string }
         Returns: boolean
