@@ -209,6 +209,8 @@ function TasksPage() {
     });
   }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword]);
 
+  const sourceMap = useTaskSources(filteredTasks);
+
   // 從 URL openTask=<id> 自動開啟對應任務詳情/編輯
   useEffect(() => {
     const id = search.openTask;
