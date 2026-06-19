@@ -245,7 +245,7 @@ function ProjectDetailPage() {
       </Section>
 
       {/* E. 任務 */}
-      <Section icon={ListChecks} title={`工作任務（完成 ${doneT}/${totalT}・${taskRate}%）`}>
+      <Section icon={ListChecks} title={`專案任務（完成 ${doneT}/${totalT}・${taskRate}%）`}>
         <TasksSection projectId={id} tenantId={project.tenant_id} tasks={tasks} statuses={statusesQ.data ?? []} userMap={userMap} doneStatusIds={doneStatusIds} canEdit={canEdit} appUser={appUser ?? null} />
       </Section>
 
