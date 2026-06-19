@@ -1152,7 +1152,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /* ============ 任務詳情/編輯對話框 ============ */
-function EditTaskDialog({
+export function EditTaskDialog({
   task, readOnly, onClose, onSaved, statuses, users, departments, projects,
 }: {
   task: Task; readOnly: boolean;
