@@ -50,7 +50,7 @@ type Changelog = {
   created_by: string | null;
   created_at: string;
 };
-type AppUser = { id: string; name: string | null; email: string | null };
+type AppUser = { id: string; name: string | null; email: string | null; tenant_id?: string | null };
 
 const TYPE_LABEL: Record<string, string> = {
   feature: "功能",
