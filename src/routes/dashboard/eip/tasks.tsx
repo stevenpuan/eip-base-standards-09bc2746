@@ -276,8 +276,8 @@ function TasksPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="任務"
-        description="支援看板 / 列表 / 行事曆三種視圖，所有篩選共用。"
+        title="任務看板"
+        description="全公司任務看板。支援看板 / 列表 / 行事曆三種視圖,所有篩選共用。"
         actions={
           <div className="flex items-center gap-2">
             {canExport && (
