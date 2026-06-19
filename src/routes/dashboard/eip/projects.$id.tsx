@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import type { Database } from "@/integrations/supabase/types";
+import { TaskSourceBadge, useTaskSources } from "@/components/eip/TaskSourceBadge";
+import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
   component: ProjectDetailPage,
