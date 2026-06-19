@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Database } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/dashboard/eip/projects")({ component: ProjectsPage });
+export const Route = createFileRoute("/dashboard/eip/projects/")({ component: ProjectsPage });
 
 function canManageProject(p: Project, appUser: AppUser | null): boolean {
   if (!appUser) return false;
