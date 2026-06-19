@@ -28,6 +28,7 @@ import { Route as DashboardEipRouteImport } from './routes/dashboard/eip'
 import { Route as DashboardDevTodosRouteImport } from './routes/dashboard/dev-todos'
 import { Route as DashboardDevHistoryRouteImport } from './routes/dashboard/dev-history'
 import { Route as DashboardAuditLogsRouteImport } from './routes/dashboard/audit-logs'
+import { Route as DashboardAssistantIntentRouteImport } from './routes/dashboard/assistant-intent'
 import { Route as DashboardActivityLogsRouteImport } from './routes/dashboard/activity-logs'
 import { Route as DashboardEipTasksRouteImport } from './routes/dashboard/eip/tasks'
 import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/reports'
@@ -148,6 +149,12 @@ const DashboardAuditLogsRoute = DashboardAuditLogsRouteImport.update({
   path: '/audit-logs',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardAssistantIntentRoute =
+  DashboardAssistantIntentRouteImport.update({
+    id: '/assistant-intent',
+    path: '/assistant-intent',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardActivityLogsRoute = DashboardActivityLogsRouteImport.update({
   id: '/activity-logs',
   path: '/activity-logs',
@@ -272,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
+  '/dashboard/assistant-intent': typeof DashboardAssistantIntentRoute
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
@@ -314,6 +322,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
+  '/dashboard/assistant-intent': typeof DashboardAssistantIntentRoute
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
@@ -356,6 +365,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
+  '/dashboard/assistant-intent': typeof DashboardAssistantIntentRoute
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
@@ -401,6 +411,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/activity-logs'
+    | '/dashboard/assistant-intent'
     | '/dashboard/audit-logs'
     | '/dashboard/dev-history'
     | '/dashboard/dev-todos'
@@ -443,6 +454,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/dashboard/activity-logs'
+    | '/dashboard/assistant-intent'
     | '/dashboard/audit-logs'
     | '/dashboard/dev-history'
     | '/dashboard/dev-todos'
@@ -484,6 +496,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/activity-logs'
+    | '/dashboard/assistant-intent'
     | '/dashboard/audit-logs'
     | '/dashboard/dev-history'
     | '/dashboard/dev-todos'
@@ -662,6 +675,13 @@ declare module '@tanstack/react-router' {
       path: '/audit-logs'
       fullPath: '/dashboard/audit-logs'
       preLoaderRoute: typeof DashboardAuditLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/assistant-intent': {
+      id: '/dashboard/assistant-intent'
+      path: '/assistant-intent'
+      fullPath: '/dashboard/assistant-intent'
+      preLoaderRoute: typeof DashboardAssistantIntentRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/activity-logs': {
@@ -920,6 +940,7 @@ const DashboardEipRouteWithChildren = DashboardEipRoute._addFileChildren(
 
 interface DashboardRouteChildren {
   DashboardActivityLogsRoute: typeof DashboardActivityLogsRoute
+  DashboardAssistantIntentRoute: typeof DashboardAssistantIntentRoute
   DashboardAuditLogsRoute: typeof DashboardAuditLogsRoute
   DashboardDevHistoryRoute: typeof DashboardDevHistoryRoute
   DashboardDevTodosRoute: typeof DashboardDevTodosRoute
@@ -940,6 +961,7 @@ interface DashboardRouteChildren {
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardActivityLogsRoute: DashboardActivityLogsRoute,
+  DashboardAssistantIntentRoute: DashboardAssistantIntentRoute,
   DashboardAuditLogsRoute: DashboardAuditLogsRoute,
   DashboardDevHistoryRoute: DashboardDevHistoryRoute,
   DashboardDevTodosRoute: DashboardDevTodosRoute,
