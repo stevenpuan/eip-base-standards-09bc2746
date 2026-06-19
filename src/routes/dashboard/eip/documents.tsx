@@ -68,10 +68,44 @@ type Version = {
   content: string | null;
   file_url: string | null;
   file_name: string | null;
+  storage_path: string | null;
+  file_size: number | null;
+  mime_type: string | null;
   note: string | null;
   created_by: string | null;
   created_at: string;
 };
+
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const ALLOWED_EXT = [
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+  "png", "jpg", "jpeg", "gif", "webp", "txt", "csv", "zip",
+];
+const ALLOWED_ACCEPT =
+  ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.zip";
+
+function safeFileName(name: string): string {
+  return name.replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+}
+function getExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+function humanSize(bytes: number | null | undefined): string {
+  if (!bytes && bytes !== 0) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+async function downloadFromStorage(storagePath: string) {
+  const { data, error } = await supabase.storage.from("documents").createSignedUrl(storagePath, 60);
+  if (error || !data?.signedUrl) {
+    toast.error(`下載失敗：${error?.message ?? "無法產生連結"}`);
+    return;
+  }
+  window.open(data.signedUrl, "_blank");
+}
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   sop: "SOP/流程", policy: "制度規章", form: "表單", guide: "指南", general: "一般",
