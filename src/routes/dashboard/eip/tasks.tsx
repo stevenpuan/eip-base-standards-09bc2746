@@ -324,6 +324,7 @@ function TasksPage() {
             statuses={statusesQ.data ?? []}
             userMap={userMap}
             subtaskMap={subtaskMap}
+            sourceMap={sourceMap}
             appUser={appUser}
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
@@ -339,6 +340,7 @@ function TasksPage() {
             statusMap={statusMap}
             userMap={userMap}
             projectMap={projectMap}
+            sourceMap={sourceMap}
             statuses={statusesQ.data ?? []}
             users={usersQ.data ?? []}
             appUser={appUser}
