@@ -714,30 +714,104 @@ function RiskDialog({ risk, projectId, tenantId, onClose, onSaved }: { risk: Ris
 }
 
 /* ---------- Meetings ---------- */
-function MeetingsSection({ meetings }: { meetings: Meeting[] }) {
-  if (meetings.length === 0) return <div className="text-xs text-muted-foreground">尚無關聯會議</div>;
+function MeetingsSection({ projectId, meetings, canEdit }: { projectId: string; meetings: Meeting[]; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const [linkOpen, setLinkOpen] = useState(false);
+  const linkedIds = useMemo(() => new Set(meetings.map((m) => m.id)), [meetings]);
+  const candidatesQ = useQuery({
+    queryKey: ["eip", "meetings-link-candidates", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("meeting").select("*").or("project_id.is.null,project_id.neq." + projectId).order("meeting_date", { ascending: false }).limit(200);
+      if (error) throw error;
+      return (data ?? []) as Meeting[];
+    },
+    enabled: linkOpen,
+  });
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  const link = async () => {
+    if (!selectedId) return toast.error("請選擇會議");
+    setBusy(true);
+    const { error } = await supabase.from("meeting").update({ project_id: projectId }).eq("id", selectedId);
+    setBusy(false);
+    if (error) { toast.error(`關聯失敗：${error.message}`); return; }
+    toast.success("已關聯");
+    setSelectedId(""); setLinkOpen(false);
+    qc.invalidateQueries({ queryKey: ["eip", "project-meetings", projectId] });
+  };
+
+  const unlink = async (mId: string) => {
+    const { error } = await supabase.from("meeting").update({ project_id: null }).eq("id", mId);
+    if (error) { toast.error(`取消關聯失敗：${error.message}`); return; }
+    toast.success("已取消關聯");
+    qc.invalidateQueries({ queryKey: ["eip", "project-meetings", projectId] });
+  };
+
+  const candidates = (candidatesQ.data ?? []).filter((m) => !linkedIds.has(m.id));
+
   return (
-    <div className="border rounded-md divide-y">
-      {meetings.map((m) => (
-        <Link
-          key={m.id}
-          to="/dashboard/eip/meetings/$id"
-          params={{ id: m.id }}
-          className="flex items-center gap-3 p-2.5 hover:bg-accent/50"
-        >
-          <Activity className="w-4 h-4 text-muted-foreground" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm truncate">{m.title}</div>
-            <div className="text-xs text-muted-foreground">
-              {new Date(m.meeting_date).toLocaleString("zh-TW")}{m.location && ` · ${m.location}`}
+    <div className="space-y-2">
+      {meetings.length === 0 ? (
+        <div className="text-xs text-muted-foreground">尚無關聯會議{canEdit && "，點下方「+ 關聯會議」加入"}</div>
+      ) : (
+        <div className="border rounded-md divide-y">
+          {meetings.map((m) => (
+            <div key={m.id} className="flex items-center gap-3 p-2.5 hover:bg-accent/50">
+              <Link to="/dashboard/eip/meetings/$id" params={{ id: m.id }} className="flex items-center gap-3 flex-1 min-w-0">
+                <Activity className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm truncate">{m.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(m.meeting_date).toLocaleString("zh-TW")}{m.location && ` · ${m.location}`}
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px]">{MEETING_STATUS_LABEL[m.status] ?? m.status}</Badge>
+              </Link>
+              {canEdit && (
+                <Button size="sm" variant="ghost" onClick={() => unlink(m.id)} className="h-7 text-xs text-muted-foreground">取消關聯</Button>
+              )}
             </div>
+          ))}
+        </div>
+      )}
+      {canEdit && (
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setLinkOpen(true)}><Plus className="w-3.5 h-3.5" /> 關聯會議</Button>
+          <Button size="sm" variant="ghost" asChild>
+            <Link to="/dashboard/eip/meetings">+ 新增會議</Link>
+          </Button>
+        </div>
+      )}
+      <Dialog open={linkOpen} onOpenChange={(o) => !o && setLinkOpen(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>關聯會議</DialogTitle></DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label className="text-xs text-muted-foreground">選擇要關聯到本專案的會議</Label>
+            <Select value={selectedId} onValueChange={setSelectedId}>
+              <SelectTrigger><SelectValue placeholder={candidatesQ.isLoading ? "載入中…" : "選擇會議"} /></SelectTrigger>
+              <SelectContent>
+                {candidates.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.title} · {new Date(m.meeting_date).toLocaleDateString("zh-TW")}
+                  </SelectItem>
+                ))}
+                {candidates.length === 0 && !candidatesQ.isLoading && (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">沒有可關聯的會議，請先到「會議」建立</div>
+                )}
+              </SelectContent>
+            </Select>
           </div>
-          <Badge variant="secondary" className="text-[10px]">{MEETING_STATUS_LABEL[m.status] ?? m.status}</Badge>
-        </Link>
-      ))}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setLinkOpen(false)} disabled={busy}>取消</Button>
+            <Button onClick={link} disabled={busy || !selectedId}>{busy ? "處理中…" : "關聯"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
