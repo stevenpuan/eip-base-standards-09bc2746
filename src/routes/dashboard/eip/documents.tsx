@@ -697,11 +697,22 @@ function DocDetailDialog({
                     </button>
                   </div>
                 )}
-                {viewing.file_url && (
-                  <div className="mb-3 text-sm">
-                    附檔:<a href={viewing.file_url} target="_blank" rel="noreferrer" className="text-primary underline">
-                      {viewing.file_name ?? viewing.file_url}
-                    </a>
+                {(viewing.storage_path || viewing.file_url) && (
+                  <div className="mb-3 text-sm flex items-center gap-2 flex-wrap">
+                    <span className="text-muted-foreground">附檔:</span>
+                    <span className="font-medium">{viewing.file_name ?? "附檔"}</span>
+                    {viewing.file_size != null && (
+                      <span className="text-xs text-muted-foreground">({humanSize(viewing.file_size)})</span>
+                    )}
+                    {viewing.storage_path ? (
+                      <Button size="sm" variant="outline" onClick={() => void downloadFromStorage(viewing.storage_path!)}>
+                        下載
+                      </Button>
+                    ) : viewing.file_url ? (
+                      <a href={viewing.file_url} target="_blank" rel="noreferrer" className="text-primary underline text-xs">
+                        開啟連結
+                      </a>
+                    ) : null}
                   </div>
                 )}
                 {viewing.content ? (
