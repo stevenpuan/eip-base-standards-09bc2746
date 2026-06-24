@@ -470,6 +470,71 @@ function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) closeCreate(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{created ? "建立成功" : "新增帳號"}</DialogTitle>
+          </DialogHeader>
+          {!created ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Email *</Label>
+                <Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@example.com" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">姓名 *</Label>
+                <Input value={cName} onChange={(e) => setCName(e.target.value)} placeholder="王小明" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">角色 *</Label>
+                <Select value={cRole} onValueChange={setCRole}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {roles.map((r) => <SelectItem key={r.id} value={r.code}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">部門（選填）</Label>
+                <Select value={cDept} onValueChange={setCDept}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">（不指定）</SelectItem>
+                    {depts.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeCreate} disabled={cSubmitting}>取消</Button>
+                <Button onClick={submitCreate} disabled={cSubmitting}>
+                  {cSubmitting ? "建立中…" : "建立"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                初始密碼僅顯示這一次,請複製轉交,並提醒首次登入後修改密碼。
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs">Email</Label>
+                <Input value={created.email} readOnly />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">初始密碼</Label>
+                <div className="flex gap-2">
+                  <Input value={created.password} readOnly className="font-mono" />
+                  <Button type="button" variant="outline" onClick={copyPassword}>複製</Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={closeCreate}>完成</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
