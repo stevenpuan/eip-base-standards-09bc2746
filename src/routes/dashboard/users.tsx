@@ -24,6 +24,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/users")({ component: UsersPage });
 
+interface CreatedAccount { email: string; password: string }
+
+
 interface RoleRow { id: string; code: string; name: string }
 interface DepartmentRow { id: string; name: string }
 interface ProfileRow {
@@ -61,9 +64,11 @@ function genCode() {
 }
 
 function UsersPage() {
-  const { can, user } = useAuth();
+  const { can, user, roles: myRoles } = useAuth();
   const qc = useQueryClient();
   const editable = can("users", "edit");
+  const canCreateAccount = myRoles.includes("admin") || myRoles.includes("manager");
+
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -208,6 +213,53 @@ function UsersPage() {
     toast.success("已複製：" + code);
   };
 
+  // ---- 新增帳號 ----
+  const [createOpen, setCreateOpen] = useState(false);
+  const [cEmail, setCEmail] = useState("");
+  const [cName, setCName] = useState("");
+  const [cRole, setCRole] = useState("member");
+  const [cDept, setCDept] = useState<string>("none");
+  const [cSubmitting, setCSubmitting] = useState(false);
+  const [created, setCreated] = useState<CreatedAccount | null>(null);
+
+  const resetCreate = () => {
+    setCEmail(""); setCName(""); setCRole("member"); setCDept("none");
+    setCreated(null); setCSubmitting(false);
+  };
+  const openCreate = () => { resetCreate(); setCreateOpen(true); };
+  const closeCreate = () => {
+    setCreateOpen(false);
+    if (created) qc.invalidateQueries({ queryKey: ["users"] });
+    setTimeout(resetCreate, 200);
+  };
+  const submitCreate = async () => {
+    if (!cEmail.trim() || !cName.trim()) { toast.error("請填寫 email 與姓名"); return; }
+    setCSubmitting(true);
+    const { data, error } = await supabase.rpc("eip_admin_create_user", {
+      p_email: cEmail.trim(),
+      p_full_name: cName.trim(),
+      p_role_code: cRole,
+      p_department_id: cDept === "none" ? null : cDept,
+    });
+    setCSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    const d = data as { ok?: boolean; email?: string; password?: string } | null;
+    if (d?.ok && d.password && d.email) {
+      setCreated({ email: d.email, password: d.password });
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["app_users"] });
+    } else {
+      toast.error("建立失敗");
+    }
+  };
+  const copyPassword = async () => {
+    if (!created) return;
+    try { await navigator.clipboard.writeText(created.password); toast.success("已複製初始密碼"); }
+    catch { toast.error("複製失敗,請手動選取"); }
+  };
+
+
+
   const pending = rows.filter((r) => r.status === "pending");
   const active = rows.filter((r) => r.status === "active");
 
@@ -287,7 +339,13 @@ function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="帳號管理" description="統一管理帳號、角色、部門、LINE 綁定與啟用狀態（單一資料來源）" />
+      <PageHeader
+        title="帳號管理"
+        description="統一管理帳號、角色、部門、LINE 綁定與啟用狀態（單一資料來源）"
+        actions={canCreateAccount ? (
+          <Button onClick={openCreate}>+ 新增帳號</Button>
+        ) : undefined}
+      />
       {isLoading ? (
         <p className="text-muted-foreground">載入中…</p>
       ) : (
@@ -410,6 +468,71 @@ function UsersPage() {
             <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>
             <Button onClick={saveEdit}>儲存</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) closeCreate(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{created ? "建立成功" : "新增帳號"}</DialogTitle>
+          </DialogHeader>
+          {!created ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Email *</Label>
+                <Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} placeholder="user@example.com" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">姓名 *</Label>
+                <Input value={cName} onChange={(e) => setCName(e.target.value)} placeholder="王小明" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">角色 *</Label>
+                <Select value={cRole} onValueChange={setCRole}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {roles.map((r) => <SelectItem key={r.id} value={r.code}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">部門（選填）</Label>
+                <Select value={cDept} onValueChange={setCDept}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">（不指定）</SelectItem>
+                    {depts.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeCreate} disabled={cSubmitting}>取消</Button>
+                <Button onClick={submitCreate} disabled={cSubmitting}>
+                  {cSubmitting ? "建立中…" : "建立"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                初始密碼僅顯示這一次,請複製轉交,並提醒首次登入後修改密碼。
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs">Email</Label>
+                <Input value={created.email} readOnly />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">初始密碼</Label>
+                <div className="flex gap-2">
+                  <Input value={created.password} readOnly className="font-mono" />
+                  <Button type="button" variant="outline" onClick={copyPassword}>複製</Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={closeCreate}>完成</Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

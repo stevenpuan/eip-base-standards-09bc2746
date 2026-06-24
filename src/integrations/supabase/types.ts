@@ -2486,6 +2486,15 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       current_tenant_id: { Args: never; Returns: string }
+      eip_admin_create_user: {
+        Args: {
+          p_department_id?: string
+          p_email: string
+          p_full_name: string
+          p_role_code?: string
+        }
+        Returns: Json
+      }
       eip_announcement_targeted: {
         Args: { p_announcement_id: string }
         Returns: boolean
