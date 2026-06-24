@@ -24,6 +24,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/users")({ component: UsersPage });
 
+interface CreatedAccount { email: string; password: string }
+
+
 interface RoleRow { id: string; code: string; name: string }
 interface DepartmentRow { id: string; name: string }
 interface ProfileRow {
