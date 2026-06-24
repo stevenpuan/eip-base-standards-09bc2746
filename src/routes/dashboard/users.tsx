@@ -64,9 +64,11 @@ function genCode() {
 }
 
 function UsersPage() {
-  const { can, user } = useAuth();
+  const { can, user, roles: myRoles } = useAuth();
   const qc = useQueryClient();
   const editable = can("users", "edit");
+  const canCreateAccount = myRoles.includes("admin") || myRoles.includes("manager");
+
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["users"],
