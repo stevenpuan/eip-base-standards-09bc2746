@@ -213,6 +213,53 @@ function UsersPage() {
     toast.success("已複製：" + code);
   };
 
+  // ---- 新增帳號 ----
+  const [createOpen, setCreateOpen] = useState(false);
+  const [cEmail, setCEmail] = useState("");
+  const [cName, setCName] = useState("");
+  const [cRole, setCRole] = useState("member");
+  const [cDept, setCDept] = useState<string>("none");
+  const [cSubmitting, setCSubmitting] = useState(false);
+  const [created, setCreated] = useState<CreatedAccount | null>(null);
+
+  const resetCreate = () => {
+    setCEmail(""); setCName(""); setCRole("member"); setCDept("none");
+    setCreated(null); setCSubmitting(false);
+  };
+  const openCreate = () => { resetCreate(); setCreateOpen(true); };
+  const closeCreate = () => {
+    setCreateOpen(false);
+    if (created) qc.invalidateQueries({ queryKey: ["users"] });
+    setTimeout(resetCreate, 200);
+  };
+  const submitCreate = async () => {
+    if (!cEmail.trim() || !cName.trim()) { toast.error("請填寫 email 與姓名"); return; }
+    setCSubmitting(true);
+    const { data, error } = await supabase.rpc("eip_admin_create_user", {
+      p_email: cEmail.trim(),
+      p_full_name: cName.trim(),
+      p_role_code: cRole,
+      p_department_id: cDept === "none" ? null : cDept,
+    });
+    setCSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    const d = data as { ok?: boolean; email?: string; password?: string } | null;
+    if (d?.ok && d.password && d.email) {
+      setCreated({ email: d.email, password: d.password });
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["app_users"] });
+    } else {
+      toast.error("建立失敗");
+    }
+  };
+  const copyPassword = async () => {
+    if (!created) return;
+    try { await navigator.clipboard.writeText(created.password); toast.success("已複製初始密碼"); }
+    catch { toast.error("複製失敗,請手動選取"); }
+  };
+
+
+
   const pending = rows.filter((r) => r.status === "pending");
   const active = rows.filter((r) => r.status === "active");
 
