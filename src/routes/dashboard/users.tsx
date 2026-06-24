@@ -339,7 +339,13 @@ function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="帳號管理" description="統一管理帳號、角色、部門、LINE 綁定與啟用狀態（單一資料來源）" />
+      <PageHeader
+        title="帳號管理"
+        description="統一管理帳號、角色、部門、LINE 綁定與啟用狀態（單一資料來源）"
+        actions={canCreateAccount ? (
+          <Button onClick={openCreate}>+ 新增帳號</Button>
+        ) : undefined}
+      />
       {isLoading ? (
         <p className="text-muted-foreground">載入中…</p>
       ) : (
