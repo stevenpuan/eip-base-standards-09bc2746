@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
 export const Route = createFileRoute("/dashboard/eip/projects/")({ component: ProjectsPage });
 
