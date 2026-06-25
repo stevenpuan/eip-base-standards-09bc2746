@@ -469,6 +469,11 @@ function CreateMeetingDialog({
               ))}
             </div>
           </Field>
+          <VisibilityScopeFields
+            scope={vScope} onScopeChange={setVScope}
+            deptId={deptId} onDeptIdChange={setDeptId}
+            departments={departments}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
