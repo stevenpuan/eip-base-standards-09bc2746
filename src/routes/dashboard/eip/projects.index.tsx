@@ -295,7 +295,7 @@ function ProjectsPage() {
 }
 
 function ProjectRow({
-  project: p, expanded, onToggle, appUser, userMap,
+  project: p, expanded, onToggle, appUser, userMap, deptMap,
   taskStat, milestoneStat, kpiStat, openRisks,
   onEdit, onDelete,
 }: {
@@ -304,6 +304,7 @@ function ProjectRow({
   onToggle: () => void;
   appUser: AppUser | null;
   userMap: Map<string, AppUser>;
+  deptMap: Map<string, Department>;
   taskStat?: { done: number; total: number };
   milestoneStat?: { done: number; total: number };
   kpiStat?: { sum: number; count: number };
