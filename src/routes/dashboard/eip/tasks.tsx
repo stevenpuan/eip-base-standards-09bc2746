@@ -1301,15 +1301,6 @@ export function EditTaskDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="部門">
-              <Select value={deptId} onValueChange={setDeptId} disabled={readOnly}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">無</SelectItem>
-                  {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="專案">
               <Select value={projectId} onValueChange={setProjectId} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1327,8 +1318,17 @@ export function EditTaskDialog({
                 onChange={(e) => setProgress(Number(e.target.value))} disabled={readOnly} />
             </Field>
           </div>
+          <VisibilityScopeFields
+            scope={scope}
+            onScopeChange={setScope}
+            deptId={deptId}
+            onDeptIdChange={setDeptId}
+            departments={departments}
+            disabled={readOnly}
+          />
           {err && <div className="text-sm text-destructive">{err}</div>}
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>
             {readOnly ? "關閉" : "取消"}
