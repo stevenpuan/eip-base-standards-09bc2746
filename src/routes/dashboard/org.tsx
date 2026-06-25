@@ -515,10 +515,16 @@ function DeptFormDialog({
       };
       if (mode === "create") {
         if (!tenantId) { toast.error("無法取得租戶"); return; }
-        const { data, error } = await supabase.from("department")
-          .insert({ ...payload, tenant_id: tenantId }).select("id").single();
+        const { data, error } = await supabase.rpc("eip_create_department", {
+          p_name: payload.name,
+          p_parent_id: payload.parent_id,
+          p_code: payload.code,
+          p_sort_order: payload.sort_order,
+        });
         if (error) throw error;
-        toast.success("已新增部門"); onSaved(data?.id);
+        const newId = (data as any)?.id ?? null;
+        toast.success(`已新增單位「${payload.name}」`); onSaved(newId ?? undefined);
+
       } else if (dept) {
         const { error } = await supabase.from("department").update(payload).eq("id", dept.id);
         if (error) throw error;
