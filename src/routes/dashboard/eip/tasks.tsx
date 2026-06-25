@@ -1154,15 +1154,6 @@ function CreateTaskDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="部門">
-              <Select value={deptId} onValueChange={setDeptId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">無</SelectItem>
-                  {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="專案">
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1176,6 +1167,14 @@ function CreateTaskDialog({
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </Field>
           </div>
+          <VisibilityScopeFields
+            scope={scope}
+            onScopeChange={setScope}
+            deptId={deptId}
+            onDeptIdChange={setDeptId}
+            departments={departments}
+          />
+
           <Field label="協作者">
             <div className="flex flex-wrap gap-2 p-2 border rounded-md max-h-32 overflow-y-auto">
               {users.filter((u) => u.id !== ownerId).map((u) => {
