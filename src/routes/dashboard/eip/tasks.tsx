@@ -48,6 +48,7 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
 function canEditTask(task: Task, appUser: AppUser | null): boolean {
   if (!appUser) return false;
