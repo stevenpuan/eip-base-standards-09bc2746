@@ -343,6 +343,7 @@ function TasksPage() {
             userMap={userMap}
             projectMap={projectMap}
             sourceMap={sourceMap}
+            deptMap={deptMap}
             statuses={statusesQ.data ?? []}
             users={usersQ.data ?? []}
             appUser={appUser}
