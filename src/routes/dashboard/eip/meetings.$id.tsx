@@ -143,6 +143,8 @@ function MeetingDetailPage() {
         meeting={meeting}
         canEdit={canEdit}
         projects={projectsQ.data ?? []}
+        departments={deptsQ.data ?? []}
+        deptMap={deptMap}
         onUpdated={() => {
           qc.invalidateQueries({ queryKey: ["eip", "meeting", id] });
           qc.invalidateQueries({ queryKey: ["eip", "meetings"] });
