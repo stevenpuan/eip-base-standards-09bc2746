@@ -353,10 +353,10 @@ function MeetingsPage() {
 }
 
 function CreateMeetingDialog({
-  open, onClose, appUser, users, projects, onCreated,
+  open, onClose, appUser, users, projects, departments, onCreated,
 }: {
   open: boolean; onClose: () => void; appUser: AppUser;
-  users: AppUser[]; projects: Project[]; onCreated: () => void;
+  users: AppUser[]; projects: Project[]; departments: Department[]; onCreated: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<string>(() => {
