@@ -253,10 +253,11 @@ function Page() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-medium">成員清單({members.length})</div>
                     {isAdmin && (
-                      <Button size="sm" variant="outline" asChild>
-                        <Link to="/dashboard/users"><Plus className="w-3.5 h-3.5" />新增員工帳號</Link>
+                      <Button size="sm" variant="outline" onClick={() => setAddMemberOpen(true)}>
+                        <Plus className="w-3.5 h-3.5" />新增成員
                       </Button>
                     )}
+
                   </div>
                   <div className="rounded-md border overflow-x-auto">
                     <Table>
