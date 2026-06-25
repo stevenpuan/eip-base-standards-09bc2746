@@ -725,11 +725,12 @@ function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, o
 type SortKey = "title" | "owner" | "status" | "priority" | "progress" | "due" | "project";
 
 function ListView({
-  tasks, statusMap, userMap, projectMap, sourceMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
+  tasks, statusMap, userMap, projectMap, sourceMap, deptMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
 }: {
   tasks: Task[];
   statusMap: Map<string, Status>; userMap: Map<string, AppUser>; projectMap: Map<string, Project>;
   sourceMap: Map<string, TaskSource>;
+  deptMap: Map<string, Department>;
   statuses: Status[]; users: AppUser[];
   appUser: AppUser | null; canManage: boolean;
   onChanged: () => void;
