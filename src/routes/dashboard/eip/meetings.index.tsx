@@ -238,6 +238,7 @@ function MeetingsPage() {
                     <Badge variant="secondary" className="text-xs">
                       {TYPE_LABEL[m.meeting_type]}
                     </Badge>
+                    <VisibilityBadge scope={(m as any).visibility_scope} departmentId={(m as any).department_id} deptMap={deptMap} />
                     <Badge variant="outline" className="text-xs inline-flex items-center gap-1">
                       <Users className="w-3 h-3" />{count}
                     </Badge>
