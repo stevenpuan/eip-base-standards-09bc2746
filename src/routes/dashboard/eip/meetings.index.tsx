@@ -116,6 +116,18 @@ function MeetingsPage() {
     },
   });
 
+  const deptsQ = useQuery({
+    queryKey: ["eip", "departments-tree"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("department").select("id,name,parent_id,sort_order")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Department[];
+    },
+  });
+  const deptMap = useMemo(() => new Map((deptsQ.data ?? []).map((d) => [d.id, { name: d.name }])), [deptsQ.data]);
+
   const attendeesCountQ = useQuery({
     queryKey: ["eip", "meeting-attendee-counts"],
     queryFn: async () => {
