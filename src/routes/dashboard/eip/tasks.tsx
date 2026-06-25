@@ -796,6 +796,27 @@ function ListView({
     onChanged();
   };
 
+  const bulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setBulkDeleting(true);
+    const { data, error } = await supabase.from("task").delete().in("id", ids).select("id");
+    setBulkDeleting(false);
+    if (error) { toast.error("刪除失敗，請重試"); return; }
+    const deleted = data?.length ?? 0;
+    const skipped = ids.length - deleted;
+    if (deleted === 0) {
+      toast.error("沒有可刪除的任務（僅本人 / 本部門主管 / 管理者可刪）");
+    } else if (skipped > 0) {
+      toast.warning(`已刪除 ${deleted} 筆；${skipped} 筆因權限未刪（非本人/本部門）`);
+    } else {
+      toast.success(`已刪除 ${deleted} 筆任務`);
+    }
+    setSelected(new Set());
+    setBulkDeleteOpen(false);
+    onChanged();
+  };
+
   const canBulk = canManage || appUser?.role === "member";
 
   return (
