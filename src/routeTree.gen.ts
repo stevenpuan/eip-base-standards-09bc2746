@@ -19,6 +19,7 @@ import { Route as DashboardSystemDocsRouteImport } from './routes/dashboard/syst
 import { Route as DashboardSystemConfigRouteImport } from './routes/dashboard/system-config'
 import { Route as DashboardRolePermissionsRouteImport } from './routes/dashboard/role-permissions'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
+import { Route as DashboardOrgRouteImport } from './routes/dashboard/org'
 import { Route as DashboardMenuManagementRouteImport } from './routes/dashboard/menu-management'
 import { Route as DashboardLookupsRouteImport } from './routes/dashboard/lookups'
 import { Route as DashboardIssueReportsRouteImport } from './routes/dashboard/issue-reports'
@@ -101,6 +102,11 @@ const DashboardRolePermissionsRoute =
 const DashboardProfileRoute = DashboardProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardOrgRoute = DashboardOrgRouteImport.update({
+  id: '/org',
+  path: '/org',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardMenuManagementRoute = DashboardMenuManagementRouteImport.update({
@@ -289,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
   '/dashboard/lookups': typeof DashboardLookupsRoute
   '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
   '/dashboard/system-config': typeof DashboardSystemConfigRoute
@@ -332,6 +339,7 @@ export interface FileRoutesByTo {
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
   '/dashboard/lookups': typeof DashboardLookupsRoute
   '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
   '/dashboard/system-config': typeof DashboardSystemConfigRoute
@@ -375,6 +383,7 @@ export interface FileRoutesById {
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
   '/dashboard/lookups': typeof DashboardLookupsRoute
   '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
   '/dashboard/system-config': typeof DashboardSystemConfigRoute
@@ -421,6 +430,7 @@ export interface FileRouteTypes {
     | '/dashboard/issue-reports'
     | '/dashboard/lookups'
     | '/dashboard/menu-management'
+    | '/dashboard/org'
     | '/dashboard/profile'
     | '/dashboard/role-permissions'
     | '/dashboard/system-config'
@@ -464,6 +474,7 @@ export interface FileRouteTypes {
     | '/dashboard/issue-reports'
     | '/dashboard/lookups'
     | '/dashboard/menu-management'
+    | '/dashboard/org'
     | '/dashboard/profile'
     | '/dashboard/role-permissions'
     | '/dashboard/system-config'
@@ -506,6 +517,7 @@ export interface FileRouteTypes {
     | '/dashboard/issue-reports'
     | '/dashboard/lookups'
     | '/dashboard/menu-management'
+    | '/dashboard/org'
     | '/dashboard/profile'
     | '/dashboard/role-permissions'
     | '/dashboard/system-config'
@@ -612,6 +624,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/dashboard/profile'
       preLoaderRoute: typeof DashboardProfileRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/org': {
+      id: '/dashboard/org'
+      path: '/org'
+      fullPath: '/dashboard/org'
+      preLoaderRoute: typeof DashboardOrgRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/menu-management': {
@@ -950,6 +969,7 @@ interface DashboardRouteChildren {
   DashboardIssueReportsRoute: typeof DashboardIssueReportsRoute
   DashboardLookupsRoute: typeof DashboardLookupsRoute
   DashboardMenuManagementRoute: typeof DashboardMenuManagementRoute
+  DashboardOrgRoute: typeof DashboardOrgRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardRolePermissionsRoute: typeof DashboardRolePermissionsRoute
   DashboardSystemConfigRoute: typeof DashboardSystemConfigRoute
@@ -971,6 +991,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardIssueReportsRoute: DashboardIssueReportsRoute,
   DashboardLookupsRoute: DashboardLookupsRoute,
   DashboardMenuManagementRoute: DashboardMenuManagementRoute,
+  DashboardOrgRoute: DashboardOrgRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardRolePermissionsRoute: DashboardRolePermissionsRoute,
   DashboardSystemConfigRoute: DashboardSystemConfigRoute,
