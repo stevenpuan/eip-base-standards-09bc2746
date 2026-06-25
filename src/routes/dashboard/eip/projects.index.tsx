@@ -532,8 +532,8 @@ function EditProjectDialog({
 
 
 function CreateProjectDialog({
-  open, onClose, appUser, users, onCreated,
-}: { open: boolean; onClose: () => void; appUser: AppUser; users: AppUser[]; onCreated: () => void }) {
+  open, onClose, appUser, users, departments, onCreated,
+}: { open: boolean; onClose: () => void; appUser: AppUser; users: AppUser[]; departments: Department[]; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
   const [scope, setScope] = useState("");
@@ -543,10 +543,14 @@ function CreateProjectDialog({
   const [health, setHealth] = useState<ProjectHealth>("on_track");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [vScope, setVScope] = useState<VisibilityScope>(appUser.department_id ? "department" : "company");
+  const [deptId, setDeptId] = useState<string | null>(appUser.department_id ?? null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!name.trim()) return toast.error("請輸入專案名稱");
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     try {
       const { error } = await supabase.from("project").insert({
@@ -560,6 +564,8 @@ function CreateProjectDialog({
         health,
         start_date: startDate || null,
         end_date: endDate || null,
+        visibility_scope: v.payload.visibility_scope,
+        department_id: v.payload.department_id,
       });
       if (error) throw error;
       toast.success("專案已建立");
@@ -567,6 +573,7 @@ function CreateProjectDialog({
     } catch (e) { toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`); }
     finally { setBusy(false); }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
