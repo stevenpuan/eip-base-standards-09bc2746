@@ -376,9 +376,20 @@ function Page() {
           onSaved={() => { refetchUsers(); setMemberDialog(null); }}
         />
       )}
+
+      {addMemberOpen && (
+        <AddMemberDialog
+          open
+          defaultDeptId={selectedId}
+          depts={depts}
+          onClose={() => setAddMemberOpen(false)}
+          onSaved={() => { refetchUsers(); setAddMemberOpen(false); }}
+        />
+      )}
     </div>
   );
 }
+
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
