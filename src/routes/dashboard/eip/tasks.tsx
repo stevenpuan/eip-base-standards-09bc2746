@@ -839,7 +839,38 @@ function ListView({
             </Select>
             <Input type="date" value={bulkDue} onChange={(e) => setBulkDue(e.target.value)} className="h-9 w-40" placeholder="改期限" />
             <Button size="sm" onClick={applyBulk}>套用</Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={bulkDeleting}
+            >
+              {bulkDeleting ? "刪除中…" : "批次刪除"}
+            </Button>
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>清除</Button>
+          </CardContent>
+        </Card>
+      )}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={(o) => !bulkDeleting && setBulkDeleteOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除選取的 {selected.size} 筆任務？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此動作無法復原，任務的子項、協作者與狀態紀錄會一併刪除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); bulkDelete(); }}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
           </CardContent>
         </Card>
       )}
