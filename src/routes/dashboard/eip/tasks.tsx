@@ -1221,7 +1221,10 @@ export function EditTaskDialog({
   const [statusId, setStatusId] = useState(task.status_id);
   const [priority, setPriority] = useState<Priority>(task.priority);
   const [ownerId, setOwnerId] = useState(task.owner_id);
-  const [deptId, setDeptId] = useState(task.department_id ?? "none");
+  const [deptId, setDeptId] = useState<string | null>(task.department_id ?? null);
+  const [scope, setScope] = useState<VisibilityScope>(
+    (task.visibility_scope as VisibilityScope) ?? (task.department_id ? "department" : "company"),
+  );
   const [projectId, setProjectId] = useState(task.project_id ?? "none");
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [progress, setProgress] = useState<number>(task.progress);
@@ -1230,6 +1233,8 @@ export function EditTaskDialog({
 
   const save = async () => {
     if (!title.trim()) { setErr("請輸入標題"); return; }
+    const v = validateVisibility(scope, deptId);
+    if (!v.ok) { setErr(v.error); return; }
     setBusy(true); setErr(null);
     const status = statuses.find((s) => s.id === statusId);
     const patch: Database["public"]["Tables"]["task"]["Update"] = {
@@ -1238,7 +1243,8 @@ export function EditTaskDialog({
       status_id: statusId,
       priority,
       owner_id: ownerId,
-      department_id: deptId === "none" ? null : deptId,
+      department_id: v.payload.department_id,
+      visibility_scope: v.payload.visibility_scope,
       project_id: projectId === "none" ? null : projectId,
       due_date: dueDate || null,
       progress: Math.max(0, Math.min(100, Number(progress) || 0)),
@@ -1255,6 +1261,7 @@ export function EditTaskDialog({
     toast.success("已儲存");
     onSaved();
   };
+
 
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
