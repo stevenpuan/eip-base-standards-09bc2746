@@ -1074,6 +1074,8 @@ function CreateTaskDialog({
 
   const submit = async () => {
     if (!title.trim()) return toast.error("請輸入標題");
+    const v = validateVisibility(scope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     try {
       const { data: created, error } = await supabase.from("task").insert({
@@ -1082,7 +1084,8 @@ function CreateTaskDialog({
         description: description.trim() || null,
         type_id: typeId === "none" ? null : typeId,
         owner_id: ownerId,
-        department_id: deptId === "none" ? null : deptId,
+        department_id: v.payload.department_id,
+        visibility_scope: v.payload.visibility_scope,
         project_id: projectId === "none" ? null : projectId,
         priority,
         status_id: defaultStatusId,
@@ -1103,7 +1106,9 @@ function CreateTaskDialog({
           tenant_id: appUser.tenant_id, title: s, owner_id: ownerId,
           status_id: defaultStatusId, priority: "normal" as Priority, progress: 0,
           parent_task_id: parentId, project_id: projectId === "none" ? null : projectId,
-          department_id: deptId === "none" ? null : deptId, created_by: appUser.id,
+          department_id: v.payload.department_id,
+          visibility_scope: v.payload.visibility_scope,
+          created_by: appUser.id,
         }));
         if (rows.length) await supabase.from("task").insert(rows);
       }
