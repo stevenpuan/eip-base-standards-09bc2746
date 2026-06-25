@@ -233,6 +233,7 @@ function ProjectsPage() {
                 onToggle={() => toggleExpand(p.id)}
                 appUser={appUser}
                 userMap={userMap}
+                deptMap={deptMap}
                 taskStat={progressByProject.get(p.id)}
                 milestoneStat={milestonesByProject.get(p.id)}
                 kpiStat={kpiAvgByProject.get(p.id)}
