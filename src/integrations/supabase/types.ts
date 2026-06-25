@@ -197,7 +197,11 @@ export type Database = {
           created_at: string
           department_id: string | null
           email: string | null
+          employee_no: string | null
+          extension: string | null
+          hire_date: string | null
           id: string
+          job_title: string | null
           line_user_id: string | null
           name: string
           role: Database["public"]["Enums"]["user_role"]
@@ -209,7 +213,11 @@ export type Database = {
           created_at?: string
           department_id?: string | null
           email?: string | null
+          employee_no?: string | null
+          extension?: string | null
+          hire_date?: string | null
           id: string
+          job_title?: string | null
           line_user_id?: string | null
           name: string
           role?: Database["public"]["Enums"]["user_role"]
@@ -221,7 +229,11 @@ export type Database = {
           created_at?: string
           department_id?: string | null
           email?: string | null
+          employee_no?: string | null
+          extension?: string | null
+          hire_date?: string | null
           id?: string
+          job_title?: string | null
           line_user_id?: string | null
           name?: string
           role?: Database["public"]["Enums"]["user_role"]
@@ -416,30 +428,46 @@ export type Database = {
       }
       department: {
         Row: {
+          code: string | null
           created_at: string
           id: string
+          manager_id: string | null
           name: string
           parent_id: string | null
+          sort_order: number
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          code?: string | null
           created_at?: string
           id?: string
+          manager_id?: string | null
           name: string
           parent_id?: string | null
+          sort_order?: number
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          code?: string | null
           created_at?: string
           id?: string
+          manager_id?: string | null
           name?: string
           parent_id?: string | null
+          sort_order?: number
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "department_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "department_parent_id_fkey"
             columns: ["parent_id"]
