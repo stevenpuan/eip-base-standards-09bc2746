@@ -613,6 +613,11 @@ function CreateProjectDialog({
             <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
             <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
           </div>
+          <VisibilityScopeFields
+            scope={vScope} onScopeChange={setVScope}
+            deptId={deptId} onDeptIdChange={setDeptId}
+            departments={departments}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
