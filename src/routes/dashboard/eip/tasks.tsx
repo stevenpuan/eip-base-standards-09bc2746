@@ -608,10 +608,11 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, subtask, source, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
+function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
   task: Task; owner?: AppUser;
   subtask?: { total: number; done: number };
   source?: TaskSource;
+  deptMap: Map<string, Department>;
   canEdit: boolean; canDelete: boolean;
   onDragStart: () => void;
   onOpenDetail: () => void;
