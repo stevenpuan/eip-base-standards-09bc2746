@@ -585,6 +585,7 @@ function BoardView({
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
                     subtask={subtaskMap.get(t.id)}
                     source={sourceMap.get(t.id)}
+                    deptMap={deptMap}
                     canEdit={canEditTask(t, appUser)}
                     canDelete={canDeleteTask(t, appUser)}
                     onDragStart={() => setDragId(t.id)}
