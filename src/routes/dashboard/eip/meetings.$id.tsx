@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
 import { STATUS_LABEL, TYPE_LABEL, statusBadgeClass } from "./meetings.index";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
+
+type Department = { id: string; name: string; parent_id: string | null; sort_order: number | null };
 
 export const Route = createFileRoute("/dashboard/eip/meetings/$id")({
   component: MeetingDetailPage,
