@@ -378,6 +378,8 @@ function CreateMeetingDialog({
 
   const submit = async () => {
     if (!title.trim()) return toast.error("請輸入會議標題");
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     try {
       const { data: created, error } = await supabase
@@ -392,6 +394,8 @@ function CreateMeetingDialog({
           meeting_type: meetingType,
           status,
           created_by: appUser.id,
+          visibility_scope: v.payload.visibility_scope,
+          department_id: v.payload.department_id,
         })
         .select("*").single();
       if (error) throw error;
