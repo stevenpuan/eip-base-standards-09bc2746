@@ -338,6 +338,7 @@ function ProjectRow({
         <Badge className={cn("text-[10px] shrink-0", PROJECT_STATUS_COLOR[p.status])} variant="secondary">
           {PROJECT_STATUS_LABEL[p.status]}
         </Badge>
+        <VisibilityBadge scope={p.visibility_scope} departmentId={p.department_id} deptMap={deptMap} className="shrink-0" />
         <span className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
           <span className={cn("inline-block w-2 h-2 rounded-full", HEALTH_DOT[p.health])} />
           {HEALTH_LABEL[p.health]}
