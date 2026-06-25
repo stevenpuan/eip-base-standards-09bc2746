@@ -694,11 +694,10 @@ function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, o
             )}
           </div>
         </div>
-        {source && (
-          <div className="flex items-center gap-1">
-            <TaskSourceBadge source={source} />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-1">
+          {source && <TaskSourceBadge source={source} />}
+          <VisibilityBadge scope={task.visibility_scope} departmentId={task.department_id} deptMap={deptMap} />
+        </div>
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
