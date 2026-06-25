@@ -16,12 +16,22 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/logging";
 
+const LOGIN_DOMAIN = "shfc.com.tw";
+
+function toLoginEmail(input: string) {
+  const v = input.trim();
+  if (!v) return v;
+  return v.includes("@") ? v.toLowerCase() : `${v.toLowerCase()}@${LOGIN_DOMAIN}`;
+}
+
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
   const navigate = useNavigate();
   const { session, loading } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/dashboard" });
