@@ -180,9 +180,11 @@ function MeetingDetailPage() {
 }
 
 function HeaderSection({
-  meeting, canEdit, projects, onUpdated,
+  meeting, canEdit, projects, departments, deptMap, onUpdated,
 }: {
-  meeting: Meeting; canEdit: boolean; projects: Project[]; onUpdated: () => void;
+  meeting: Meeting; canEdit: boolean; projects: Project[];
+  departments: Department[]; deptMap: Map<string, { name: string }>;
+  onUpdated: () => void;
 }) {
   const [title, setTitle] = useState(meeting.title);
   const [dateStr, setDateStr] = useState(toLocalDt(meeting.meeting_date));
@@ -190,6 +192,8 @@ function HeaderSection({
   const [type, setType] = useState<MeetingType>(meeting.meeting_type);
   const [status, setStatus] = useState<MeetingStatus>(meeting.status);
   const [projectId, setProjectId] = useState<string>(meeting.project_id ?? "none");
+  const [vScope, setVScope] = useState<VisibilityScope>((meeting.visibility_scope as VisibilityScope) ?? "company");
+  const [deptId, setDeptId] = useState<string | null>(meeting.department_id);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -202,9 +206,13 @@ function HeaderSection({
     setType(meeting.meeting_type);
     setStatus(meeting.status);
     setProjectId(meeting.project_id ?? "none");
+    setVScope((meeting.visibility_scope as VisibilityScope) ?? "company");
+    setDeptId(meeting.department_id);
   }, [meeting]);
 
   const save = async () => {
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setSaving(true);
     const { error } = await supabase.from("meeting").update({
       title: title.trim(),
@@ -213,6 +221,8 @@ function HeaderSection({
       meeting_type: type,
       status,
       project_id: projectId === "none" ? null : projectId,
+      visibility_scope: v.payload.visibility_scope,
+      department_id: v.payload.department_id,
     }).eq("id", meeting.id);
     setSaving(false);
     if (error) toast.error(`儲存失敗：${error.message}`);
