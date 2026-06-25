@@ -739,6 +739,8 @@ function ListView({
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkOwner, setBulkOwner] = useState("");
   const [bulkDue, setBulkDue] = useState("");
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const sorted = useMemo(() => {
     const list = [...tasks];
