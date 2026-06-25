@@ -41,6 +41,7 @@ type Task = Database["public"]["Tables"]["task"]["Row"];
 type Milestone = Database["public"]["Tables"]["milestone"]["Row"];
 type Kpi = Database["public"]["Tables"]["project_kpi"]["Row"];
 type Risk = Database["public"]["Tables"]["project_risk"]["Row"];
+type Department = Database["public"]["Tables"]["department"]["Row"];
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
 type ProjectHealth = Database["public"]["Enums"]["project_health"];
 
