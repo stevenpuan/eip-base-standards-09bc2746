@@ -221,6 +221,10 @@ function ProjectDetailPage() {
             </div>
             <div><span className="text-muted-foreground">負責人 </span>{userMap.get(project.owner_id)?.name ?? "—"}</div>
             <div><span className="text-muted-foreground">期間 </span>{project.start_date ?? "—"} ~ {project.end_date ?? "—"}</div>
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground">可見範圍</span>
+              <VisibilityBadge scope={project.visibility_scope} departmentId={project.department_id} deptMap={deptMap} />
+            </div>
           </div>
           {(project.goal || project.scope || project.description) && (
             <div className="grid gap-2 md:grid-cols-3 text-sm">
