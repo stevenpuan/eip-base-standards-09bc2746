@@ -245,6 +245,7 @@ function HeaderSection({
             {STATUS_LABEL[meeting.status]}
           </Badge>
           <Badge variant="secondary">{TYPE_LABEL[meeting.meeting_type]}</Badge>
+          <VisibilityBadge scope={meeting.visibility_scope} departmentId={meeting.department_id} deptMap={deptMap} />
           {project && (
             <Link
               to="/dashboard/eip/projects/$id"
