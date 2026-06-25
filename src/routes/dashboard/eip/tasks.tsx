@@ -739,6 +739,8 @@ function ListView({
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkOwner, setBulkOwner] = useState("");
   const [bulkDue, setBulkDue] = useState("");
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const sorted = useMemo(() => {
     const list = [...tasks];
@@ -794,6 +796,27 @@ function ListView({
     onChanged();
   };
 
+  const bulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setBulkDeleting(true);
+    const { data, error } = await supabase.from("task").delete().in("id", ids).select("id");
+    setBulkDeleting(false);
+    if (error) { toast.error("刪除失敗，請重試"); return; }
+    const deleted = data?.length ?? 0;
+    const skipped = ids.length - deleted;
+    if (deleted === 0) {
+      toast.error("沒有可刪除的任務（僅本人 / 本部門主管 / 管理者可刪）");
+    } else if (skipped > 0) {
+      toast.warning(`已刪除 ${deleted} 筆；${skipped} 筆因權限未刪（非本人/本部門）`);
+    } else {
+      toast.success(`已刪除 ${deleted} 筆任務`);
+    }
+    setSelected(new Set());
+    setBulkDeleteOpen(false);
+    onChanged();
+  };
+
   const canBulk = canManage || appUser?.role === "member";
 
   return (
@@ -816,10 +839,38 @@ function ListView({
             </Select>
             <Input type="date" value={bulkDue} onChange={(e) => setBulkDue(e.target.value)} className="h-9 w-40" placeholder="改期限" />
             <Button size="sm" onClick={applyBulk}>套用</Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={bulkDeleting}
+            >
+              {bulkDeleting ? "刪除中…" : "批次刪除"}
+            </Button>
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>清除</Button>
           </CardContent>
         </Card>
       )}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={(o) => !bulkDeleting && setBulkDeleteOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除選取的 {selected.size} 筆任務？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此動作無法復原，任務的子項、協作者與狀態紀錄會一併刪除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); bulkDelete(); }}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? "刪除中…" : "確認刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
