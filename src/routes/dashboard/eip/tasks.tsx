@@ -48,6 +48,7 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
 function canEditTask(task: Task, appUser: AppUser | null): boolean {
   if (!appUser) return false;
@@ -325,6 +326,7 @@ function TasksPage() {
             userMap={userMap}
             subtaskMap={subtaskMap}
             sourceMap={sourceMap}
+            deptMap={deptMap}
             appUser={appUser}
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
@@ -341,6 +343,7 @@ function TasksPage() {
             userMap={userMap}
             projectMap={projectMap}
             sourceMap={sourceMap}
+            deptMap={deptMap}
             statuses={statusesQ.data ?? []}
             users={usersQ.data ?? []}
             appUser={appUser}
@@ -531,12 +534,13 @@ function MiniSelect({ value, onChange, options }: {
 
 /* ============ 看板視圖 ============ */
 function BoardView({
-  tasks, statuses, userMap, subtaskMap, sourceMap, appUser, onMove, onOpenDetail, onAskDelete,
+  tasks, statuses, userMap, subtaskMap, sourceMap, deptMap, appUser, onMove, onOpenDetail, onAskDelete,
 }: {
   tasks: Task[]; statuses: Status[];
   userMap: Map<string, AppUser>;
   subtaskMap: Map<string, { total: number; done: number }>;
   sourceMap: Map<string, TaskSource>;
+  deptMap: Map<string, Department>;
   appUser: AppUser | null;
   onMove: (taskId: string, toStatusId: string, newPosition: number) => void;
   onOpenDetail: (t: Task) => void;
@@ -584,6 +588,7 @@ function BoardView({
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
                     subtask={subtaskMap.get(t.id)}
                     source={sourceMap.get(t.id)}
+                    deptMap={deptMap}
                     canEdit={canEditTask(t, appUser)}
                     canDelete={canDeleteTask(t, appUser)}
                     onDragStart={() => setDragId(t.id)}
@@ -604,10 +609,11 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, subtask, source, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
+function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
   task: Task; owner?: AppUser;
   subtask?: { total: number; done: number };
   source?: TaskSource;
+  deptMap: Map<string, Department>;
   canEdit: boolean; canDelete: boolean;
   onDragStart: () => void;
   onOpenDetail: () => void;
@@ -689,11 +695,10 @@ function TaskCard({ task, owner, subtask, source, canEdit, canDelete, onDragStar
             )}
           </div>
         </div>
-        {source && (
-          <div className="flex items-center gap-1">
-            <TaskSourceBadge source={source} />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-1">
+          {source && <TaskSourceBadge source={source} />}
+          <VisibilityBadge scope={task.visibility_scope} departmentId={task.department_id} deptMap={deptMap} />
+        </div>
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
@@ -721,11 +726,12 @@ function TaskCard({ task, owner, subtask, source, canEdit, canDelete, onDragStar
 type SortKey = "title" | "owner" | "status" | "priority" | "progress" | "due" | "project";
 
 function ListView({
-  tasks, statusMap, userMap, projectMap, sourceMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
+  tasks, statusMap, userMap, projectMap, sourceMap, deptMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
 }: {
   tasks: Task[];
   statusMap: Map<string, Status>; userMap: Map<string, AppUser>; projectMap: Map<string, Project>;
   sourceMap: Map<string, TaskSource>;
+  deptMap: Map<string, Department>;
   statuses: Status[]; users: AppUser[];
   appUser: AppUser | null; canManage: boolean;
   onChanged: () => void;
@@ -915,6 +921,7 @@ function ListView({
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="truncate">{t.title}</span>
                         {sourceMap.get(t.id) && <TaskSourceBadge source={sourceMap.get(t.id)!} />}
+                        <VisibilityBadge scope={t.visibility_scope} departmentId={t.department_id} deptMap={deptMap} />
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">{userMap.get(t.owner_id)?.name ?? "—"}</TableCell>
@@ -1063,7 +1070,8 @@ function CreateTaskDialog({
   const [description, setDescription] = useState("");
   const [typeId, setTypeId] = useState("none");
   const [ownerId, setOwnerId] = useState(appUser.id);
-  const [deptId, setDeptId] = useState(appUser.department_id ?? "none");
+  const [deptId, setDeptId] = useState<string | null>(appUser.department_id ?? null);
+  const [scope, setScope] = useState<VisibilityScope>(appUser.department_id ? "department" : "company");
   const [projectId, setProjectId] = useState("none");
   const [priority, setPriority] = useState<Priority>("normal");
   const [dueDate, setDueDate] = useState("");
@@ -1072,6 +1080,8 @@ function CreateTaskDialog({
 
   const submit = async () => {
     if (!title.trim()) return toast.error("請輸入標題");
+    const v = validateVisibility(scope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     try {
       const { data: created, error } = await supabase.from("task").insert({
@@ -1080,7 +1090,8 @@ function CreateTaskDialog({
         description: description.trim() || null,
         type_id: typeId === "none" ? null : typeId,
         owner_id: ownerId,
-        department_id: deptId === "none" ? null : deptId,
+        department_id: v.payload.department_id,
+        visibility_scope: v.payload.visibility_scope,
         project_id: projectId === "none" ? null : projectId,
         priority,
         status_id: defaultStatusId,
@@ -1101,7 +1112,9 @@ function CreateTaskDialog({
           tenant_id: appUser.tenant_id, title: s, owner_id: ownerId,
           status_id: defaultStatusId, priority: "normal" as Priority, progress: 0,
           parent_task_id: parentId, project_id: projectId === "none" ? null : projectId,
-          department_id: deptId === "none" ? null : deptId, created_by: appUser.id,
+          department_id: v.payload.department_id,
+          visibility_scope: v.payload.visibility_scope,
+          created_by: appUser.id,
         }));
         if (rows.length) await supabase.from("task").insert(rows);
       }
@@ -1147,15 +1160,6 @@ function CreateTaskDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="部門">
-              <Select value={deptId} onValueChange={setDeptId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">無</SelectItem>
-                  {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="專案">
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1169,6 +1173,14 @@ function CreateTaskDialog({
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </Field>
           </div>
+          <VisibilityScopeFields
+            scope={scope}
+            onScopeChange={setScope}
+            deptId={deptId}
+            onDeptIdChange={setDeptId}
+            departments={departments}
+          />
+
           <Field label="協作者">
             <div className="flex flex-wrap gap-2 p-2 border rounded-md max-h-32 overflow-y-auto">
               {users.filter((u) => u.id !== ownerId).map((u) => {
@@ -1215,7 +1227,10 @@ export function EditTaskDialog({
   const [statusId, setStatusId] = useState(task.status_id);
   const [priority, setPriority] = useState<Priority>(task.priority);
   const [ownerId, setOwnerId] = useState(task.owner_id);
-  const [deptId, setDeptId] = useState(task.department_id ?? "none");
+  const [deptId, setDeptId] = useState<string | null>(task.department_id ?? null);
+  const [scope, setScope] = useState<VisibilityScope>(
+    (task.visibility_scope as VisibilityScope) ?? (task.department_id ? "department" : "company"),
+  );
   const [projectId, setProjectId] = useState(task.project_id ?? "none");
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [progress, setProgress] = useState<number>(task.progress);
@@ -1224,6 +1239,8 @@ export function EditTaskDialog({
 
   const save = async () => {
     if (!title.trim()) { setErr("請輸入標題"); return; }
+    const v = validateVisibility(scope, deptId);
+    if (!v.ok) { setErr(v.error); return; }
     setBusy(true); setErr(null);
     const status = statuses.find((s) => s.id === statusId);
     const patch: Database["public"]["Tables"]["task"]["Update"] = {
@@ -1232,7 +1249,8 @@ export function EditTaskDialog({
       status_id: statusId,
       priority,
       owner_id: ownerId,
-      department_id: deptId === "none" ? null : deptId,
+      department_id: v.payload.department_id,
+      visibility_scope: v.payload.visibility_scope,
       project_id: projectId === "none" ? null : projectId,
       due_date: dueDate || null,
       progress: Math.max(0, Math.min(100, Number(progress) || 0)),
@@ -1249,6 +1267,7 @@ export function EditTaskDialog({
     toast.success("已儲存");
     onSaved();
   };
+
 
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
@@ -1288,15 +1307,6 @@ export function EditTaskDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="部門">
-              <Select value={deptId} onValueChange={setDeptId} disabled={readOnly}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">無</SelectItem>
-                  {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="專案">
               <Select value={projectId} onValueChange={setProjectId} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1314,8 +1324,17 @@ export function EditTaskDialog({
                 onChange={(e) => setProgress(Number(e.target.value))} disabled={readOnly} />
             </Field>
           </div>
+          <VisibilityScopeFields
+            scope={scope}
+            onScopeChange={setScope}
+            deptId={deptId}
+            onDeptIdChange={setDeptId}
+            departments={departments}
+            disabled={readOnly}
+          />
           {err && <div className="text-sm text-destructive">{err}</div>}
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>
             {readOnly ? "關閉" : "取消"}

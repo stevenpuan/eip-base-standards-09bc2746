@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
 import { STATUS_LABEL, TYPE_LABEL, statusBadgeClass } from "./meetings.index";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
+
+type Department = { id: string; name: string; parent_id: string | null; sort_order: number | null };
 
 export const Route = createFileRoute("/dashboard/eip/meetings/$id")({
   component: MeetingDetailPage,
@@ -92,9 +95,24 @@ function MeetingDetailPage() {
     },
   });
 
+  const deptsQ = useQuery({
+    queryKey: ["eip", "departments-tree"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("department").select("id,name,parent_id,sort_order")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Department[];
+    },
+  });
+
   const userMap = useMemo(
     () => new Map((usersQ.data ?? []).map((u) => [u.id, u])),
     [usersQ.data],
+  );
+  const deptMap = useMemo(
+    () => new Map((deptsQ.data ?? []).map((d) => [d.id, { name: d.name }])),
+    [deptsQ.data],
   );
 
   if (meetingQ.isLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
@@ -125,6 +143,8 @@ function MeetingDetailPage() {
         meeting={meeting}
         canEdit={canEdit}
         projects={projectsQ.data ?? []}
+        departments={deptsQ.data ?? []}
+        deptMap={deptMap}
         onUpdated={() => {
           qc.invalidateQueries({ queryKey: ["eip", "meeting", id] });
           qc.invalidateQueries({ queryKey: ["eip", "meetings"] });
@@ -160,9 +180,11 @@ function MeetingDetailPage() {
 }
 
 function HeaderSection({
-  meeting, canEdit, projects, onUpdated,
+  meeting, canEdit, projects, departments, deptMap, onUpdated,
 }: {
-  meeting: Meeting; canEdit: boolean; projects: Project[]; onUpdated: () => void;
+  meeting: Meeting; canEdit: boolean; projects: Project[];
+  departments: Department[]; deptMap: Map<string, { name: string }>;
+  onUpdated: () => void;
 }) {
   const [title, setTitle] = useState(meeting.title);
   const [dateStr, setDateStr] = useState(toLocalDt(meeting.meeting_date));
@@ -170,6 +192,8 @@ function HeaderSection({
   const [type, setType] = useState<MeetingType>(meeting.meeting_type);
   const [status, setStatus] = useState<MeetingStatus>(meeting.status);
   const [projectId, setProjectId] = useState<string>(meeting.project_id ?? "none");
+  const [vScope, setVScope] = useState<VisibilityScope>((meeting.visibility_scope as VisibilityScope) ?? "company");
+  const [deptId, setDeptId] = useState<string | null>(meeting.department_id);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -182,9 +206,13 @@ function HeaderSection({
     setType(meeting.meeting_type);
     setStatus(meeting.status);
     setProjectId(meeting.project_id ?? "none");
+    setVScope((meeting.visibility_scope as VisibilityScope) ?? "company");
+    setDeptId(meeting.department_id);
   }, [meeting]);
 
   const save = async () => {
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setSaving(true);
     const { error } = await supabase.from("meeting").update({
       title: title.trim(),
@@ -193,6 +221,8 @@ function HeaderSection({
       meeting_type: type,
       status,
       project_id: projectId === "none" ? null : projectId,
+      visibility_scope: v.payload.visibility_scope,
+      department_id: v.payload.department_id,
     }).eq("id", meeting.id);
     setSaving(false);
     if (error) toast.error(`儲存失敗：${error.message}`);
@@ -215,6 +245,7 @@ function HeaderSection({
             {STATUS_LABEL[meeting.status]}
           </Badge>
           <Badge variant="secondary">{TYPE_LABEL[meeting.meeting_type]}</Badge>
+          <VisibilityBadge scope={meeting.visibility_scope} departmentId={meeting.department_id} deptMap={deptMap} />
           {project && (
             <Link
               to="/dashboard/eip/projects/$id"
@@ -266,6 +297,11 @@ function HeaderSection({
                 </Select>
               </Field>
             </div>
+            <VisibilityScopeFields
+              scope={vScope} onScopeChange={setVScope}
+              deptId={deptId} onDeptIdChange={setDeptId}
+              departments={departments}
+            />
             <div className="flex gap-2 pt-1">
               <Button onClick={save} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> {saving ? "儲存中…" : "儲存"}

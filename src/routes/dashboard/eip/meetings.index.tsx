@@ -32,6 +32,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Database } from "@/integrations/supabase/types";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
+
+type Department = { id: string; name: string; parent_id: string | null; sort_order: number | null };
 
 export const Route = createFileRoute("/dashboard/eip/meetings/")({
   component: MeetingsPage,
@@ -112,6 +115,18 @@ function MeetingsPage() {
       return (data ?? []) as Project[];
     },
   });
+
+  const deptsQ = useQuery({
+    queryKey: ["eip", "departments-tree"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("department").select("id,name,parent_id,sort_order")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Department[];
+    },
+  });
+  const deptMap = useMemo(() => new Map((deptsQ.data ?? []).map((d) => [d.id, { name: d.name }])), [deptsQ.data]);
 
   const attendeesCountQ = useQuery({
     queryKey: ["eip", "meeting-attendee-counts"],
@@ -223,6 +238,7 @@ function MeetingsPage() {
                     <Badge variant="secondary" className="text-xs">
                       {TYPE_LABEL[m.meeting_type]}
                     </Badge>
+                    <VisibilityBadge scope={(m as any).visibility_scope} departmentId={(m as any).department_id} deptMap={deptMap} />
                     <Badge variant="outline" className="text-xs inline-flex items-center gap-1">
                       <Users className="w-3 h-3" />{count}
                     </Badge>
@@ -293,6 +309,7 @@ function MeetingsPage() {
           appUser={appUser}
           users={usersQ.data ?? []}
           projects={projectsQ.data ?? []}
+          departments={deptsQ.data ?? []}
           onCreated={() => {
             qc.invalidateQueries({ queryKey: ["eip", "meetings"] });
             qc.invalidateQueries({ queryKey: ["eip", "meeting-attendee-counts"] });
@@ -336,10 +353,10 @@ function MeetingsPage() {
 }
 
 function CreateMeetingDialog({
-  open, onClose, appUser, users, projects, onCreated,
+  open, onClose, appUser, users, projects, departments, onCreated,
 }: {
   open: boolean; onClose: () => void; appUser: AppUser;
-  users: AppUser[]; projects: Project[]; onCreated: () => void;
+  users: AppUser[]; projects: Project[]; departments: Department[]; onCreated: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<string>(() => {
@@ -352,6 +369,8 @@ function CreateMeetingDialog({
   const [agenda, setAgenda] = useState("");
   const [projectId, setProjectId] = useState<string>("none");
   const [attendees, setAttendees] = useState<string[]>([appUser.id]);
+  const [vScope, setVScope] = useState<VisibilityScope>(appUser.department_id ? "department" : "company");
+  const [deptId, setDeptId] = useState<string | null>(appUser.department_id ?? null);
   const [busy, setBusy] = useState(false);
 
   const toggle = (id: string) =>
@@ -359,6 +378,8 @@ function CreateMeetingDialog({
 
   const submit = async () => {
     if (!title.trim()) return toast.error("請輸入會議標題");
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     try {
       const { data: created, error } = await supabase
@@ -373,6 +394,8 @@ function CreateMeetingDialog({
           meeting_type: meetingType,
           status,
           created_by: appUser.id,
+          visibility_scope: v.payload.visibility_scope,
+          department_id: v.payload.department_id,
         })
         .select("*").single();
       if (error) throw error;
@@ -446,6 +469,11 @@ function CreateMeetingDialog({
               ))}
             </div>
           </Field>
+          <VisibilityScopeFields
+            scope={vScope} onScopeChange={setVScope}
+            deptId={deptId} onDeptIdChange={setDeptId}
+            departments={departments}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>

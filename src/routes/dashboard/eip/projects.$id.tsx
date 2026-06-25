@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import type { Database } from "@/integrations/supabase/types";
 import { TaskSourceBadge, useTaskSources } from "@/components/eip/TaskSourceBadge";
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
+import { VisibilityBadge } from "@/components/eip/VisibilityScope";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
   component: ProjectDetailPage,
@@ -133,7 +134,17 @@ function ProjectDetailPage() {
     },
   });
 
+  const deptsTopQ = useQuery({
+    queryKey: ["eip", "departments-tree"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("department").select("id,name,parent_id,sort_order").order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
+  const deptMap = useMemo(() => new Map((deptsTopQ.data ?? []).map((d: any) => [d.id as string, { name: d.name as string }])), [deptsTopQ.data]);
   const doneStatusIds = useMemo(
     () => new Set((statusesQ.data ?? []).filter((s: any) => s.is_done_state).map((s: any) => s.id as string)),
     [statusesQ.data],
@@ -210,6 +221,10 @@ function ProjectDetailPage() {
             </div>
             <div><span className="text-muted-foreground">負責人 </span>{userMap.get(project.owner_id)?.name ?? "—"}</div>
             <div><span className="text-muted-foreground">期間 </span>{project.start_date ?? "—"} ~ {project.end_date ?? "—"}</div>
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground">可見範圍</span>
+              <VisibilityBadge scope={project.visibility_scope} departmentId={project.department_id} deptMap={deptMap} />
+            </div>
           </div>
           {(project.goal || project.scope || project.description) && (
             <div className="grid gap-2 md:grid-cols-3 text-sm">

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
 export const Route = createFileRoute("/dashboard/eip/projects/")({ component: ProjectsPage });
 
@@ -40,6 +41,7 @@ type Task = Database["public"]["Tables"]["task"]["Row"];
 type Milestone = Database["public"]["Tables"]["milestone"]["Row"];
 type Kpi = Database["public"]["Tables"]["project_kpi"]["Row"];
 type Risk = Database["public"]["Tables"]["project_risk"]["Row"];
+type Department = Database["public"]["Tables"]["department"]["Row"];
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
 type ProjectHealth = Database["public"]["Enums"]["project_health"];
 
@@ -134,7 +136,17 @@ function ProjectsPage() {
     },
   });
 
+  const deptsQ = useQuery({
+    queryKey: ["eip", "departments-tree"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("department").select("id,name,parent_id,sort_order,tenant_id,created_at,updated_at,manager_id").order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Department[];
+    },
+  });
+
   const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
+  const deptMap = useMemo(() => new Map((deptsQ.data ?? []).map((d) => [d.id, d])), [deptsQ.data]);
   const doneStatusIds = useMemo(
     () => new Set((statusesQ.data ?? []).filter((s: any) => s.is_done_state).map((s: any) => s.id as string)),
     [statusesQ.data],
@@ -221,6 +233,7 @@ function ProjectsPage() {
                 onToggle={() => toggleExpand(p.id)}
                 appUser={appUser}
                 userMap={userMap}
+                deptMap={deptMap}
                 taskStat={progressByProject.get(p.id)}
                 milestoneStat={milestonesByProject.get(p.id)}
                 kpiStat={kpiAvgByProject.get(p.id)}
@@ -236,12 +249,14 @@ function ProjectsPage() {
       {openCreate && appUser && (
         <CreateProjectDialog
           open={openCreate} onClose={() => setOpenCreate(false)} appUser={appUser} users={usersQ.data ?? []}
+          departments={deptsQ.data ?? []}
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
         />
       )}
       {editProject && appUser && (
         <EditProjectDialog
-          project={editProject} users={usersQ.data ?? []} onClose={() => setEditProject(null)}
+          project={editProject} users={usersQ.data ?? []} departments={deptsQ.data ?? []}
+          onClose={() => setEditProject(null)}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["eip", "projects-full"] }); setEditProject(null); }}
         />
       )}
@@ -280,7 +295,7 @@ function ProjectsPage() {
 }
 
 function ProjectRow({
-  project: p, expanded, onToggle, appUser, userMap,
+  project: p, expanded, onToggle, appUser, userMap, deptMap,
   taskStat, milestoneStat, kpiStat, openRisks,
   onEdit, onDelete,
 }: {
@@ -289,6 +304,7 @@ function ProjectRow({
   onToggle: () => void;
   appUser: AppUser | null;
   userMap: Map<string, AppUser>;
+  deptMap: Map<string, Department>;
   taskStat?: { done: number; total: number };
   milestoneStat?: { done: number; total: number };
   kpiStat?: { sum: number; count: number };
@@ -322,6 +338,7 @@ function ProjectRow({
         <Badge className={cn("text-[10px] shrink-0", PROJECT_STATUS_COLOR[p.status])} variant="secondary">
           {PROJECT_STATUS_LABEL[p.status]}
         </Badge>
+        <VisibilityBadge scope={p.visibility_scope} departmentId={p.department_id} deptMap={deptMap} className="shrink-0" />
         <span className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
           <span className={cn("inline-block w-2 h-2 rounded-full", HEALTH_DOT[p.health])} />
           {HEALTH_LABEL[p.health]}
@@ -420,8 +437,8 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 }
 
 function EditProjectDialog({
-  project, users, onClose, onSaved,
-}: { project: Project; users: AppUser[]; onClose: () => void; onSaved: () => void }) {
+  project, users, departments, onClose, onSaved,
+}: { project: Project; users: AppUser[]; departments: Department[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
   const [scope, setScope] = useState(project.scope ?? "");
@@ -431,10 +448,16 @@ function EditProjectDialog({
   const [health, setHealth] = useState<ProjectHealth>(project.health);
   const [startDate, setStartDate] = useState(project.start_date ?? "");
   const [endDate, setEndDate] = useState(project.end_date ?? "");
+  const [vScope, setVScope] = useState<VisibilityScope>(
+    (project.visibility_scope as VisibilityScope) ?? (project.department_id ? "department" : "company"),
+  );
+  const [deptId, setDeptId] = useState<string | null>(project.department_id ?? null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!name.trim()) return toast.error("請輸入專案名稱");
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     const { error } = await supabase.from("project").update({
       name: name.trim(),
@@ -446,6 +469,8 @@ function EditProjectDialog({
       health,
       start_date: startDate || null,
       end_date: endDate || null,
+      visibility_scope: v.payload.visibility_scope,
+      department_id: v.payload.department_id,
     }).eq("id", project.id);
     setBusy(false);
     if (error) { toast.error(`儲存失敗：${error.message}`); return; }
@@ -490,6 +515,11 @@ function EditProjectDialog({
             <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
             <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
           </div>
+          <VisibilityScopeFields
+            scope={vScope} onScopeChange={setVScope}
+            deptId={deptId} onDeptIdChange={setDeptId}
+            departments={departments}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
@@ -502,8 +532,8 @@ function EditProjectDialog({
 
 
 function CreateProjectDialog({
-  open, onClose, appUser, users, onCreated,
-}: { open: boolean; onClose: () => void; appUser: AppUser; users: AppUser[]; onCreated: () => void }) {
+  open, onClose, appUser, users, departments, onCreated,
+}: { open: boolean; onClose: () => void; appUser: AppUser; users: AppUser[]; departments: Department[]; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
   const [scope, setScope] = useState("");
@@ -513,10 +543,14 @@ function CreateProjectDialog({
   const [health, setHealth] = useState<ProjectHealth>("on_track");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [vScope, setVScope] = useState<VisibilityScope>(appUser.department_id ? "department" : "company");
+  const [deptId, setDeptId] = useState<string | null>(appUser.department_id ?? null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!name.trim()) return toast.error("請輸入專案名稱");
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     try {
       const { error } = await supabase.from("project").insert({
@@ -530,6 +564,8 @@ function CreateProjectDialog({
         health,
         start_date: startDate || null,
         end_date: endDate || null,
+        visibility_scope: v.payload.visibility_scope,
+        department_id: v.payload.department_id,
       });
       if (error) throw error;
       toast.success("專案已建立");
@@ -537,6 +573,7 @@ function CreateProjectDialog({
     } catch (e) { toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`); }
     finally { setBusy(false); }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -576,6 +613,11 @@ function CreateProjectDialog({
             <Field label="開始日"><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
             <Field label="結束日"><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
           </div>
+          <VisibilityScopeFields
+            scope={vScope} onScopeChange={setVScope}
+            deptId={deptId} onDeptIdChange={setDeptId}
+            departments={departments}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>

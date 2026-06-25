@@ -90,6 +90,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "announcement_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "announcement_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -129,6 +136,13 @@ export type Database = {
             referencedRelation: "app_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "announcement_read_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       announcement_target: {
@@ -166,11 +180,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "announcement_target_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "announcement_target_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_target_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -250,6 +278,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "app_user_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "app_user_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -312,6 +347,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -424,6 +466,13 @@ export type Database = {
             referencedRelation: "app_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "comment_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       department: {
@@ -469,11 +518,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "department_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "department_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "department"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "department_tenant_id_fkey"
@@ -574,6 +637,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_assistant_conversation_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -691,6 +761,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "eip_doc_folder_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "eip_doc_folder_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
@@ -761,11 +838,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "eip_document_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "eip_document_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "department"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_document_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "eip_document_folder_id_fkey"
@@ -780,6 +871,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_document_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "eip_document_tenant_id_fkey"
@@ -843,6 +941,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_document_version_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "eip_document_version_document_id_fkey"
@@ -930,6 +1035,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "eip_feature_analysis_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "eip_feature_analysis_feature_request_id_fkey"
             columns: ["feature_request_id"]
             isOneToOne: false
@@ -1000,6 +1112,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "eip_feature_request_submitter_id_fkey"
+            columns: ["submitter_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "eip_feature_request_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1055,6 +1174,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_quick_report_submitter_id_fkey"
+            columns: ["submitter_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "eip_quick_report_tenant_id_fkey"
@@ -1202,6 +1328,13 @@ export type Database = {
             referencedRelation: "app_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "line_bind_code_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       lookups: {
@@ -1239,6 +1372,7 @@ export type Database = {
           agenda: string | null
           created_at: string
           created_by: string
+          department_id: string | null
           id: string
           location: string | null
           meeting_date: string
@@ -1249,11 +1383,13 @@ export type Database = {
           tenant_id: string
           title: string
           updated_at: string
+          visibility_scope: Database["public"]["Enums"]["visibility_scope"]
         }
         Insert: {
           agenda?: string | null
           created_at?: string
           created_by: string
+          department_id?: string | null
           id?: string
           location?: string | null
           meeting_date: string
@@ -1264,11 +1400,13 @@ export type Database = {
           tenant_id: string
           title: string
           updated_at?: string
+          visibility_scope?: Database["public"]["Enums"]["visibility_scope"]
         }
         Update: {
           agenda?: string | null
           created_at?: string
           created_by?: string
+          department_id?: string | null
           id?: string
           location?: string | null
           meeting_date?: string
@@ -1279,6 +1417,7 @@ export type Database = {
           tenant_id?: string
           title?: string
           updated_at?: string
+          visibility_scope?: Database["public"]["Enums"]["visibility_scope"]
         }
         Relationships: [
           {
@@ -1294,6 +1433,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "meeting_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "meeting_tenant_id_fkey"
@@ -1371,6 +1531,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_action_item_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "meeting_action_item_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1429,6 +1596,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_agenda_item_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "meeting_agenda_item_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1470,6 +1644,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_attendee_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1623,6 +1804,13 @@ export type Database = {
             referencedRelation: "app_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "notification_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       profiles: {
@@ -1658,6 +1846,7 @@ export type Database = {
       project: {
         Row: {
           created_at: string
+          department_id: string | null
           description: string | null
           end_date: string | null
           goal: string | null
@@ -1670,9 +1859,11 @@ export type Database = {
           status: Database["public"]["Enums"]["project_status"]
           tenant_id: string
           updated_at: string
+          visibility_scope: Database["public"]["Enums"]["visibility_scope"]
         }
         Insert: {
           created_at?: string
+          department_id?: string | null
           description?: string | null
           end_date?: string | null
           goal?: string | null
@@ -1685,9 +1876,11 @@ export type Database = {
           status?: Database["public"]["Enums"]["project_status"]
           tenant_id: string
           updated_at?: string
+          visibility_scope?: Database["public"]["Enums"]["visibility_scope"]
         }
         Update: {
           created_at?: string
+          department_id?: string | null
           description?: string | null
           end_date?: string | null
           goal?: string | null
@@ -1700,14 +1893,36 @@ export type Database = {
           status?: Database["public"]["Enums"]["project_status"]
           tenant_id?: string
           updated_at?: string
+          visibility_scope?: Database["public"]["Enums"]["visibility_scope"]
         }
         Relationships: [
+          {
+            foreignKeyName: "project_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
           {
             foreignKeyName: "project_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "project_tenant_id_fkey"
@@ -1792,6 +2007,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_member_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1924,6 +2146,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recurring_rule_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "recurring_rule_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -1931,11 +2160,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recurring_rule_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "recurring_rule_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_rule_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "recurring_rule_tenant_id_fkey"
@@ -2106,6 +2349,7 @@ export type Database = {
           title: string
           type_id: string | null
           updated_at: string
+          visibility_scope: Database["public"]["Enums"]["visibility_scope"]
         }
         Insert: {
           board_position?: number
@@ -2130,6 +2374,7 @@ export type Database = {
           title: string
           type_id?: string | null
           updated_at?: string
+          visibility_scope?: Database["public"]["Enums"]["visibility_scope"]
         }
         Update: {
           board_position?: number
@@ -2154,6 +2399,7 @@ export type Database = {
           title?: string
           type_id?: string | null
           updated_at?: string
+          visibility_scope?: Database["public"]["Enums"]["visibility_scope"]
         }
         Relationships: [
           {
@@ -2171,6 +2417,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "task_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "task_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -2178,11 +2431,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "task_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "task_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "task_parent_task_id_fkey"
@@ -2262,6 +2529,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_collaborator_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -2408,6 +2682,13 @@ export type Database = {
             referencedRelation: "app_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "task_update_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       tenant: {
@@ -2466,6 +2747,56 @@ export type Database = {
       }
     }
     Views: {
+      eip_org_chart: {
+        Row: {
+          department_code: string | null
+          department_id: string | null
+          department_name: string | null
+          email: string | null
+          employee_no: string | null
+          extension: string | null
+          hire_date: string | null
+          job_title: string | null
+          manager_id: string | null
+          manager_name: string | null
+          name: string | null
+          parent_id: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          sort_order: number | null
+          status: Database["public"]["Enums"]["user_status"] | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "department_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       eip_recurring_overview: {
         Row: {
           department_id: string | null
@@ -2491,11 +2822,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "task_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "task_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "app_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "task_recurring_rule_id_fkey"
@@ -2528,6 +2873,8 @@ export type Database = {
         Returns: boolean
       }
       eip_can_manage_task: { Args: { p_task_id: string }; Returns: boolean }
+      eip_can_see_meeting: { Args: { p_meeting_id: string }; Returns: boolean }
+      eip_can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       eip_can_see_task: { Args: { p_task_id: string }; Returns: boolean }
       eip_create_department: {
         Args: {
@@ -2567,6 +2914,10 @@ export type Database = {
         }
         Returns: Json
       }
+      eip_dept_in_subtree: {
+        Args: { p_dept: string; p_root: string }
+        Returns: boolean
+      }
       eip_generate_line_bind_code: { Args: never; Returns: string }
       eip_is_task_collaborator: {
         Args: { p_task_id: string }
@@ -2584,6 +2935,7 @@ export type Database = {
         Args: { p_role_ids: string[]; p_user_id: string }
         Returns: undefined
       }
+      eip_user_can_scope_dept: { Args: { p_dept: string }; Returns: boolean }
       is_admin: { Args: { _uid: string }; Returns: boolean }
       redeem_invitation: { Args: { p_code: string }; Returns: string }
     }
@@ -2621,6 +2973,7 @@ export type Database = {
       task_priority: "low" | "normal" | "high" | "urgent"
       user_role: "company_admin" | "dept_manager" | "member" | "viewer"
       user_status: "active" | "inactive"
+      visibility_scope: "company" | "department"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2784,6 +3137,7 @@ export const Constants = {
       task_priority: ["low", "normal", "high", "urgent"],
       user_role: ["company_admin", "dept_manager", "member", "viewer"],
       user_status: ["active", "inactive"],
+      visibility_scope: ["company", "department"],
     },
   },
 } as const
