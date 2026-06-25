@@ -297,6 +297,11 @@ function HeaderSection({
                 </Select>
               </Field>
             </div>
+            <VisibilityScopeFields
+              scope={vScope} onScopeChange={setVScope}
+              deptId={deptId} onDeptIdChange={setDeptId}
+              departments={departments}
+            />
             <div className="flex gap-2 pt-1">
               <Button onClick={save} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> {saving ? "儲存中…" : "儲存"}
