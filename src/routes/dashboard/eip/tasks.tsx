@@ -1064,7 +1064,8 @@ function CreateTaskDialog({
   const [description, setDescription] = useState("");
   const [typeId, setTypeId] = useState("none");
   const [ownerId, setOwnerId] = useState(appUser.id);
-  const [deptId, setDeptId] = useState(appUser.department_id ?? "none");
+  const [deptId, setDeptId] = useState<string | null>(appUser.department_id ?? null);
+  const [scope, setScope] = useState<VisibilityScope>(appUser.department_id ? "department" : "company");
   const [projectId, setProjectId] = useState("none");
   const [priority, setPriority] = useState<Priority>("normal");
   const [dueDate, setDueDate] = useState("");
