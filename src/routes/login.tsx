@@ -16,12 +16,21 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/logging";
 
+const LOGIN_DOMAIN = "shfc.com.tw";
+
+function toLoginEmail(input: string) {
+  const v = input.trim();
+  if (!v) return v;
+  return v.includes("@") ? v.toLowerCase() : `${v.toLowerCase()}@${LOGIN_DOMAIN}`;
+}
+
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
   const navigate = useNavigate();
   const { session, loading } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/dashboard" });
@@ -30,17 +39,21 @@ function LoginPage() {
   const onLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     const f = new FormData(e.currentTarget);
+    const email = toLoginEmail(String(f.get("account")));
+    const password = String(f.get("password"));
     const { error } = await supabase.auth.signInWithPassword({
-      email: String(f.get("email")),
-      password: String(f.get("password")),
+      email,
+      password,
     });
     setBusy(false);
-    if (error) toast.error("登入失敗：" + error.message);
-    else {
-      await logActivity("login");
-      navigate({ to: "/dashboard" });
+    if (error) {
+      setError("員工編號或密碼錯誤");
+      return;
     }
+    await logActivity("login");
+    navigate({ to: "/dashboard" });
   };
 
   const onRegister = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -93,16 +106,22 @@ function LoginPage() {
             <TabsContent value="login">
               <form onSubmit={onLogin} className="space-y-3 pt-3">
                 <div className="space-y-1">
-                  <Label>Email</Label>
-                  <Input name="email" type="email" required />
+                  <Label>員工編號 / 帳號</Label>
+                  <Input name="account" type="text" autoComplete="username" required placeholder="請輸入員工編號（例：0097）" />
                 </div>
                 <div className="space-y-1">
                   <Label>密碼</Label>
-                  <Input name="password" type="password" required />
+                  <Input name="password" type="password" autoComplete="current-password" required />
                 </div>
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )}
                 <Button className="w-full" disabled={busy}>
                   {busy ? "登入中…" : "登入"}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center leading-relaxed">
+                  初次登入帳號與密碼皆為您的員工編號，登入後請至「個人設定」修改密碼。
+                </p>
               </form>
             </TabsContent>
             <TabsContent value="register">
