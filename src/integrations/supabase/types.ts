@@ -2529,6 +2529,44 @@ export type Database = {
       }
       eip_can_manage_task: { Args: { p_task_id: string }; Returns: boolean }
       eip_can_see_task: { Args: { p_task_id: string }; Returns: boolean }
+      eip_create_department: {
+        Args: {
+          p_code?: string
+          p_name: string
+          p_parent_id?: string
+          p_sort_order?: number
+        }
+        Returns: {
+          code: string | null
+          created_at: string
+          id: string
+          manager_id: string | null
+          name: string
+          parent_id: string | null
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "department"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      eip_create_employee: {
+        Args: {
+          p_department_id: string
+          p_domain?: string
+          p_employee_no: string
+          p_extension?: string
+          p_job_title?: string
+          p_name: string
+          p_role?: string
+          p_with_login?: boolean
+        }
+        Returns: Json
+      }
       eip_generate_line_bind_code: { Args: never; Returns: string }
       eip_is_task_collaborator: {
         Args: { p_task_id: string }

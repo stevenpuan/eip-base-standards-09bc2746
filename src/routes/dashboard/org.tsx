@@ -159,6 +159,8 @@ function Page() {
   const [deleteDeptId, setDeleteDeptId] = useState<string | null>(null);
   const [managerDialogOpen, setManagerDialogOpen] = useState(false);
   const [memberDialog, setMemberDialog] = useState<Member | null>(null);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+
 
   return (
     <div className="space-y-6">
