@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import type { Database } from "@/integrations/supabase/types";
 import { TaskSourceBadge, useTaskSources } from "@/components/eip/TaskSourceBadge";
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
   component: ProjectDetailPage,
