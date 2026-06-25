@@ -40,17 +40,21 @@ function LoginPage() {
   const onLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     const f = new FormData(e.currentTarget);
+    const email = toLoginEmail(String(f.get("account")));
+    const password = String(f.get("password"));
     const { error } = await supabase.auth.signInWithPassword({
-      email: String(f.get("email")),
-      password: String(f.get("password")),
+      email,
+      password,
     });
     setBusy(false);
-    if (error) toast.error("登入失敗：" + error.message);
-    else {
-      await logActivity("login");
-      navigate({ to: "/dashboard" });
+    if (error) {
+      setError("員工編號或密碼錯誤");
+      return;
     }
+    await logActivity("login");
+    navigate({ to: "/dashboard" });
   };
 
   const onRegister = async (e: React.FormEvent<HTMLFormElement>) => {
