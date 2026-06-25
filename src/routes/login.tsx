@@ -107,16 +107,22 @@ function LoginPage() {
             <TabsContent value="login">
               <form onSubmit={onLogin} className="space-y-3 pt-3">
                 <div className="space-y-1">
-                  <Label>Email</Label>
-                  <Input name="email" type="email" required />
+                  <Label>員工編號 / 帳號</Label>
+                  <Input name="account" type="text" autoComplete="username" required placeholder="請輸入員工編號（例：0097）" />
                 </div>
                 <div className="space-y-1">
                   <Label>密碼</Label>
-                  <Input name="password" type="password" required />
+                  <Input name="password" type="password" autoComplete="current-password" required />
                 </div>
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )}
                 <Button className="w-full" disabled={busy}>
                   {busy ? "登入中…" : "登入"}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center leading-relaxed">
+                  初次登入帳號與密碼皆為您的員工編號，登入後請至「個人設定」修改密碼。
+                </p>
               </form>
             </TabsContent>
             <TabsContent value="register">
