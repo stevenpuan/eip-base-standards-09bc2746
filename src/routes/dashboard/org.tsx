@@ -783,3 +783,97 @@ function MemberFormDialog({
     </Dialog>
   );
 }
+
+import { Switch } from "@/components/ui/switch";
+
+function AddMemberDialog({
+  open, defaultDeptId, depts, onClose, onSaved,
+}: {
+  open: boolean;
+  defaultDeptId: string | null;
+  depts: Dept[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [empNo, setEmpNo] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [ext, setExt] = useState("");
+  const [deptId, setDeptId] = useState<string>(defaultDeptId ?? "__none__");
+  const [role, setRole] = useState("member");
+  const [withLogin, setWithLogin] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) { toast.error("姓名必填"); return; }
+    if (!empNo.trim()) { toast.error("員工編號必填"); return; }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.rpc("eip_create_employee", {
+        p_name: name.trim(),
+        p_employee_no: empNo.trim(),
+        p_department_id: deptId === "__none__" ? null : deptId,
+        p_role: role,
+        p_job_title: jobTitle.trim() || null,
+        p_extension: ext.trim() || null,
+        p_with_login: withLogin,
+      });
+      if (error) throw error;
+      const d = data as any;
+      toast.success(`已新增 ${name.trim()}` + (d?.with_login ? `(帳號 ${d.email},初始密碼為員工編號)` : "(未建登入帳號)"));
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message?.includes("policy") ? "僅管理者可編輯組織" : (e?.message ?? "新增失敗"));
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>新增成員</DialogTitle>
+          <DialogDescription>建立組織成員,並可選擇同時建立登入帳號</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>姓名 *</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+            <div><Label>員工編號 *</Label><Input value={empNo} onChange={(e) => setEmpNo(e.target.value)} /></div>
+            <div><Label>職稱</Label><Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} /></div>
+            <div><Label>分機</Label><Input value={ext} onChange={(e) => setExt(e.target.value)} /></div>
+          </div>
+          <div>
+            <Label>所屬部門</Label>
+            <Select value={deptId} onValueChange={setDeptId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">(未指派)</SelectItem>
+                {depts.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>角色</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ROLE_OPTIONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div>
+              <div className="text-sm font-medium">同時建立登入帳號</div>
+              <div className="text-xs text-muted-foreground">email = 員工編號@shfc.com.tw,初始密碼為員工編號</div>
+            </div>
+            <Switch checked={withLogin} onCheckedChange={setWithLogin} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={submit} disabled={saving}>{saving ? "建立中…" : "建立"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
