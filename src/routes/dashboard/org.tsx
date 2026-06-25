@@ -180,9 +180,10 @@ function Page() {
               {isAdmin && (
                 <Button size="sm" variant="ghost" className="h-7"
                   onClick={() => setDeptDialog({ mode: "create", parentId: null, dept: null })}>
-                  <Plus className="w-3.5 h-3.5" />新增部
+                  <Plus className="w-3.5 h-3.5" />新增頂層單位
                 </Button>
               )}
+
             </div>
             <div className="space-y-0.5">
               {topDepts.map((d) => (
