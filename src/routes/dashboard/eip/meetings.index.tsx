@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Database } from "@/integrations/supabase/types";
+import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope, type DepartmentTreeNode } from "@/components/eip/VisibilityScope";
 
 export const Route = createFileRoute("/dashboard/eip/meetings/")({
   component: MeetingsPage,
