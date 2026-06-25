@@ -921,6 +921,7 @@ function ListView({
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="truncate">{t.title}</span>
                         {sourceMap.get(t.id) && <TaskSourceBadge source={sourceMap.get(t.id)!} />}
+                        <VisibilityBadge scope={t.visibility_scope} departmentId={t.department_id} deptMap={deptMap} />
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">{userMap.get(t.owner_id)?.name ?? "—"}</TableCell>
