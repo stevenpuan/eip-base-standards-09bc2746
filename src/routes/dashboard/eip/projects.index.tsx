@@ -437,8 +437,8 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 }
 
 function EditProjectDialog({
-  project, users, onClose, onSaved,
-}: { project: Project; users: AppUser[]; onClose: () => void; onSaved: () => void }) {
+  project, users, departments, onClose, onSaved,
+}: { project: Project; users: AppUser[]; departments: Department[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(project.name);
   const [goal, setGoal] = useState(project.goal ?? "");
   const [scope, setScope] = useState(project.scope ?? "");
@@ -448,10 +448,16 @@ function EditProjectDialog({
   const [health, setHealth] = useState<ProjectHealth>(project.health);
   const [startDate, setStartDate] = useState(project.start_date ?? "");
   const [endDate, setEndDate] = useState(project.end_date ?? "");
+  const [vScope, setVScope] = useState<VisibilityScope>(
+    (project.visibility_scope as VisibilityScope) ?? (project.department_id ? "department" : "company"),
+  );
+  const [deptId, setDeptId] = useState<string | null>(project.department_id ?? null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!name.trim()) return toast.error("請輸入專案名稱");
+    const v = validateVisibility(vScope, deptId);
+    if (!v.ok) return toast.error(v.error);
     setBusy(true);
     const { error } = await supabase.from("project").update({
       name: name.trim(),
@@ -463,6 +469,8 @@ function EditProjectDialog({
       health,
       start_date: startDate || null,
       end_date: endDate || null,
+      visibility_scope: v.payload.visibility_scope,
+      department_id: v.payload.department_id,
     }).eq("id", project.id);
     setBusy(false);
     if (error) { toast.error(`儲存失敗：${error.message}`); return; }
