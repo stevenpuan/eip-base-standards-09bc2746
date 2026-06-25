@@ -309,6 +309,7 @@ function MeetingsPage() {
           appUser={appUser}
           users={usersQ.data ?? []}
           projects={projectsQ.data ?? []}
+          departments={deptsQ.data ?? []}
           onCreated={() => {
             qc.invalidateQueries({ queryKey: ["eip", "meetings"] });
             qc.invalidateQueries({ queryKey: ["eip", "meeting-attendee-counts"] });
