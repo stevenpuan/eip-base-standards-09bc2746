@@ -369,6 +369,8 @@ function CreateMeetingDialog({
   const [agenda, setAgenda] = useState("");
   const [projectId, setProjectId] = useState<string>("none");
   const [attendees, setAttendees] = useState<string[]>([appUser.id]);
+  const [vScope, setVScope] = useState<VisibilityScope>(appUser.department_id ? "department" : "company");
+  const [deptId, setDeptId] = useState<string | null>(appUser.department_id ?? null);
   const [busy, setBusy] = useState(false);
 
   const toggle = (id: string) =>
