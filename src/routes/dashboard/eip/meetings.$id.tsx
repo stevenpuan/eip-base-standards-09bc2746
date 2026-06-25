@@ -95,9 +95,24 @@ function MeetingDetailPage() {
     },
   });
 
+  const deptsQ = useQuery({
+    queryKey: ["eip", "departments-tree"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("department").select("id,name,parent_id,sort_order")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Department[];
+    },
+  });
+
   const userMap = useMemo(
     () => new Map((usersQ.data ?? []).map((u) => [u.id, u])),
     [usersQ.data],
+  );
+  const deptMap = useMemo(
+    () => new Map((deptsQ.data ?? []).map((d) => [d.id, { name: d.name }])),
+    [deptsQ.data],
   );
 
   if (meetingQ.isLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
