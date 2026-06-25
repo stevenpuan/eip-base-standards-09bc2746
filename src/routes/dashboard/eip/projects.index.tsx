@@ -249,12 +249,14 @@ function ProjectsPage() {
       {openCreate && appUser && (
         <CreateProjectDialog
           open={openCreate} onClose={() => setOpenCreate(false)} appUser={appUser} users={usersQ.data ?? []}
+          departments={deptsQ.data ?? []}
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
         />
       )}
       {editProject && appUser && (
         <EditProjectDialog
-          project={editProject} users={usersQ.data ?? []} onClose={() => setEditProject(null)}
+          project={editProject} users={usersQ.data ?? []} departments={deptsQ.data ?? []}
+          onClose={() => setEditProject(null)}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["eip", "projects-full"] }); setEditProject(null); }}
         />
       )}
