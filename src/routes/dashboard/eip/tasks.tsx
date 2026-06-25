@@ -871,9 +871,6 @@ function ListView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-          </CardContent>
-        </Card>
-      )}
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
