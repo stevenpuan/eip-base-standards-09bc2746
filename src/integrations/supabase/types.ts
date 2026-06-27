@@ -728,6 +728,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          department_id: string | null
           id: string
           name: string
           parent_id: string | null
@@ -737,6 +738,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          department_id?: string | null
           id?: string
           name: string
           parent_id?: string | null
@@ -746,6 +748,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          department_id?: string | null
           id?: string
           name?: string
           parent_id?: string | null
@@ -766,6 +769,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "eip_org_chart"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "eip_doc_folder_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_doc_folder_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "eip_doc_folder_parent_id_fkey"
@@ -1130,6 +1147,7 @@ export type Database = {
       eip_quick_report: {
         Row: {
           created_at: string
+          department_id: string | null
           detail: string | null
           eta: string | null
           id: string
@@ -1143,6 +1161,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          department_id?: string | null
           detail?: string | null
           eta?: string | null
           id?: string
@@ -1156,6 +1175,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          department_id?: string | null
           detail?: string | null
           eta?: string | null
           id?: string
@@ -1168,6 +1188,20 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "eip_quick_report_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_quick_report_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
           {
             foreignKeyName: "eip_quick_report_submitter_id_fkey"
             columns: ["submitter_id"]
@@ -2876,6 +2910,7 @@ export type Database = {
       eip_can_see_meeting: { Args: { p_meeting_id: string }; Returns: boolean }
       eip_can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       eip_can_see_task: { Args: { p_task_id: string }; Returns: boolean }
+      eip_can_view_dept_record: { Args: { p_dept: string }; Returns: boolean }
       eip_create_department: {
         Args: {
           p_code?: string
