@@ -37,14 +37,13 @@ export function NotificationBell() {
   useEffect(() => {
     if (!user?.id) return;
     void load();
-    const channel = supabase
-      .channel(`notif-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notification", filter: `user_id=eq.${user.id}` },
-        () => { void load(); }
-      )
-      .subscribe();
+    const channel = supabase.channel(`notif-${user.id}-${Math.random().toString(36).slice(2, 8)}`);
+    channel.on(
+      "postgres_changes" as never,
+      { event: "*", schema: "public", table: "notification", filter: `user_id=eq.${user.id}` },
+      () => { void load(); }
+    );
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
