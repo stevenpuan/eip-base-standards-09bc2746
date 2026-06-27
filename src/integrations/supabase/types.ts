@@ -2907,6 +2907,7 @@ export type Database = {
         Returns: boolean
       }
       eip_can_manage_task: { Args: { p_task_id: string }; Returns: boolean }
+      eip_can_see_announcement: { Args: { p_id: string }; Returns: boolean }
       eip_can_see_meeting: { Args: { p_meeting_id: string }; Returns: boolean }
       eip_can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       eip_can_see_task: { Args: { p_task_id: string }; Returns: boolean }
@@ -2958,6 +2959,7 @@ export type Database = {
         Args: { p_task_id: string }
         Returns: boolean
       }
+      eip_purge_old_logs: { Args: { p_days?: number }; Returns: string }
       eip_rule_due_on: {
         Args: {
           d: string
