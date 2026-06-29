@@ -253,8 +253,10 @@ function CalendarPage() {
         title: peTitle.trim(),
         start_date: peStart,
         end_date: peEnd || null,
+        start_time: peStartTime || null,
+        end_time: peEndTime || null,
         note: peNote.trim() || null,
-      }).eq("id", peEditing.id);
+      } as any).eq("id", peEditing.id);
       if (error) { setPeSubmitting(false); toast.error(error.message); return; }
       await supabase.from("personal_event_share").delete().eq("event_id", peEditing.id);
     } else {
@@ -262,6 +264,8 @@ function CalendarPage() {
         title: peTitle.trim(),
         start_date: peStart,
         end_date: peEnd || null,
+        start_time: peStartTime || null,
+        end_time: peEndTime || null,
         note: peNote.trim() || null,
       } as any).select("id").single();
       if (error) { setPeSubmitting(false); toast.error(error.message); return; }
