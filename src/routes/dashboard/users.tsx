@@ -257,6 +257,22 @@ function UsersPage() {
     if (!created) return;
     try { await navigator.clipboard.writeText(created.password); toast.success("已複製初始密碼"); }
     catch { toast.error("複製失敗,請手動選取"); }
+  // ---- 永久刪除 ----
+  const [deleting, setDeleting] = useState<ProfileRow | null>(null);
+  const [delConfirm, setDelConfirm] = useState("");
+  const [delSubmitting, setDelSubmitting] = useState(false);
+  const openDelete = (row: ProfileRow) => { setDeleting(row); setDelConfirm(""); };
+  const closeDelete = () => { setDeleting(null); setDelConfirm(""); setDelSubmitting(false); };
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDelSubmitting(true);
+    const { error } = await supabase.rpc("eip_admin_delete_user", { p_user_id: deleting.id });
+    setDelSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("已永久刪除");
+    qc.invalidateQueries({ queryKey: ["users"] });
+    qc.invalidateQueries({ queryKey: ["app_users"] });
+    closeDelete();
   };
 
 
