@@ -461,6 +461,9 @@ function CalendarPage() {
           <div className="space-y-2 text-sm">
             <p><span className="text-muted-foreground">建立者：</span>{peViewing ? (userMap.get(peViewing.user_id) ?? peViewing.user_id) : ""}</p>
             <p><span className="text-muted-foreground">日期：</span>{peViewing?.start_date}{peViewing?.end_date ? ` ~ ${peViewing.end_date}` : ""}</p>
+            {(peViewing?.start_time || peViewing?.end_time) && (
+              <p><span className="text-muted-foreground">時間：</span>{fmtTime(peViewing?.start_time) ?? "—"}{peViewing?.end_time ? ` ~ ${fmtTime(peViewing.end_time)}` : ""}</p>
+            )}
             {peViewing?.note && (
               <p className="whitespace-pre-wrap"><span className="text-muted-foreground">備註：</span>{peViewing.note}</p>
             )}
