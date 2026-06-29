@@ -349,23 +349,26 @@ function CalendarPage() {
                       <div className="space-y-1">
                         {evs.slice(0, 4).map((e) => {
                           const cls = `block text-[11px] truncate px-1.5 py-0.5 rounded border ${TYPE_COLOR[e.type]}`;
+                          const displayTitle = (e.type === "personal" && e.personal && fmtTime(e.personal.start_time))
+                            ? `${fmtTime(e.personal.start_time)} ${e.title}`
+                            : e.title;
                           if (e.type === "personal" && e.personal) {
                             const onClick = () => {
                               if (e.readOnly) setPeViewing(e.personal!);
                               else openEditPe(e.personal!);
                             };
                             return (
-                              <button key={e.id} type="button" onClick={onClick} className={cls + " hover:opacity-80 text-left w-full"} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>
-                                {e.title}
+                              <button key={e.id} type="button" onClick={onClick} className={cls + " hover:opacity-80 text-left w-full"} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>
+                                {displayTitle}
                               </button>
                             );
                           }
                           return e.href ? (
-                            <Link key={e.id} to={e.href as any} className={cls + " hover:opacity-80"} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>
-                              {e.title}
+                            <Link key={e.id} to={e.href as any} className={cls + " hover:opacity-80"} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>
+                              {displayTitle}
                             </Link>
                           ) : (
-                            <div key={e.id} className={cls} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>{e.title}</div>
+                            <div key={e.id} className={cls} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>{displayTitle}</div>
                           );
                         })}
                         {evs.length > 4 && <div className="text-[10px] text-muted-foreground px-1">+{evs.length - 4}</div>}
