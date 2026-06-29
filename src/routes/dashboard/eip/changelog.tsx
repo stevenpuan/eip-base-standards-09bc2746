@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEipUser, canManageEip } from "@/lib/eip-user";
-import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +76,7 @@ function ChangelogPage() {
     queryKey: ["eip", "changelog"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("eip_changelog")
+        .from("changelogs")
         .select("*")
         .order("released_at", { ascending: false })
         .order("created_at", { ascending: false });
@@ -218,14 +217,12 @@ function CreateChangelogDialog({
       return toast.error("請輸入版本與標題");
     setBusy(true);
     try {
-      const { error } = await supabase.from("eip_changelog").insert({
-        tenant_id: appUser.tenant_id ?? DEFAULT_TENANT_ID,
+      const { error } = await supabase.from("changelogs").insert({
         version: version.trim(),
         type,
         title: title.trim(),
         content: content.trim() || null,
         released_at: releasedAt,
-        created_by: appUser.id,
       });
       if (error) throw error;
       toast.success("已新增版本");
