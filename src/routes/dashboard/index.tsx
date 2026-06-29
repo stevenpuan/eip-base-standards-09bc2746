@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ListTodo, Lightbulb, AlertCircle, type LucideIcon } from "lucide-react";
+import { ListTodo, AlertCircle, type LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { EipDashboardSummary } from "@/components/eip/EipDashboardSummary";
+
 
 export const Route = createFileRoute("/dashboard/")({ component: DashboardHome });
 
