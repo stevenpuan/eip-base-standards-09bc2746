@@ -35,10 +35,29 @@ type PersonalEvent = {
   title: string;
   start_date: string;
   end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
   note: string | null;
 };
 
 type AppUserLite = { id: string; name: string | null };
+
+const TIME_OPTIONS: string[] = (() => {
+  const arr: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 30]) {
+      arr.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+  }
+  return arr;
+})();
+
+function fmtTime(t: string | null | undefined) {
+  if (!t) return null;
+  // accept "HH:MM" or "HH:MM:SS"
+  const m = /^(\d{2}):(\d{2})/.exec(t);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
 
 const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程" } as const;
 const TYPE_COLOR: Record<EventType, string> = {
