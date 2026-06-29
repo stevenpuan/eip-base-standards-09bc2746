@@ -1,29 +1,51 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/eip/calendar")({ component: CalendarPage });
 
+type EventType = "task" | "meeting" | "milestone" | "personal";
+
 type CalEvent = {
   id: string;
-  type: "task" | "meeting" | "milestone";
+  type: EventType;
   title: string;
-  date: string; // yyyy-mm-dd
+  date: string;
   href?: string;
   endDate?: string;
+  personal?: PersonalEvent;
+  readOnly?: boolean;
 };
 
-const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑" } as const;
-const TYPE_COLOR: Record<CalEvent["type"], string> = {
+type PersonalEvent = {
+  id: string;
+  user_id: string;
+  title: string;
+  start_date: string;
+  end_date: string | null;
+  note: string | null;
+};
+
+type AppUserLite = { id: string; name: string | null };
+
+const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程" } as const;
+const TYPE_COLOR: Record<EventType, string> = {
   task: "bg-blue-100 text-blue-700 border-blue-200",
   meeting: "bg-emerald-100 text-emerald-700 border-emerald-200",
   milestone: "bg-amber-100 text-amber-700 border-amber-200",
+  personal: "bg-purple-100 text-purple-700 border-purple-200",
 };
 
 function toYMD(d: Date | string | null) {
@@ -34,10 +56,14 @@ function toYMD(d: Date | string | null) {
 }
 
 function CalendarPage() {
+  const { user } = useAuth();
+  const myId = user?.id ?? "";
+  const qc = useQueryClient();
+
   const [cursor, setCursor] = useState(() => {
     const d = new Date(); d.setDate(1); return d;
   });
-  const [show, setShow] = useState({ task: true, meeting: true, milestone: true });
+  const [show, setShow] = useState({ task: true, meeting: true, milestone: true, personal: true });
 
   const tasksQ = useQuery({
     queryKey: ["cal", "tasks"],
@@ -63,6 +89,34 @@ function CalendarPage() {
       return data ?? [];
     },
   });
+  const personalQ = useQuery({
+    queryKey: ["cal", "personal"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("personal_event")
+        .select("id,user_id,title,start_date,end_date,note");
+      if (error) throw error;
+      return (data ?? []) as PersonalEvent[];
+    },
+  });
+  const sharesQ = useQuery({
+    queryKey: ["cal", "personal_shares"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("personal_event_share")
+        .select("event_id,shared_with_user_id");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const usersQ = useQuery({
+    queryKey: ["cal", "app_users"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_user").select("id,name").eq("status", "active");
+      if (error) throw error;
+      return (data ?? []) as AppUserLite[];
+    },
+  });
 
   const events = useMemo<CalEvent[]>(() => {
     const list: CalEvent[] = [];
@@ -84,10 +138,23 @@ function CalendarPage() {
         if (d) list.push({ id: `ms-${ms.id}`, type: "milestone", title: ms.name, date: d, href: ms.project_id ? `/dashboard/eip/projects/${ms.project_id}` : undefined });
       });
     }
+    if (show.personal) {
+      (personalQ.data ?? []).forEach((p) => {
+        const d = toYMD(p.start_date);
+        if (d) list.push({
+          id: `p-${p.id}`,
+          type: "personal",
+          title: p.title,
+          date: d,
+          endDate: toYMD(p.end_date) ?? undefined,
+          personal: p,
+          readOnly: p.user_id !== myId,
+        });
+      });
+    }
     return list;
-  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, show]);
+  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, personalQ.data, show, myId]);
 
-  // 建立月曆網格 (週日為首)
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
@@ -109,22 +176,121 @@ function CalendarPage() {
 
   const today = toYMD(new Date());
 
+  // ---- Personal event dialog ----
+  const [peOpen, setPeOpen] = useState(false);
+  const [peEditing, setPeEditing] = useState<PersonalEvent | null>(null);
+  const [peTitle, setPeTitle] = useState("");
+  const [peStart, setPeStart] = useState("");
+  const [peEnd, setPeEnd] = useState("");
+  const [peNote, setPeNote] = useState("");
+  const [peShares, setPeShares] = useState<string[]>([]);
+  const [peSubmitting, setPeSubmitting] = useState(false);
+  const [peViewing, setPeViewing] = useState<PersonalEvent | null>(null);
+
+  const sharesByEvent = useMemo(() => {
+    const m = new Map<string, string[]>();
+    (sharesQ.data ?? []).forEach((s: any) => {
+      const arr = m.get(s.event_id) ?? [];
+      arr.push(s.shared_with_user_id);
+      m.set(s.event_id, arr);
+    });
+    return m;
+  }, [sharesQ.data]);
+
+  const openCreatePe = () => {
+    setPeEditing(null);
+    setPeTitle("");
+    setPeStart(today ?? "");
+    setPeEnd("");
+    setPeNote("");
+    setPeShares([]);
+    setPeOpen(true);
+  };
+  const openEditPe = (p: PersonalEvent) => {
+    setPeEditing(p);
+    setPeTitle(p.title);
+    setPeStart(toYMD(p.start_date) ?? "");
+    setPeEnd(toYMD(p.end_date) ?? "");
+    setPeNote(p.note ?? "");
+    setPeShares(sharesByEvent.get(p.id) ?? []);
+    setPeOpen(true);
+  };
+  const toggleShare = (uid: string) => {
+    setPeShares((prev) => prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]);
+  };
+
+  const savePe = async () => {
+    if (!peTitle.trim() || !peStart) { toast.error("請填寫標題與開始日期"); return; }
+    setPeSubmitting(true);
+    let eventId = peEditing?.id ?? null;
+    if (peEditing) {
+      const { error } = await supabase.from("personal_event").update({
+        title: peTitle.trim(),
+        start_date: peStart,
+        end_date: peEnd || null,
+        note: peNote.trim() || null,
+      }).eq("id", peEditing.id);
+      if (error) { setPeSubmitting(false); toast.error(error.message); return; }
+      await supabase.from("personal_event_share").delete().eq("event_id", peEditing.id);
+    } else {
+      const { data, error } = await supabase.from("personal_event").insert({
+        title: peTitle.trim(),
+        start_date: peStart,
+        end_date: peEnd || null,
+        note: peNote.trim() || null,
+      } as any).select("id").single();
+      if (error) { setPeSubmitting(false); toast.error(error.message); return; }
+      eventId = data.id;
+    }
+    if (eventId && peShares.length > 0) {
+      const rows = peShares.map((uid) => ({ event_id: eventId!, shared_with_user_id: uid }));
+      const { error } = await supabase.from("personal_event_share").insert(rows);
+      if (error) { setPeSubmitting(false); toast.error(error.message); return; }
+    }
+    setPeSubmitting(false);
+    setPeOpen(false);
+    toast.success("已儲存");
+    qc.invalidateQueries({ queryKey: ["cal", "personal"] });
+    qc.invalidateQueries({ queryKey: ["cal", "personal_shares"] });
+  };
+
+  const deletePe = async () => {
+    if (!peEditing) return;
+    if (!confirm("確定刪除此個人行程？")) return;
+    setPeSubmitting(true);
+    await supabase.from("personal_event_share").delete().eq("event_id", peEditing.id);
+    const { error } = await supabase.from("personal_event").delete().eq("id", peEditing.id);
+    setPeSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    setPeOpen(false);
+    toast.success("已刪除");
+    qc.invalidateQueries({ queryKey: ["cal", "personal"] });
+    qc.invalidateQueries({ queryKey: ["cal", "personal_shares"] });
+  };
+
+  const userMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (usersQ.data ?? []).forEach((u) => m.set(u.id, u.name ?? u.id));
+    return m;
+  }, [usersQ.data]);
+
   return (
     <div>
       <PageHeader
         title="行事曆"
-        description="整合任務、會議、里程碑於同一視圖。"
+        description="整合任務、會議、里程碑與個人行程於同一視圖。"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={() => setCursor(new Date(year, month - 1, 1))}><ChevronLeft className="w-4 h-4" /></Button>
             <div className="text-sm font-medium w-28 text-center">{year} 年 {month + 1} 月</div>
             <Button variant="outline" size="icon" onClick={() => setCursor(new Date(year, month + 1, 1))}><ChevronRight className="w-4 h-4" /></Button>
             <Button variant="ghost" size="sm" onClick={() => { const d = new Date(); d.setDate(1); setCursor(d); }}>今天</Button>
+            <Button size="sm" onClick={openCreatePe}>＋ 新增行程</Button>
           </div>
         }
       />
 
-      <div className="mb-3 flex items-center gap-4 text-xs">
+      <div className="mb-3 flex items-center gap-4 text-xs flex-wrap">
         {(Object.keys(TYPE_LABEL) as Array<keyof typeof TYPE_LABEL>).map((k) => (
           <label key={k} className="flex items-center gap-1.5 cursor-pointer">
             <Checkbox checked={show[k]} onCheckedChange={(v) => setShow((s) => ({ ...s, [k]: !!v }))} />
@@ -154,6 +320,17 @@ function CalendarPage() {
                       <div className="space-y-1">
                         {evs.slice(0, 4).map((e) => {
                           const cls = `block text-[11px] truncate px-1.5 py-0.5 rounded border ${TYPE_COLOR[e.type]}`;
+                          if (e.type === "personal" && e.personal) {
+                            const onClick = () => {
+                              if (e.readOnly) setPeViewing(e.personal!);
+                              else openEditPe(e.personal!);
+                            };
+                            return (
+                              <button key={e.id} type="button" onClick={onClick} className={cls + " hover:opacity-80 text-left w-full"} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>
+                                {e.title}
+                              </button>
+                            );
+                          }
                           return e.href ? (
                             <Link key={e.id} to={e.href as any} className={cls + " hover:opacity-80"} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>
                               {e.title}
@@ -172,6 +349,74 @@ function CalendarPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={peOpen} onOpenChange={(o) => { if (!o) setPeOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{peEditing ? "編輯個人行程" : "新增個人行程"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">標題 *</Label>
+              <Input value={peTitle} onChange={(e) => setPeTitle(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">開始日期 *</Label>
+                <Input type="date" value={peStart} onChange={(e) => setPeStart(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">結束日期</Label>
+                <Input type="date" value={peEnd} onChange={(e) => setPeEnd(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">備註</Label>
+              <Textarea value={peNote} onChange={(e) => setPeNote(e.target.value)} rows={3} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">分享給</Label>
+              <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                {(usersQ.data ?? []).filter((u) => u.id !== myId).map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox checked={peShares.includes(u.id)} onCheckedChange={() => toggleShare(u.id)} />
+                    <span>{u.name ?? u.id}</span>
+                  </label>
+                ))}
+                {(usersQ.data ?? []).filter((u) => u.id !== myId).length === 0 && (
+                  <p className="text-xs text-muted-foreground">無其他成員</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            {peEditing && (
+              <Button variant="destructive" onClick={deletePe} disabled={peSubmitting} className="mr-auto">刪除</Button>
+            )}
+            <Button variant="outline" onClick={() => setPeOpen(false)} disabled={peSubmitting}>取消</Button>
+            <Button onClick={savePe} disabled={peSubmitting}>{peSubmitting ? "儲存中…" : "儲存"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!peViewing} onOpenChange={(o) => { if (!o) setPeViewing(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{peViewing?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <p><span className="text-muted-foreground">建立者：</span>{peViewing ? (userMap.get(peViewing.user_id) ?? peViewing.user_id) : ""}</p>
+            <p><span className="text-muted-foreground">日期：</span>{peViewing?.start_date}{peViewing?.end_date ? ` ~ ${peViewing.end_date}` : ""}</p>
+            {peViewing?.note && (
+              <p className="whitespace-pre-wrap"><span className="text-muted-foreground">備註：</span>{peViewing.note}</p>
+            )}
+            <p className="text-xs text-muted-foreground">此為他人分享給你的行程，僅可檢視。</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPeViewing(null)}>關閉</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

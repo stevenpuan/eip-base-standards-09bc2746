@@ -67,6 +67,7 @@ function UsersPage() {
   const { can, user, roles: myRoles } = useAuth();
   const qc = useQueryClient();
   const editable = can("users", "edit");
+  const deletable = can("users", "delete");
   const canCreateAccount = myRoles.includes("admin") || myRoles.includes("manager");
 
 
@@ -258,6 +259,24 @@ function UsersPage() {
     catch { toast.error("複製失敗,請手動選取"); }
   };
 
+  // ---- 永久刪除 ----
+  const [deleting, setDeleting] = useState<ProfileRow | null>(null);
+  const [delConfirm, setDelConfirm] = useState("");
+  const [delSubmitting, setDelSubmitting] = useState(false);
+  const openDelete = (row: ProfileRow) => { setDeleting(row); setDelConfirm(""); };
+  const closeDelete = () => { setDeleting(null); setDelConfirm(""); setDelSubmitting(false); };
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDelSubmitting(true);
+    const { error } = await supabase.rpc("eip_admin_delete_user", { p_user_id: deleting.id });
+    setDelSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("已永久刪除");
+    qc.invalidateQueries({ queryKey: ["users"] });
+    qc.invalidateQueries({ queryKey: ["app_users"] });
+    closeDelete();
+  };
+
 
 
   const pending = rows.filter((r) => r.status === "pending");
@@ -326,6 +345,9 @@ function UsersPage() {
                     )}
                     {editable && (
                       <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>編輯</Button>
+                    )}
+                    {deletable && r.status === "disabled" && (
+                      <Button size="sm" variant="destructive" onClick={() => openDelete(r)}>永久刪除</Button>
                     )}
                   </TableCell>
                 </TableRow>
@@ -533,6 +555,34 @@ function UsersPage() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleting} onOpenChange={(o) => { if (!o) closeDelete(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>永久刪除帳號</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              此操作無法復原。將永久刪除帳號 <span className="font-medium text-foreground">{deleting?.full_name ?? deleting?.email}</span>。
+              請輸入該帳號姓名「<span className="font-medium text-foreground">{deleting?.full_name ?? ""}</span>」以確認。
+            </p>
+            <div className="space-y-1">
+              <Label className="text-xs">輸入姓名以確認</Label>
+              <Input value={delConfirm} onChange={(e) => setDelConfirm(e.target.value)} placeholder={deleting?.full_name ?? ""} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDelete} disabled={delSubmitting}>取消</Button>
+            <Button
+              variant="destructive"
+              disabled={delSubmitting || !deleting?.full_name || delConfirm.trim() !== (deleting?.full_name ?? "").trim()}
+              onClick={confirmDelete}
+            >
+              {delSubmitting ? "刪除中…" : "永久刪除"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

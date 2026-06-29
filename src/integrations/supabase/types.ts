@@ -1847,6 +1847,100 @@ export type Database = {
           },
         ]
       }
+      personal_event: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          note: string | null
+          start_date: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          note?: string | null
+          start_date: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          note?: string | null
+          start_date?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_event_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_event_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      personal_event_share: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          shared_with_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          shared_with_user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          shared_with_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_event_share_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "personal_event"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_event_share_shared_with_user_id_fkey"
+            columns: ["shared_with_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_event_share_shared_with_user_id_fkey"
+            columns: ["shared_with_user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2902,6 +2996,7 @@ export type Database = {
         }
         Returns: Json
       }
+      eip_admin_delete_user: { Args: { p_user_id: string }; Returns: Json }
       eip_announcement_targeted: {
         Args: { p_announcement_id: string }
         Returns: boolean
@@ -2957,6 +3052,10 @@ export type Database = {
       eip_generate_line_bind_code: { Args: never; Returns: string }
       eip_is_task_collaborator: {
         Args: { p_task_id: string }
+        Returns: boolean
+      }
+      eip_owns_personal_event: {
+        Args: { p_event_id: string }
         Returns: boolean
       }
       eip_purge_old_logs: { Args: { p_days?: number }; Returns: string }
