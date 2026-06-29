@@ -44,7 +44,7 @@ function Page() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["feature_requests"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("feature_requests").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("eip_feature_request").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
@@ -64,7 +64,7 @@ function Page() {
     if (!title) { toast.error("請輸入標題"); return; }
     const c = Math.max(1, parseInt(cost || "1", 10));
     if (remaining < c && !overdraft) { toast.error(`本月點數不足（剩 ${remaining}）`); return; }
-    const { error } = await supabase.from("feature_requests").insert({ title, area: area || null, description: desc || null, points_cost: c, submitter_id: user?.id ?? null });
+    const { error } = await supabase.from("eip_feature_request").insert({ title, area: area || null, description: desc || null, points_cost: c, submitter_id: user?.id ?? null });
     if (error) { toast.error(error.message); return; }
     toast.success("已送出許願");
     setOpen(false); setTitle(""); setArea(""); setDesc(""); setCost("1");
@@ -72,7 +72,7 @@ function Page() {
   };
 
   const changeStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from("feature_requests").update({ status }).eq("id", id);
+    const { error } = await supabase.from("eip_feature_request").update({ status }).eq("id", id);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["feature_requests"] });
   };
