@@ -50,6 +50,18 @@ import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
+function formatErr(e: unknown): string {
+  if (!e) return "未知錯誤";
+  if (e instanceof Error) return e.message;
+  if (typeof e === "object") {
+    const o = e as Record<string, unknown>;
+    const parts = [o.message, o.details, o.hint, o.code].filter(Boolean);
+    if (parts.length) return parts.join(" / ");
+    try { return JSON.stringify(e); } catch { return String(e); }
+  }
+  return String(e);
+}
+
 function canEditTask(task: Task, appUser: AppUser | null): boolean {
   if (!appUser) return false;
   if (appUser.role === "company_admin") return true;
@@ -249,7 +261,7 @@ function TasksPage() {
       });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] }),
-    onError: (e) => toast.error(`更新失敗：${e instanceof Error ? e.message : String(e)}`),
+    onError: (e) => toast.error(`更新失敗：${formatErr(e)}`),
   });
 
   const handleExport = () => {
@@ -1121,7 +1133,8 @@ function CreateTaskDialog({
       toast.success("任務已建立");
       onCreated(); onClose();
     } catch (e) {
-      toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(`建立失敗：${formatErr(e)}`);
+
     } finally {
       setBusy(false);
     }
