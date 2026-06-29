@@ -15,14 +15,12 @@ function DashboardHome() {
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const [todos, fr, issues] = await Promise.all([
+      const [todos, issues] = await Promise.all([
         supabase.from("dev_todos").select("*", { count: "exact", head: true }).eq("status", "todo"),
-        supabase.from("eip_feature_request").select("*", { count: "exact", head: true }),
         supabase.from("issue_reports").select("*", { count: "exact", head: true }).eq("status", "open"),
       ]);
       return {
         todos: todos.count ?? 0,
-        fr: fr.count ?? 0,
         issues: issues.count ?? 0,
       };
     },
@@ -38,9 +36,8 @@ function DashboardHome() {
           角色：{roleNames.join("、") || "—"}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" />
-        <StatCard title="許願清單" value={stats?.fr} icon={Lightbulb} accent="accent" />
         <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" />
       </div>
       <EipDashboardSummary />
