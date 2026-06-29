@@ -555,6 +555,34 @@ function UsersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!deleting} onOpenChange={(o) => { if (!o) closeDelete(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>永久刪除帳號</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              此操作無法復原。將永久刪除帳號 <span className="font-medium text-foreground">{deleting?.full_name ?? deleting?.email}</span>。
+              請輸入該帳號姓名「<span className="font-medium text-foreground">{deleting?.full_name ?? ""}</span>」以確認。
+            </p>
+            <div className="space-y-1">
+              <Label className="text-xs">輸入姓名以確認</Label>
+              <Input value={delConfirm} onChange={(e) => setDelConfirm(e.target.value)} placeholder={deleting?.full_name ?? ""} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDelete} disabled={delSubmitting}>取消</Button>
+            <Button
+              variant="destructive"
+              disabled={delSubmitting || !deleting?.full_name || delConfirm.trim() !== (deleting?.full_name ?? "").trim()}
+              onClick={confirmDelete}
+            >
+              {delSubmitting ? "刪除中…" : "永久刪除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
