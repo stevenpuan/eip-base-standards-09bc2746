@@ -16,7 +16,7 @@ function DashboardHome() {
     queryFn: async () => {
       const [todos, fr, issues] = await Promise.all([
         supabase.from("dev_todos").select("*", { count: "exact", head: true }).eq("status", "todo"),
-        supabase.from("feature_requests").select("*", { count: "exact", head: true }),
+        supabase.from("eip_feature_request").select("*", { count: "exact", head: true }),
         supabase.from("issue_reports").select("*", { count: "exact", head: true }).eq("status", "open"),
       ]);
       return {
