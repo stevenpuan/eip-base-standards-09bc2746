@@ -249,7 +249,7 @@ function TasksPage() {
       });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] }),
-    onError: (e) => toast.error(`更新失敗：${e instanceof Error ? e.message : String(e)}`),
+    onError: (e) => toast.error(`更新失敗：${formatErr(e)}`),
   });
 
   const handleExport = () => {
