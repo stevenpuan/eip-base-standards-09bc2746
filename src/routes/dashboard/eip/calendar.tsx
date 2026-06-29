@@ -35,10 +35,29 @@ type PersonalEvent = {
   title: string;
   start_date: string;
   end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
   note: string | null;
 };
 
 type AppUserLite = { id: string; name: string | null };
+
+const TIME_OPTIONS: string[] = (() => {
+  const arr: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 30]) {
+      arr.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+  }
+  return arr;
+})();
+
+function fmtTime(t: string | null | undefined) {
+  if (!t) return null;
+  // accept "HH:MM" or "HH:MM:SS"
+  const m = /^(\d{2}):(\d{2})/.exec(t);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
 
 const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程" } as const;
 const TYPE_COLOR: Record<EventType, string> = {
@@ -94,7 +113,7 @@ function CalendarPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("personal_event")
-        .select("id,user_id,title,start_date,end_date,note");
+        .select("id,user_id,title,start_date,end_date,start_time,end_time,note");
       if (error) throw error;
       return (data ?? []) as PersonalEvent[];
     },
@@ -182,6 +201,8 @@ function CalendarPage() {
   const [peTitle, setPeTitle] = useState("");
   const [peStart, setPeStart] = useState("");
   const [peEnd, setPeEnd] = useState("");
+  const [peStartTime, setPeStartTime] = useState("");
+  const [peEndTime, setPeEndTime] = useState("");
   const [peNote, setPeNote] = useState("");
   const [peShares, setPeShares] = useState<string[]>([]);
   const [peSubmitting, setPeSubmitting] = useState(false);
@@ -202,6 +223,8 @@ function CalendarPage() {
     setPeTitle("");
     setPeStart(today ?? "");
     setPeEnd("");
+    setPeStartTime("");
+    setPeEndTime("");
     setPeNote("");
     setPeShares([]);
     setPeOpen(true);
@@ -211,6 +234,8 @@ function CalendarPage() {
     setPeTitle(p.title);
     setPeStart(toYMD(p.start_date) ?? "");
     setPeEnd(toYMD(p.end_date) ?? "");
+    setPeStartTime(fmtTime(p.start_time) ?? "");
+    setPeEndTime(fmtTime(p.end_time) ?? "");
     setPeNote(p.note ?? "");
     setPeShares(sharesByEvent.get(p.id) ?? []);
     setPeOpen(true);
@@ -228,8 +253,10 @@ function CalendarPage() {
         title: peTitle.trim(),
         start_date: peStart,
         end_date: peEnd || null,
+        start_time: peStartTime || null,
+        end_time: peEndTime || null,
         note: peNote.trim() || null,
-      }).eq("id", peEditing.id);
+      } as any).eq("id", peEditing.id);
       if (error) { setPeSubmitting(false); toast.error(error.message); return; }
       await supabase.from("personal_event_share").delete().eq("event_id", peEditing.id);
     } else {
@@ -237,6 +264,8 @@ function CalendarPage() {
         title: peTitle.trim(),
         start_date: peStart,
         end_date: peEnd || null,
+        start_time: peStartTime || null,
+        end_time: peEndTime || null,
         note: peNote.trim() || null,
       } as any).select("id").single();
       if (error) { setPeSubmitting(false); toast.error(error.message); return; }
@@ -320,23 +349,26 @@ function CalendarPage() {
                       <div className="space-y-1">
                         {evs.slice(0, 4).map((e) => {
                           const cls = `block text-[11px] truncate px-1.5 py-0.5 rounded border ${TYPE_COLOR[e.type]}`;
+                          const displayTitle = (e.type === "personal" && e.personal && fmtTime(e.personal.start_time))
+                            ? `${fmtTime(e.personal.start_time)} ${e.title}`
+                            : e.title;
                           if (e.type === "personal" && e.personal) {
                             const onClick = () => {
                               if (e.readOnly) setPeViewing(e.personal!);
                               else openEditPe(e.personal!);
                             };
                             return (
-                              <button key={e.id} type="button" onClick={onClick} className={cls + " hover:opacity-80 text-left w-full"} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>
-                                {e.title}
+                              <button key={e.id} type="button" onClick={onClick} className={cls + " hover:opacity-80 text-left w-full"} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>
+                                {displayTitle}
                               </button>
                             );
                           }
                           return e.href ? (
-                            <Link key={e.id} to={e.href as any} className={cls + " hover:opacity-80"} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>
-                              {e.title}
+                            <Link key={e.id} to={e.href as any} className={cls + " hover:opacity-80"} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>
+                              {displayTitle}
                             </Link>
                           ) : (
-                            <div key={e.id} className={cls} title={`[${TYPE_LABEL[e.type]}] ${e.title}`}>{e.title}</div>
+                            <div key={e.id} className={cls} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>{displayTitle}</div>
                           );
                         })}
                         {evs.length > 4 && <div className="text-[10px] text-muted-foreground px-1">+{evs.length - 4}</div>}
@@ -366,8 +398,30 @@ function CalendarPage() {
                 <Input type="date" value={peStart} onChange={(e) => setPeStart(e.target.value)} />
               </div>
               <div className="space-y-1">
+                <Label className="text-xs">開始時間</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={peStartTime}
+                  onChange={(e) => setPeStartTime(e.target.value)}
+                >
+                  <option value="">整天 / 不指定</option>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
                 <Label className="text-xs">結束日期</Label>
                 <Input type="date" value={peEnd} onChange={(e) => setPeEnd(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">結束時間</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={peEndTime}
+                  onChange={(e) => setPeEndTime(e.target.value)}
+                >
+                  <option value="">整天 / 不指定</option>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
             </div>
             <div className="space-y-1">
@@ -407,6 +461,9 @@ function CalendarPage() {
           <div className="space-y-2 text-sm">
             <p><span className="text-muted-foreground">建立者：</span>{peViewing ? (userMap.get(peViewing.user_id) ?? peViewing.user_id) : ""}</p>
             <p><span className="text-muted-foreground">日期：</span>{peViewing?.start_date}{peViewing?.end_date ? ` ~ ${peViewing.end_date}` : ""}</p>
+            {(peViewing?.start_time || peViewing?.end_time) && (
+              <p><span className="text-muted-foreground">時間：</span>{fmtTime(peViewing?.start_time) ?? "—"}{peViewing?.end_time ? ` ~ ${fmtTime(peViewing.end_time)}` : ""}</p>
+            )}
             {peViewing?.note && (
               <p className="whitespace-pre-wrap"><span className="text-muted-foreground">備註：</span>{peViewing.note}</p>
             )}

@@ -1851,9 +1851,11 @@ export type Database = {
         Row: {
           created_at: string
           end_date: string | null
+          end_time: string | null
           id: string
           note: string | null
           start_date: string
+          start_time: string | null
           tenant_id: string
           title: string
           updated_at: string
@@ -1862,9 +1864,11 @@ export type Database = {
         Insert: {
           created_at?: string
           end_date?: string | null
+          end_time?: string | null
           id?: string
           note?: string | null
           start_date: string
+          start_time?: string | null
           tenant_id: string
           title: string
           updated_at?: string
@@ -1873,9 +1877,11 @@ export type Database = {
         Update: {
           created_at?: string
           end_date?: string | null
+          end_time?: string | null
           id?: string
           note?: string | null
           start_date?: string
+          start_time?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string
