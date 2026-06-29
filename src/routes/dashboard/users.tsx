@@ -344,6 +344,9 @@ function UsersPage() {
                     {editable && (
                       <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>編輯</Button>
                     )}
+                    {deletable && r.status === "disabled" && (
+                      <Button size="sm" variant="destructive" onClick={() => openDelete(r)}>永久刪除</Button>
+                    )}
                   </TableCell>
                 </TableRow>
               );
