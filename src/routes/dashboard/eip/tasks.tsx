@@ -1121,7 +1121,8 @@ function CreateTaskDialog({
       toast.success("任務已建立");
       onCreated(); onClose();
     } catch (e) {
-      toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(`建立失敗：${formatErr(e)}`);
+
     } finally {
       setBusy(false);
     }
