@@ -257,6 +257,8 @@ function UsersPage() {
     if (!created) return;
     try { await navigator.clipboard.writeText(created.password); toast.success("已複製初始密碼"); }
     catch { toast.error("複製失敗,請手動選取"); }
+  };
+
   // ---- 永久刪除 ----
   const [deleting, setDeleting] = useState<ProfileRow | null>(null);
   const [delConfirm, setDelConfirm] = useState("");
