@@ -113,7 +113,7 @@ function CalendarPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("personal_event")
-        .select("id,user_id,title,start_date,end_date,note");
+        .select("id,user_id,title,start_date,end_date,start_time,end_time,note");
       if (error) throw error;
       return (data ?? []) as PersonalEvent[];
     },
