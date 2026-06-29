@@ -67,6 +67,7 @@ function UsersPage() {
   const { can, user, roles: myRoles } = useAuth();
   const qc = useQueryClient();
   const editable = can("users", "edit");
+  const deletable = can("users", "delete");
   const canCreateAccount = myRoles.includes("admin") || myRoles.includes("manager");
 
 
