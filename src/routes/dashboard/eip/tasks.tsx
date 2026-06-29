@@ -50,6 +50,18 @@ import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
+function formatErr(e: unknown): string {
+  if (!e) return "未知錯誤";
+  if (e instanceof Error) return e.message;
+  if (typeof e === "object") {
+    const o = e as Record<string, unknown>;
+    const parts = [o.message, o.details, o.hint, o.code].filter(Boolean);
+    if (parts.length) return parts.join(" / ");
+    try { return JSON.stringify(e); } catch { return String(e); }
+  }
+  return String(e);
+}
+
 function canEditTask(task: Task, appUser: AppUser | null): boolean {
   if (!appUser) return false;
   if (appUser.role === "company_admin") return true;
