@@ -201,6 +201,8 @@ function CalendarPage() {
   const [peTitle, setPeTitle] = useState("");
   const [peStart, setPeStart] = useState("");
   const [peEnd, setPeEnd] = useState("");
+  const [peStartTime, setPeStartTime] = useState("");
+  const [peEndTime, setPeEndTime] = useState("");
   const [peNote, setPeNote] = useState("");
   const [peShares, setPeShares] = useState<string[]>([]);
   const [peSubmitting, setPeSubmitting] = useState(false);
@@ -221,6 +223,8 @@ function CalendarPage() {
     setPeTitle("");
     setPeStart(today ?? "");
     setPeEnd("");
+    setPeStartTime("");
+    setPeEndTime("");
     setPeNote("");
     setPeShares([]);
     setPeOpen(true);
@@ -230,6 +234,8 @@ function CalendarPage() {
     setPeTitle(p.title);
     setPeStart(toYMD(p.start_date) ?? "");
     setPeEnd(toYMD(p.end_date) ?? "");
+    setPeStartTime(fmtTime(p.start_time) ?? "");
+    setPeEndTime(fmtTime(p.end_time) ?? "");
     setPeNote(p.note ?? "");
     setPeShares(sharesByEvent.get(p.id) ?? []);
     setPeOpen(true);
