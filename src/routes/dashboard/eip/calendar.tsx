@@ -398,8 +398,30 @@ function CalendarPage() {
                 <Input type="date" value={peStart} onChange={(e) => setPeStart(e.target.value)} />
               </div>
               <div className="space-y-1">
+                <Label className="text-xs">開始時間</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={peStartTime}
+                  onChange={(e) => setPeStartTime(e.target.value)}
+                >
+                  <option value="">整天 / 不指定</option>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
                 <Label className="text-xs">結束日期</Label>
                 <Input type="date" value={peEnd} onChange={(e) => setPeEnd(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">結束時間</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={peEndTime}
+                  onChange={(e) => setPeEndTime(e.target.value)}
+                >
+                  <option value="">整天 / 不指定</option>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
             </div>
             <div className="space-y-1">
