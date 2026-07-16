@@ -50,13 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pagePerms, setPagePerms] = useState<PageMap>({});
 
   const loadUserData = async (uid: string) => {
-    const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+    // 平行拉 profile + user_roles，減少 RTT
+    const [{ data: prof }, { data: ur }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
+      supabase.from("user_roles").select("role_id, roles(code,name)").eq("user_id", uid),
+    ]);
     setProfile((prof as Profile) ?? null);
 
-    const { data: ur } = await supabase
-      .from("user_roles")
-      .select("role_id, roles(code,name)")
-      .eq("user_id", uid);
     const rows = (ur ?? []) as unknown as Array<{ role_id: string; roles: { code: string; name: string } | null }>;
     let codes = rows.map((r) => r.roles?.code).filter(Boolean) as string[];
     let names = rows.map((r) => r.roles?.name).filter(Boolean) as string[];
@@ -77,8 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 模組層
-    const { data: rmp } = await supabase.from("role_module_permissions").select("*").in("role_id", roleIds);
+    // 模組層 + 子頁面層平行拉
+    const [{ data: rmp }, { data: rpp }] = await Promise.all([
+      supabase.from("role_module_permissions").select("*").in("role_id", roleIds),
+      supabase.from("role_page_permissions").select("*").in("role_id", roleIds),
+    ]);
+
     const map: PermMap = {};
     (rmp ?? []).forEach((p: any) => {
       const cur = map[p.module_key] ?? { view: false, create: false, edit: false, delete: false, export: false };
@@ -93,7 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPerms(map);
 
     // 子頁面層（多角色合併：任一 true → true；否則任一 false → false；否則 null 繼承）
-    const { data: rpp } = await supabase.from("role_page_permissions").select("*").in("role_id", roleIds);
     const pmap: PageMap = {};
     (rpp ?? []).forEach((p: any) => {
       const cur = pmap[p.page_key] ?? { view: null, create: null, edit: null, delete: null, export: null };
@@ -111,18 +114,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let lastLoadedUid: string | null = null;
+
+    const runLoad = (uid: string) => {
+      if (lastLoadedUid === uid) return;
+      lastLoadedUid = uid;
+      // 用 setTimeout 把工作丟出回呼堆疊，避免 onAuthStateChange 內直接 await
+      // supabase 呼叫造成的 deadlock / 卡頓（Supabase 官方建議）。
+      setTimeout(() => {
+        if (!active) return;
+        void loadUserData(uid);
+      }, 0);
+    };
+
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!active) return;
       setSession(data.session ?? null);
-      if (data.session?.user) await loadUserData(data.session.user.id);
+      if (data.session?.user) {
+        runLoad(data.session.user.id);
+      }
       setLoading(false);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
-      if (sess?.user) await loadUserData(sess.user.id);
-      else {
+      if (sess?.user) {
+        runLoad(sess.user.id);
+      } else {
+        lastLoadedUid = null;
         setProfile(null);
         setRoles([]);
         setRoleNames([]);
@@ -135,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
 
   const isAdmin = roles.includes("admin");
   const can = (key: string, action: Action = "view") => {
