@@ -630,14 +630,22 @@ function BoardView({
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleColumnDrop(s.id, t.id); }}>
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
+                    creator={userMap.get(t.created_by)}
                     subtask={subtaskMap.get(t.id)}
                     source={sourceMap.get(t.id)}
                     deptMap={deptMap}
-                    canEdit={canEditTask(t, appUser)}
-                    canDelete={canDeleteTask(t, appUser)}
+                    statuses={statuses}
+                    canEdit={canEditTask(t, appUser, collabMap)}
+                    canDelete={canDeleteTask(t, appUser, collabMap)}
                     onDragStart={() => setDragId(t.id)}
                     onOpenDetail={() => onOpenDetail(t)}
-                    onAskDelete={() => onAskDelete(t)} />
+                    onAskDelete={() => onAskDelete(t)}
+                    onChangeStatus={(sid) => {
+                      const list = tasks.filter((x) => x.status_id === sid).sort((a, b) => a.board_position - b.board_position);
+                      const last = list.length ? list[list.length - 1].board_position : 0;
+                      onMove(t.id, sid, last + 1);
+                    }} />
+
                 </div>
               ))}
               {list.length === 0 && (
