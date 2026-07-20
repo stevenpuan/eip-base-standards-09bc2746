@@ -52,11 +52,13 @@ function StatCard({
   value,
   icon: Icon,
   accent = "primary",
+  to,
 }: {
   title: string;
   value?: number;
   icon: LucideIcon;
   accent?: "primary" | "accent" | "destructive";
+  to?: string;
 }) {
   const borderClass =
     accent === "accent"
@@ -70,8 +72,8 @@ function StatCard({
       : accent === "destructive"
         ? "bg-destructive/10 text-destructive"
         : "bg-primary/10 text-primary";
-  return (
-    <Card className={cn("border-l-4", borderClass)}>
+  const card = (
+    <Card className={cn("border-l-4 transition-all duration-200", to && "hover:-translate-y-0.5 hover:shadow-md cursor-pointer", borderClass)}>
       <CardContent className="p-5 flex items-center gap-4">
         <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0", iconWrap)}>
           <Icon className="h-5 w-5" />
@@ -83,4 +85,7 @@ function StatCard({
       </CardContent>
     </Card>
   );
+  if (to) return <Link to={to as any} className="block">{card}</Link>;
+  return card;
 }
+
