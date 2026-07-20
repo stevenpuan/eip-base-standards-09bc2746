@@ -38,9 +38,10 @@ function DashboardHome() {
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" />
-        <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" />
+        <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" to="/dashboard/dev-todos" />
+        <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" to="/dashboard/issue-reports" />
       </div>
+
       <EipDashboardSummary />
     </div>
   );
