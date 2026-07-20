@@ -156,6 +156,17 @@ function TasksPage() {
     },
   });
 
+  const collabQ = useQuery({
+    queryKey: ["eip", "task_collaborators-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task_collaborator").select("task_id,user_id");
+      if (error) throw error;
+      return (data ?? []) as { task_id: string; user_id: string }[];
+    },
+  });
+
+
+
   const usersQ = useQuery({
     queryKey: ["eip", "users"],
     queryFn: async () => {
