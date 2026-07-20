@@ -207,6 +207,17 @@ function TasksPage() {
   const statusMap = useMemo(() => new Map((statusesQ.data ?? []).map((s) => [s.id, s])), [statusesQ.data]);
   const projectMap = useMemo(() => new Map((projectsQ.data ?? []).map((p) => [p.id, p])), [projectsQ.data]);
   const deptMap = useMemo(() => new Map((deptsQ.data ?? []).map((d) => [d.id, d])), [deptsQ.data]);
+  const collabMap = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    (collabQ.data ?? []).forEach((r) => {
+      const s = m.get(r.task_id) ?? new Set<string>();
+      s.add(r.user_id);
+      m.set(r.task_id, s);
+    });
+    return m;
+  }, [collabQ.data]);
+
+
 
   const subtaskMap = useMemo(() => {
     const m = new Map<string, { total: number; done: number }>();
