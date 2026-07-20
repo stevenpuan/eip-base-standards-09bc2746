@@ -62,19 +62,25 @@ function formatErr(e: unknown): string {
   return String(e);
 }
 
-function canEditTask(task: Task, appUser: AppUser | null): boolean {
+function canEditTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
   if (appUser.role === "company_admin") return true;
   if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
   if (task.owner_id === appUser.id) return true;
+  if (task.created_by === appUser.id) return true;
+  if (collabMap?.get(task.id)?.has(appUser.id)) return true;
   return false;
 }
-function canDeleteTask(task: Task, appUser: AppUser | null): boolean {
+function canDeleteTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
   if (appUser.role === "company_admin") return true;
   if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
+  if (task.owner_id === appUser.id) return true;
+  if (task.created_by === appUser.id) return true;
+  if (collabMap?.get(task.id)?.has(appUser.id)) return true;
   return false;
 }
+
 
 export const Route = createFileRoute("/dashboard/eip/tasks")({
   component: TasksPage,
