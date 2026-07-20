@@ -62,19 +62,25 @@ function formatErr(e: unknown): string {
   return String(e);
 }
 
-function canEditTask(task: Task, appUser: AppUser | null): boolean {
+function canEditTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
   if (appUser.role === "company_admin") return true;
   if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
   if (task.owner_id === appUser.id) return true;
+  if (task.created_by === appUser.id) return true;
+  if (collabMap?.get(task.id)?.has(appUser.id)) return true;
   return false;
 }
-function canDeleteTask(task: Task, appUser: AppUser | null): boolean {
+function canDeleteTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
   if (appUser.role === "company_admin") return true;
   if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
+  if (task.owner_id === appUser.id) return true;
+  if (task.created_by === appUser.id) return true;
+  if (collabMap?.get(task.id)?.has(appUser.id)) return true;
   return false;
 }
+
 
 export const Route = createFileRoute("/dashboard/eip/tasks")({
   component: TasksPage,
@@ -150,6 +156,17 @@ function TasksPage() {
     },
   });
 
+  const collabQ = useQuery({
+    queryKey: ["eip", "task_collaborators-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("task_collaborator").select("task_id,user_id");
+      if (error) throw error;
+      return (data ?? []) as { task_id: string; user_id: string }[];
+    },
+  });
+
+
+
   const usersQ = useQuery({
     queryKey: ["eip", "users"],
     queryFn: async () => {
@@ -190,6 +207,17 @@ function TasksPage() {
   const statusMap = useMemo(() => new Map((statusesQ.data ?? []).map((s) => [s.id, s])), [statusesQ.data]);
   const projectMap = useMemo(() => new Map((projectsQ.data ?? []).map((p) => [p.id, p])), [projectsQ.data]);
   const deptMap = useMemo(() => new Map((deptsQ.data ?? []).map((d) => [d.id, d])), [deptsQ.data]);
+  const collabMap = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    (collabQ.data ?? []).forEach((r) => {
+      const s = m.get(r.task_id) ?? new Set<string>();
+      s.add(r.user_id);
+      m.set(r.task_id, s);
+    });
+    return m;
+  }, [collabQ.data]);
+
+
 
   const subtaskMap = useMemo(() => {
     const m = new Map<string, { total: number; done: number }>();
@@ -339,7 +367,9 @@ function TasksPage() {
             subtaskMap={subtaskMap}
             sourceMap={sourceMap}
             deptMap={deptMap}
+            collabMap={collabMap}
             appUser={appUser}
+
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
             }
@@ -388,7 +418,7 @@ function TasksPage() {
         <EditTaskDialog
           key={detailTask.id}
           task={detailTask}
-          readOnly={!canEditTask(detailTask, appUser)}
+          readOnly={!canEditTask(detailTask, appUser, collabMap)}
           onClose={() => setDetailTask(null)}
           statuses={statusesQ.data ?? []}
           users={usersQ.data ?? []}
@@ -546,18 +576,20 @@ function MiniSelect({ value, onChange, options }: {
 
 /* ============ 看板視圖 ============ */
 function BoardView({
-  tasks, statuses, userMap, subtaskMap, sourceMap, deptMap, appUser, onMove, onOpenDetail, onAskDelete,
+  tasks, statuses, userMap, subtaskMap, sourceMap, deptMap, collabMap, appUser, onMove, onOpenDetail, onAskDelete,
 }: {
   tasks: Task[]; statuses: Status[];
   userMap: Map<string, AppUser>;
   subtaskMap: Map<string, { total: number; done: number }>;
   sourceMap: Map<string, TaskSource>;
   deptMap: Map<string, Department>;
+  collabMap: Map<string, Set<string>>;
   appUser: AppUser | null;
   onMove: (taskId: string, toStatusId: string, newPosition: number) => void;
   onOpenDetail: (t: Task) => void;
   onAskDelete: (t: Task) => void;
 }) {
+
   const [dragId, setDragId] = useState<string | null>(null);
 
   const colTasks = (statusId: string) =>
@@ -598,14 +630,22 @@ function BoardView({
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleColumnDrop(s.id, t.id); }}>
                   <TaskCard task={t} owner={userMap.get(t.owner_id)}
+                    creator={userMap.get(t.created_by)}
                     subtask={subtaskMap.get(t.id)}
                     source={sourceMap.get(t.id)}
                     deptMap={deptMap}
-                    canEdit={canEditTask(t, appUser)}
-                    canDelete={canDeleteTask(t, appUser)}
+                    statuses={statuses}
+                    canEdit={canEditTask(t, appUser, collabMap)}
+                    canDelete={canDeleteTask(t, appUser, collabMap)}
                     onDragStart={() => setDragId(t.id)}
                     onOpenDetail={() => onOpenDetail(t)}
-                    onAskDelete={() => onAskDelete(t)} />
+                    onAskDelete={() => onAskDelete(t)}
+                    onChangeStatus={(sid) => {
+                      const list = tasks.filter((x) => x.status_id === sid).sort((a, b) => a.board_position - b.board_position);
+                      const last = list.length ? list[list.length - 1].board_position : 0;
+                      onMove(t.id, sid, last + 1);
+                    }} />
+
                 </div>
               ))}
               {list.length === 0 && (
@@ -621,21 +661,24 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
-  task: Task; owner?: AppUser;
+function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete, onChangeStatus }: {
+  task: Task; owner?: AppUser; creator?: AppUser;
   subtask?: { total: number; done: number };
   source?: TaskSource;
   deptMap: Map<string, Department>;
+  statuses: Status[];
   canEdit: boolean; canDelete: boolean;
   onDragStart: () => void;
   onOpenDetail: () => void;
   onAskDelete: () => void;
+  onChangeStatus: (statusId: string) => void;
 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const overdue = task.due_date &&
     new Date(task.due_date) < new Date(new Date().toDateString()) && task.progress < 100;
   const initial = owner?.name ? owner.name.slice(0, 1) : "?";
   const showMenu = canEdit || canDelete;
+  const isDone = statuses.find((s) => s.id === task.status_id)?.is_done_state;
   return (
     <Card draggable onDragStart={onDragStart}
       onClick={onOpenDetail}
@@ -707,10 +750,36 @@ function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, o
             )}
           </div>
         </div>
+        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span className="truncate">
+            建立者：{creator?.name ?? "—"}
+          </span>
+          <span className="shrink-0">
+            {new Date(task.created_at).toLocaleDateString("zh-TW", { year: "2-digit", month: "2-digit", day: "2-digit" })}
+          </span>
+        </div>
         <div className="flex flex-wrap items-center gap-1">
           {source && <TaskSourceBadge source={source} />}
           <VisibilityBadge scope={task.visibility_scope} departmentId={task.department_id} deptMap={deptMap} />
+          {isDone && <Badge variant="secondary" className="text-[10px]">已完成</Badge>}
         </div>
+        {canEdit && statuses.length > 0 && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Select value={task.status_id} onValueChange={onChangeStatus}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder="狀態" />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">
+                    {s.name}{s.is_done_state ? "（完成）" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
