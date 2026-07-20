@@ -661,21 +661,24 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete }: {
-  task: Task; owner?: AppUser;
+function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete, onChangeStatus }: {
+  task: Task; owner?: AppUser; creator?: AppUser;
   subtask?: { total: number; done: number };
   source?: TaskSource;
   deptMap: Map<string, Department>;
+  statuses: Status[];
   canEdit: boolean; canDelete: boolean;
   onDragStart: () => void;
   onOpenDetail: () => void;
   onAskDelete: () => void;
+  onChangeStatus: (statusId: string) => void;
 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const overdue = task.due_date &&
     new Date(task.due_date) < new Date(new Date().toDateString()) && task.progress < 100;
   const initial = owner?.name ? owner.name.slice(0, 1) : "?";
   const showMenu = canEdit || canDelete;
+  const isDone = statuses.find((s) => s.id === task.status_id)?.is_done_state;
   return (
     <Card draggable onDragStart={onDragStart}
       onClick={onOpenDetail}
@@ -747,10 +750,36 @@ function TaskCard({ task, owner, subtask, source, deptMap, canEdit, canDelete, o
             )}
           </div>
         </div>
+        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span className="truncate">
+            建立者：{creator?.name ?? "—"}
+          </span>
+          <span className="shrink-0">
+            {new Date(task.created_at).toLocaleDateString("zh-TW", { year: "2-digit", month: "2-digit", day: "2-digit" })}
+          </span>
+        </div>
         <div className="flex flex-wrap items-center gap-1">
           {source && <TaskSourceBadge source={source} />}
           <VisibilityBadge scope={task.visibility_scope} departmentId={task.department_id} deptMap={deptMap} />
+          {isDone && <Badge variant="secondary" className="text-[10px]">已完成</Badge>}
         </div>
+        {canEdit && statuses.length > 0 && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Select value={task.status_id} onValueChange={onChangeStatus}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder="狀態" />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">
+                    {s.name}{s.is_done_state ? "（完成）" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
