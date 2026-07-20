@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ListTodo, AlertCircle, type LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -9,6 +9,7 @@ import { EipDashboardSummary } from "@/components/eip/EipDashboardSummary";
 
 
 export const Route = createFileRoute("/dashboard/")({ component: DashboardHome });
+
 
 function DashboardHome() {
   const { profile, roleNames } = useAuth();
@@ -37,9 +38,10 @@ function DashboardHome() {
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" />
-        <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" />
+        <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" to="/dashboard/dev-todos" />
+        <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" to="/dashboard/issue-reports" />
       </div>
+
       <EipDashboardSummary />
     </div>
   );
@@ -50,11 +52,13 @@ function StatCard({
   value,
   icon: Icon,
   accent = "primary",
+  to,
 }: {
   title: string;
   value?: number;
   icon: LucideIcon;
   accent?: "primary" | "accent" | "destructive";
+  to?: string;
 }) {
   const borderClass =
     accent === "accent"
@@ -68,8 +72,8 @@ function StatCard({
       : accent === "destructive"
         ? "bg-destructive/10 text-destructive"
         : "bg-primary/10 text-primary";
-  return (
-    <Card className={cn("border-l-4", borderClass)}>
+  const card = (
+    <Card className={cn("border-l-4 transition-all duration-200", to && "hover:-translate-y-0.5 hover:shadow-md cursor-pointer", borderClass)}>
       <CardContent className="p-5 flex items-center gap-4">
         <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0", iconWrap)}>
           <Icon className="h-5 w-5" />
@@ -81,4 +85,7 @@ function StatCard({
       </CardContent>
     </Card>
   );
+  if (to) return <Link to={to as any} className="block">{card}</Link>;
+  return card;
 }
+
