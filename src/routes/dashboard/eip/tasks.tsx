@@ -367,7 +367,9 @@ function TasksPage() {
             subtaskMap={subtaskMap}
             sourceMap={sourceMap}
             deptMap={deptMap}
+            collabMap={collabMap}
             appUser={appUser}
+
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
             }
