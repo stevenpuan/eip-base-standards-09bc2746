@@ -418,7 +418,7 @@ function TasksPage() {
         <EditTaskDialog
           key={detailTask.id}
           task={detailTask}
-          readOnly={!canEditTask(detailTask, appUser)}
+          readOnly={!canEditTask(detailTask, appUser, collabMap)}
           onClose={() => setDetailTask(null)}
           statuses={statusesQ.data ?? []}
           users={usersQ.data ?? []}
