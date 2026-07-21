@@ -1847,6 +1847,63 @@ export type Database = {
           },
         ]
       }
+      notification_setting: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          event_code: string
+          id: string
+          in_app_enabled: boolean
+          is_active: boolean
+          line_enabled: boolean
+          notif_type: string | null
+          recipient_scopes: string[]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          event_code: string
+          id?: string
+          in_app_enabled?: boolean
+          is_active?: boolean
+          line_enabled?: boolean
+          notif_type?: string | null
+          recipient_scopes?: string[]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          event_code?: string
+          id?: string
+          in_app_enabled?: boolean
+          is_active?: boolean
+          line_enabled?: boolean
+          notif_type?: string | null
+          recipient_scopes?: string[]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_setting_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_setting_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       personal_event: {
         Row: {
           created_at: string
@@ -3055,10 +3112,36 @@ export type Database = {
         Args: { p_dept: string; p_root: string }
         Returns: boolean
       }
+      eip_emit_notification: {
+        Args: {
+          p_actor_id: string
+          p_department_id: string
+          p_entity_id: string
+          p_entity_type: Database["public"]["Enums"]["notification_entity"]
+          p_event_code: string
+          p_message: string
+          p_notif_type: Database["public"]["Enums"]["notification_type"]
+          p_owner_id: string
+        }
+        Returns: number
+      }
       eip_generate_line_bind_code: { Args: never; Returns: string }
       eip_is_task_collaborator: {
         Args: { p_task_id: string }
         Returns: boolean
+      }
+      eip_notification_recipients: {
+        Args: {
+          p_actor_id?: string
+          p_department_id?: string
+          p_event_code: string
+          p_owner_id?: string
+        }
+        Returns: {
+          in_app: boolean
+          line_enabled: boolean
+          user_id: string
+        }[]
       }
       eip_owns_personal_event: {
         Args: { p_event_id: string }
