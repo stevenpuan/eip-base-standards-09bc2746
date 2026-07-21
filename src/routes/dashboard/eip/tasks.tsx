@@ -614,7 +614,7 @@ function BoardView({
         const list = colTasks(s.id);
         return (
           <div key={s.id}
-            className="bg-muted/40 rounded-lg p-2 min-h-[420px]"
+            className="bg-muted/30 rounded-xl p-2.5 min-h-[440px]"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); handleColumnDrop(s.id); }}>
             <div className="flex items-center justify-between px-2 py-1.5 mb-2">
@@ -622,7 +622,7 @@ function BoardView({
                 <span className="font-semibold text-sm">{s.name}</span>
                 {s.is_done_state && <Badge variant="secondary" className="text-[10px]">完成</Badge>}
               </div>
-              <span className="text-xs text-muted-foreground">{list.length}</span>
+              <span className="text-xs text-muted-foreground bg-background rounded-full px-2 py-0.5 min-w-[22px] text-center">{list.length}</span>
             </div>
             <div className="space-y-2 max-h-[calc(100vh-360px)] overflow-y-auto pr-1">
               {list.map((t) => (
@@ -682,8 +682,8 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
   return (
     <Card draggable onDragStart={onDragStart}
       onClick={onOpenDetail}
-      className="cursor-pointer hover:shadow-md transition-shadow">
-      <CardContent className="p-3 space-y-2">
+      className="cursor-pointer rounded-xl hover:shadow-md hover:border-primary/30 transition-all">
+      <CardContent className="p-3.5 space-y-2.5">
         <div className="flex items-start gap-2">
           <GripVertical
             className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing"
@@ -696,7 +696,7 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
           {task.recurring_rule_id && (
             <Badge variant="outline" className="text-[10px] gap-0.5"><Repeat className="w-2.5 h-2.5" />週期</Badge>
           )}
-          <Badge className={`text-[10px] ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
+          <Badge className={`text-[10px] rounded-full px-2 ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
             {PRIORITY_LABEL[task.priority]}
           </Badge>
           {showMenu && (
@@ -731,7 +731,7 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] flex items-center justify-center shrink-0">
+            <div className="w-6 h-6 rounded-full bg-primary/15 text-primary text-[11px] font-medium flex items-center justify-center shrink-0">
               {initial}
             </div>
             <span className="truncate">{owner?.name ?? "未指派"}</span>
@@ -780,7 +780,7 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
           </div>
         )}
 
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
         </div>
         {task.recurring_rule_id && task.progress < 100 && (
