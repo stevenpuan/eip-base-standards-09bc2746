@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ export function QuickReportButton() {
   const [leaveFrom, setLeaveFrom] = useState("");
   const [leaveTo, setLeaveTo] = useState("");
   const [leaveDetail, setLeaveDetail] = useState("");
+  const [leaveType, setLeaveType] = useState("");
+  const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string }[]>([]);
 
   // 事件
   const [otherDetail, setOtherDetail] = useState("");
@@ -42,10 +44,21 @@ export function QuickReportButton() {
     setLeaveFrom("");
     setLeaveTo("");
     setLeaveDetail("");
+    setLeaveType("");
     setOtherDetail("");
   };
 
   const tenantId = appUser?.tenant_id ?? DEFAULT_TENANT_ID;
+
+  useEffect(() => {
+    if (!open) return;
+    void supabase
+      .from("leave_type")
+      .select("code,name")
+      .eq("is_active", true)
+      .order("sort_order")
+      .then((res: any) => setLeaveTypes(res.data ?? []));
+  }, [open]);
 
   const submitLate = async () => {
     if (!appUser) return;
@@ -74,11 +87,16 @@ export function QuickReportButton() {
       toast.error("請選擇請假起訖日");
       return;
     }
+    if (!leaveType) {
+      toast.error("請選擇假別");
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.from("eip_quick_report").insert({
       tenant_id: tenantId,
       submitter_id: appUser.id,
       type: "leave",
+      leave_type: leaveType,
       leave_from: leaveFrom,
       leave_to: leaveTo,
       detail: leaveDetail.trim() || null,
@@ -155,6 +173,19 @@ export function QuickReportButton() {
             </TabsContent>
 
             <TabsContent value="leave" className="space-y-3 pt-2">
+              <div>
+                <Label>假別</Label>
+                <select
+                  value={leaveType}
+                  onChange={(e) => setLeaveType(e.target.value)}
+                  className="h-9 w-full rounded-md border bg-card px-2 text-sm"
+                >
+                  <option value="">選擇假別…</option>
+                  {leaveTypes.map((t) => (
+                    <option key={t.code} value={t.code}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>起</Label>
