@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { BookText, Plus, X, Check, Send, Stamp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, X, Check, Send, Stamp, Sun, Sunset, Zap, Inbox } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -13,18 +13,10 @@ export const Route = createFileRoute("/dashboard/eip/work-log")({ component: Wor
 
 type Item = { text: string; done: boolean };
 interface Log {
-  id?: string;
-  user_id?: string;
-  department_id?: string | null;
-  log_date: string;
-  routine_morning: Item[];
-  routine_afternoon: Item[];
-  special_items: Item[];
-  status: string;
-  manager_comment?: string | null;
-  reviewed_at?: string | null;
+  id?: string; user_id?: string; department_id?: string | null; log_date: string;
+  routine_morning: Item[]; routine_afternoon: Item[]; special_items: Item[];
+  status: string; manager_comment?: string | null; reviewed_at?: string | null;
 }
-
 const today = () => new Date().toISOString().slice(0, 10);
 const arr = (v: unknown): Item[] => (Array.isArray(v) ? (v as Item[]) : []);
 
@@ -44,7 +36,6 @@ function WorkLogPage() {
     if (data) {
       setLog({ ...data, routine_morning: arr(data.routine_morning), routine_afternoon: arr(data.routine_afternoon), special_items: arr(data.special_items) } as Log);
     } else {
-      // 自動帶入當日常態(週期)任務作為例行工作
       const { data: rec } = await supabase.from("task").select("title,progress")
         .eq("owner_id", appUser.id).not("recurring_rule_id", "is", null).eq("occurrence_date", date);
       const seeded: Item[] = (rec ?? []).map((t: any) => ({ text: t.title as string, done: (t.progress ?? 0) >= 100 }));
@@ -60,8 +51,7 @@ function WorkLogPage() {
     const body = {
       user_id: appUser.id, department_id: appUser.department_id, log_date: date,
       routine_morning: log.routine_morning, routine_afternoon: log.routine_afternoon,
-      special_items: log.special_items, status: log.status, ...patch,
-      updated_at: new Date().toISOString(),
+      special_items: log.special_items, status: log.status, ...patch, updated_at: new Date().toISOString(),
     };
     let res;
     if (log.id) res = await supabase.from("work_log").update(body).eq("id", log.id).select("*").maybeSingle();
@@ -72,7 +62,9 @@ function WorkLogPage() {
     if (successMsg) toast.success(successMsg);
   };
 
-  if (loading || !log) return <div className="text-sm text-muted-foreground py-10 text-center">載入中…</div>;
+  if (loading || !log) {
+    return <div className="space-y-3"><div className="h-9 w-40 rounded-md bg-muted/50 animate-pulse" /><div className="h-56 rounded-2xl bg-muted/50 animate-pulse" /></div>;
+  }
 
   const editable = log.status !== "reviewed";
   const setSection = (key: "routine_morning" | "routine_afternoon" | "special_items", items: Item[]) =>
@@ -89,10 +81,12 @@ function WorkLogPage() {
           </div>
         } />
 
-      <div className="rounded-xl border bg-card p-4 space-y-5">
-        <Section title="例行工作 · 上午" items={log.routine_morning} editable={editable} onChange={(v) => setSection("routine_morning", v)} />
-        <Section title="例行工作 · 下午" items={log.routine_afternoon} editable={editable} onChange={(v) => setSection("routine_afternoon", v)} />
-        <Section title="特殊（突發）工作" items={log.special_items} editable={editable} onChange={(v) => setSection("special_items", v)} accent />
+      <div className="grid gap-4 md:grid-cols-2">
+        <SectionCard title="例行工作 · 上午" Icon={Sun} tone="primary" items={log.routine_morning} editable={editable} onChange={(v) => setSection("routine_morning", v)} />
+        <SectionCard title="例行工作 · 下午" Icon={Sunset} tone="primary" items={log.routine_afternoon} editable={editable} onChange={(v) => setSection("routine_afternoon", v)} />
+        <div className="md:col-span-2">
+          <SectionCard title="特殊（突發）工作" Icon={Zap} tone="accent" items={log.special_items} editable={editable} onChange={(v) => setSection("special_items", v)} />
+        </div>
       </div>
 
       {editable && (
@@ -105,7 +99,7 @@ function WorkLogPage() {
       )}
 
       {log.manager_comment && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
           <div className="text-xs font-semibold text-primary mb-1 flex items-center gap-1.5"><Stamp className="w-3.5 h-3.5" /> 單位主管批示</div>
           <div className="text-sm whitespace-pre-wrap">{log.manager_comment}</div>
         </div>
@@ -116,18 +110,23 @@ function WorkLogPage() {
   );
 }
 
-function Section({ title, items, editable, onChange, accent }: {
-  title: string; items: Item[]; editable: boolean; onChange: (v: Item[]) => void; accent?: boolean;
+function SectionCard({ title, Icon, tone, items, editable, onChange }: {
+  title: string; Icon: typeof Sun; tone: "primary" | "accent"; items: Item[]; editable: boolean; onChange: (v: Item[]) => void;
 }) {
   const [text, setText] = useState("");
   const add = () => { const t = text.trim(); if (!t) return; onChange([...items, { text: t, done: false }]); setText(""); };
+  const toneCls = tone === "accent" ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary";
   return (
-    <div>
-      <div className={`text-sm font-semibold mb-2 ${accent ? "text-accent" : "text-primary"}`}>{title}</div>
-      {items.length === 0 && <div className="text-xs text-muted-foreground mb-2">尚無項目</div>}
+    <div className="rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${toneCls}`}><Icon className="w-4 h-4" /></span>
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="ml-auto text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{items.length}</span>
+      </div>
+      {items.length === 0 && <div className="text-xs text-muted-foreground mb-2 pl-1">尚無項目</div>}
       <ul className="space-y-1.5 mb-2">
         {items.map((it, i) => (
-          <li key={i} className="flex items-center gap-2 text-sm">
+          <li key={i} className="flex items-center gap-2 text-sm rounded-lg hover:bg-muted/40 px-1.5 py-1">
             <button type="button" disabled={!editable}
               onClick={() => onChange(items.map((x, j) => (j === i ? { ...x, done: !x.done } : x)))}
               className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${it.done ? "bg-primary border-primary text-primary-foreground" : "bg-card"}`}>
@@ -135,9 +134,7 @@ function Section({ title, items, editable, onChange, accent }: {
             </button>
             <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
             {editable && (
-              <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
-                <X className="w-3.5 h-3.5" />
-              </button>
+              <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3.5 h-3.5" /></button>
             )}
           </li>
         ))}
@@ -160,7 +157,7 @@ function StatusBadge({ status }: { status: string }) {
     reviewed: { t: "已批示", c: "bg-primary/15 text-primary" },
   };
   const s = map[status] ?? map.draft;
-  return <span className={`text-xs px-2.5 py-1 rounded-full ${s.c}`}>{s.t}</span>;
+  return <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${s.c}`}>{s.t}</span>;
 }
 
 function SupervisorReview({ meId }: { meId: string }) {
@@ -190,27 +187,29 @@ function SupervisorReview({ meId }: { meId: string }) {
     if (error) { toast.error(error.message); return; }
     toast.success("已批示"); void load();
   };
-
   const fmtItems = (v: any) => (Array.isArray(v) ? v.map((x: any) => (x.done ? "✓ " : "· ") + x.text).join("、") : "");
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-muted-foreground px-1">部門日誌批示</h2>
+    <div className="space-y-3 pt-2">
+      <h2 className="text-sm font-semibold flex items-center gap-2"><Stamp className="w-4 h-4 text-primary" /> 部門日誌批示</h2>
       {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground px-1">目前沒有待批示或已批示的部門日誌。</p>
+        <div className="border border-dashed rounded-2xl py-10 text-center bg-card/40">
+          <div className="w-11 h-11 mx-auto rounded-2xl bg-muted flex items-center justify-center"><Inbox className="w-5 h-5 text-muted-foreground/60" /></div>
+          <p className="text-xs text-muted-foreground mt-2">目前沒有待批示或已批示的部門日誌。</p>
+        </div>
       ) : rows.map((r) => (
-        <div key={r.id} className="rounded-xl border bg-card p-4 space-y-2">
+        <div key={r.id} className="rounded-2xl border bg-card p-4 space-y-2 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">{names[r.user_id] ?? "同仁"} · {r.log_date}</div>
             <StatusBadge status={r.status} />
           </div>
           <div className="text-xs text-muted-foreground space-y-0.5">
-            <div><span className="text-foreground">上午：</span>{fmtItems(r.routine_morning) || "—"}</div>
-            <div><span className="text-foreground">下午：</span>{fmtItems(r.routine_afternoon) || "—"}</div>
-            <div><span className="text-foreground">特殊：</span>{fmtItems(r.special_items) || "—"}</div>
+            <div><span className="text-foreground font-medium">上午：</span>{fmtItems(r.routine_morning) || "—"}</div>
+            <div><span className="text-foreground font-medium">下午：</span>{fmtItems(r.routine_afternoon) || "—"}</div>
+            <div><span className="text-foreground font-medium">特殊：</span>{fmtItems(r.special_items) || "—"}</div>
           </div>
           {r.status === "reviewed" ? (
-            <div className="text-sm rounded-md bg-primary/5 border border-primary/20 p-2"><span className="text-primary font-medium">批示：</span>{r.manager_comment}</div>
+            <div className="text-sm rounded-lg bg-primary/5 border border-primary/20 p-2"><span className="text-primary font-medium">批示：</span>{r.manager_comment}</div>
           ) : (
             <div className="flex flex-col gap-2">
               <Textarea rows={2} placeholder="輸入批示…" value={draftComment[r.id] ?? ""}

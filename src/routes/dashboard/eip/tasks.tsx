@@ -136,7 +136,7 @@ function TasksPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("task")
-        .select("*")
+        .select("id,tenant_id,title,description,type_id,project_id,parent_task_id,department_id,owner_id,priority,status_id,progress,due_date,created_by,completed_at,created_at,updated_at,board_position,start_date,recurring_rule_id,occurrence_date,visibility_scope")
         .order("board_position", { ascending: true })
         .order("created_at", { ascending: false });
       if (error) throw error;
