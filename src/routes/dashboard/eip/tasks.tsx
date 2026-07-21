@@ -1013,7 +1013,17 @@ function ListView({
       </AlertDialog>
       <Card>
         <CardContent className="p-0 overflow-x-auto">
-          <Table>
+          <Table className="w-full table-fixed min-w-[920px]">
+            <colgroup>
+              {canBulk && <col style={{ width: 40 }} />}
+              <col />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 80 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 140 }} />
+            </colgroup>
             <TableHeader>
               <TableRow>
                 {canBulk && (
@@ -1051,25 +1061,25 @@ function ListView({
                         />
                       </TableCell>
                     )}
-                    <TableCell className="text-sm font-medium">
+                    <TableCell className="text-sm font-medium overflow-hidden">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="truncate">{t.title}</span>
                         {sourceMap.get(t.id) && <TaskSourceBadge source={sourceMap.get(t.id)!} />}
                         <VisibilityBadge scope={t.visibility_scope} departmentId={t.department_id} deptMap={deptMap} />
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{userMap.get(t.owner_id)?.name ?? "—"}</TableCell>
-                    <TableCell className="text-sm">{statusMap.get(t.status_id)?.name ?? "—"}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap truncate">{userMap.get(t.owner_id)?.name ?? "—"}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap truncate">{statusMap.get(t.status_id)?.name ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={`text-[10px] ${PRIORITY_COLOR[t.priority]}`}>
+                      <Badge variant="secondary" className={`text-[10px] rounded-full px-2 ${PRIORITY_COLOR[t.priority]}`}>
                         {PRIORITY_LABEL[t.priority]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{t.progress}%</TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-sm whitespace-nowrap truncate">{t.progress}%</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap truncate">
                       {t.due_date ? new Date(t.due_date).toLocaleDateString("zh-TW") : "—"}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-sm whitespace-nowrap truncate">
                       {t.project_id ? projectMap.get(t.project_id)?.name ?? "—" : "—"}
                     </TableCell>
                   </TableRow>
@@ -1103,7 +1113,7 @@ function ThSort({ label, k, sortKey, sortDir, onClick }: {
 }) {
   const active = sortKey === k;
   return (
-    <TableHead>
+    <TableHead className="whitespace-nowrap">
       <button type="button" onClick={() => onClick(k)} className="flex items-center gap-1 hover:text-foreground">
         {label}
         {active && <span className="text-xs">{sortDir === "asc" ? "▲" : "▼"}</span>}
