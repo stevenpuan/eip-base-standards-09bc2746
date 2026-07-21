@@ -1297,6 +1297,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /* ============ 任務詳情/編輯對話框 ============ */
+type TaskUpdateRow = {
+  id: string;
+  created_at: string;
+  comment: string | null;
+  user_id: string;
+};
+
 export function EditTaskDialog({
   task, readOnly, onClose, onSaved, statuses, users, departments, projects,
 }: {
@@ -1304,6 +1311,48 @@ export function EditTaskDialog({
   onClose: () => void; onSaved: () => void;
   statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
 }) {
+  const { appUser } = useEipUser();
+  const userMap = useMemo(() => {
+    const m = new Map<string, string>();
+    users.forEach((u) => m.set(u.id, u.name));
+    return m;
+  }, [users]);
+
+  const [notes, setNotes] = useState<TaskUpdateRow[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
+  const [newNote, setNewNote] = useState("");
+  const [postingNote, setPostingNote] = useState(false);
+
+  const loadNotes = async () => {
+    setNotesLoading(true);
+    const { data, error } = await supabase
+      .from("task_update")
+      .select("id,created_at,comment,user_id")
+      .eq("task_id", task.id)
+      .not("comment", "is", null)
+      .order("created_at", { ascending: true });
+    setNotesLoading(false);
+    if (!error) setNotes((data ?? []) as TaskUpdateRow[]);
+  };
+  useEffect(() => { void loadNotes(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
+
+  const postNote = async () => {
+    const text = newNote.trim();
+    if (!text || !appUser?.id) return;
+    setPostingNote(true);
+    const { error } = await supabase.from("task_update").insert({
+      task_id: task.id,
+      tenant_id: task.tenant_id,
+      user_id: appUser.id,
+      comment: text,
+      progress: null,
+      status_changed_to_id: null,
+    });
+    setPostingNote(false);
+    if (error) { toast.error("補充失敗：" + formatErr(error)); return; }
+    setNewNote("");
+    void loadNotes();
+  };
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [statusId, setStatusId] = useState(task.status_id);
