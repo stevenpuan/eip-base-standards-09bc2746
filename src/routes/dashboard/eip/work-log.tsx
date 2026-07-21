@@ -27,6 +27,7 @@ function WorkLogPage() {
   const [log, setLog] = useState<Log | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [myLogs, setMyLogs] = useState<any[]>([]);
 
   const load = async () => {
     if (!appUser?.id) return;
@@ -39,11 +40,26 @@ function WorkLogPage() {
       const { data: rec } = await supabase.from("task").select("title,progress")
         .eq("owner_id", appUser.id).not("recurring_rule_id", "is", null).eq("occurrence_date", date);
       const seeded: Item[] = (rec ?? []).map((t: any) => ({ text: t.title as string, done: (t.progress ?? 0) >= 100 }));
-      setLog({ log_date: date, department_id: appUser.department_id, routine_morning: seeded, routine_afternoon: [], special_items: [], status: "draft" });
+      // 今天完成的一次性(非週期)任務 → 自動帶入「特殊(突發)工作」並打勾
+      const nextDate = new Date(new Date(date).getTime() + 864e5).toISOString().slice(0, 10);
+      const { data: doneToday } = await supabase.from("task").select("title")
+        .eq("owner_id", appUser.id).is("recurring_rule_id", null)
+        .gte("completed_at", date).lt("completed_at", nextDate);
+      const special: Item[] = (doneToday ?? []).map((t: any) => ({ text: t.title as string, done: true }));
+      setLog({ log_date: date, department_id: appUser.department_id, routine_morning: seeded, routine_afternoon: [], special_items: special, status: "draft" });
     }
     setLoading(false);
   };
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [appUser?.id, date]);
+
+  const loadMyLogs = async () => {
+    if (!appUser?.id) return;
+    const { data } = await supabase.from("work_log")
+      .select("id,log_date,status,routine_morning,routine_afternoon,special_items")
+      .eq("user_id", appUser.id).order("log_date", { ascending: false }).limit(60);
+    setMyLogs(data ?? []);
+  };
+  useEffect(() => { void loadMyLogs(); /* eslint-disable-next-line */ }, [appUser?.id]);
 
   const persist = async (patch: Partial<Log>, successMsg?: string) => {
     if (!appUser?.id || !log) return;
@@ -59,6 +75,7 @@ function WorkLogPage() {
     setSaving(false);
     if (res.error) { toast.error(res.error.message); return; }
     if (res.data) setLog((p) => (p ? { ...p, ...res.data } : p));
+    void loadMyLogs();
     if (successMsg) toast.success(successMsg);
   };
 
@@ -104,6 +121,8 @@ function WorkLogPage() {
           <div className="text-sm whitespace-pre-wrap">{log.manager_comment}</div>
         </div>
       )}
+
+      <MyLogsList rows={myLogs} activeDate={date} onPick={(d) => setDate(d)} />
 
       {isSupervisor && <SupervisorReview meId={appUser!.id} />}
     </div>
@@ -158,6 +177,29 @@ function StatusBadge({ status }: { status: string }) {
   };
   const s = map[status] ?? map.draft;
   return <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${s.c}`}>{s.t}</span>;
+}
+
+function MyLogsList({ rows, activeDate, onPick }: { rows: any[]; activeDate: string; onPick: (d: string) => void }) {
+  const cnt = (r: any) => arr(r.routine_morning).length + arr(r.routine_afternoon).length + arr(r.special_items).length;
+  return (
+    <div className="space-y-2 pt-2">
+      <h2 className="text-sm font-semibold text-muted-foreground px-1">我的日誌記錄</h2>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground px-1">尚無日誌記錄。填寫後按「儲存草稿」或「送出」即會出現在這裡,點選任一天即可載回修改。</p>
+      ) : (
+        <div className="rounded-2xl border overflow-hidden bg-card">
+          {rows.map((r) => (
+            <button key={r.id} onClick={() => onPick(r.log_date)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 text-sm hover:bg-accent/40 transition-colors ${r.log_date === activeDate ? "bg-primary/5" : ""}`}>
+              <span className="font-medium tabular-nums shrink-0">{r.log_date}</span>
+              <span className="text-xs text-muted-foreground flex-1 text-left truncate">{cnt(r)} 個項目</span>
+              <StatusBadge status={r.status} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SupervisorReview({ meId }: { meId: string }) {
