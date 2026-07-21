@@ -959,6 +959,16 @@ function ListView({
 
   const canBulk = canManage || appUser?.role === "member";
 
+  const cols = canBulk
+    ? "32px minmax(0,1fr) 96px 88px 84px 64px 112px 132px"
+    : "minmax(0,1fr) 96px 88px 84px 64px 112px 132px";
+  const arrow = (kk: SortKey) => (sortKey === kk ? (sortDir === "asc" ? " \u25B2" : " \u25BC") : "");
+  const Hd = ({ label, kk }: { label: string; kk: SortKey }) => (
+    <button type="button" onClick={() => toggleSort(kk)} className="flex items-center hover:text-foreground truncate">
+      {label}<span className="text-[10px]">{arrow(kk)}</span>
+    </button>
+  );
+
   return (
     <div className="space-y-3">
       {canBulk && selected.size > 0 && (
@@ -1011,91 +1021,64 @@ function ListView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <Table className="w-full table-fixed min-w-[920px]">
-            <colgroup>
-              {canBulk && <col style={{ width: 40 }} />}
-              <col />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 100 }} />
-              <col style={{ width: 90 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 140 }} />
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                {canBulk && (
-                  <TableHead className="w-10">
-                    <Checkbox checked={allChecked} onCheckedChange={toggleAll} />
-                  </TableHead>
-                )}
-                <ThSort label="標題" k="title" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                <ThSort label="負責人" k="owner" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                <ThSort label="狀態" k="status" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                <ThSort label="優先級" k="priority" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                <ThSort label="進度" k="progress" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                <ThSort label="期限" k="due" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                <ThSort label="專案" k="project" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paged.map((t) => {
-                const overdue = t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()) && t.progress < 100;
-                return (
-                  <TableRow
-                    key={t.id}
-                    className={`cursor-pointer hover:bg-accent/40 ${overdue ? "text-destructive" : ""}`}
-                    onClick={() => onOpenDetail(t)}
-                  >
-                    {canBulk && (
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selected.has(t.id)}
-                          onCheckedChange={(v) => {
-                            const s = new Set(selected);
-                            if (v) s.add(t.id); else s.delete(t.id);
-                            setSelected(s);
-                          }}
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell className="text-sm font-medium overflow-hidden">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="truncate">{t.title}</span>
-                        {sourceMap.get(t.id) && <TaskSourceBadge source={sourceMap.get(t.id)!} />}
-                        <VisibilityBadge scope={t.visibility_scope} departmentId={t.department_id} deptMap={deptMap} />
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm whitespace-nowrap truncate">{userMap.get(t.owner_id)?.name ?? "—"}</TableCell>
-                    <TableCell className="text-sm whitespace-nowrap truncate">{statusMap.get(t.status_id)?.name ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={`text-[10px] rounded-full px-2 ${PRIORITY_COLOR[t.priority]}`}>
-                        {PRIORITY_LABEL[t.priority]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm whitespace-nowrap truncate">{t.progress}%</TableCell>
-                    <TableCell className="text-sm whitespace-nowrap truncate">
-                      {t.due_date ? new Date(t.due_date).toLocaleDateString("zh-TW") : "—"}
-                    </TableCell>
-                    <TableCell className="text-sm whitespace-nowrap truncate">
-                      {t.project_id ? projectMap.get(t.project_id)?.name ?? "—" : "—"}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {paged.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={canBulk ? 8 : 7} className="py-10 text-center text-muted-foreground">
-                    無符合條件的任務
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <div style={{ minWidth: 860 }}>
+            <div className="grid items-center gap-3 px-4 h-11 border-b bg-muted/40 text-xs font-medium text-muted-foreground" style={{ gridTemplateColumns: cols }}>
+              {canBulk && <Checkbox checked={allChecked} onCheckedChange={toggleAll} />}
+              <Hd label="標題" kk="title" />
+              <Hd label="負責人" kk="owner" />
+              <Hd label="狀態" kk="status" />
+              <Hd label="優先級" kk="priority" />
+              <Hd label="進度" kk="progress" />
+              <Hd label="期限" kk="due" />
+              <Hd label="專案" kk="project" />
+            </div>
+            {paged.map((t) => {
+              const overdue = t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()) && t.progress < 100;
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => onOpenDetail(t)}
+                  className={`grid items-center gap-3 px-4 min-h-[48px] py-2 border-b last:border-b-0 cursor-pointer hover:bg-accent/40 text-sm ${overdue ? "text-destructive" : ""}`}
+                  style={{ gridTemplateColumns: cols }}
+                >
+                  {canBulk && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.has(t.id)}
+                        onCheckedChange={(v) => {
+                          const s = new Set(selected);
+                          if (v) s.add(t.id); else s.delete(t.id);
+                          setSelected(s);
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="truncate font-medium">{t.title}</span>
+                    {sourceMap.get(t.id) && <TaskSourceBadge source={sourceMap.get(t.id)!} />}
+                    <VisibilityBadge scope={t.visibility_scope} departmentId={t.department_id} deptMap={deptMap} />
+                  </div>
+                  <div className="truncate">{userMap.get(t.owner_id)?.name ?? "—"}</div>
+                  <div className="truncate">{statusMap.get(t.status_id)?.name ?? "—"}</div>
+                  <div>
+                    <Badge variant="secondary" className={`text-[10px] rounded-full px-2 ${PRIORITY_COLOR[t.priority]}`}>
+                      {PRIORITY_LABEL[t.priority]}
+                    </Badge>
+                  </div>
+                  <div className="tabular-nums">{t.progress}%</div>
+                  <div className="truncate tabular-nums">{t.due_date ? new Date(t.due_date).toLocaleDateString("zh-TW") : "—"}</div>
+                  <div className="truncate text-muted-foreground">{t.project_id ? projectMap.get(t.project_id)?.name ?? "—" : "—"}</div>
+                </div>
+              );
+            })}
+            {paged.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground text-sm">無符合條件的任務</div>
+            )}
+          </div>
+        </div>
+      </div>
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>共 {sorted.length} 筆</span>
         <div className="flex items-center gap-2">
