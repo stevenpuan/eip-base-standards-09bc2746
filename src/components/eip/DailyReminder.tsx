@@ -19,7 +19,7 @@ export function DailyReminder() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const _d = new Date(); const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
     const key = `eip_daily_reminder:${user.id}:${today}`;
     try { if (localStorage.getItem(key)) return; } catch { /* ignore */ }
 

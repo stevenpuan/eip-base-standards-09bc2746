@@ -12,7 +12,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/dashboard/eip/work-log")({ component: WorkLogPage });
 
 type Item = { text: string; done: boolean };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const arr = (v: unknown): Item[] => (Array.isArray(v) ? (v as Item[]) : []);
 
 interface Log { id?: string; log_date: string; routine: Item[]; special: Item[]; status: string; manager_comment?: string | null; }
@@ -23,7 +23,7 @@ async function buildSeed(uid: string, date: string) {
   const { data: rec } = await supabase.from("task").select("title,progress")
     .eq("owner_id", uid).not("recurring_rule_id", "is", null).eq("occurrence_date", date);
   const { data: done } = await supabase.from("task").select("title")
-    .eq("owner_id", uid).is("recurring_rule_id", null).gte("completed_at", date).lt("completed_at", nextDate);
+    .eq("owner_id", uid).is("recurring_rule_id", null).gte("completed_at", `${date}T00:00:00+08:00`).lt("completed_at", `${nextDate}T00:00:00+08:00`);
   return {
     routine: (rec ?? []).map((t: any) => ({ text: t.title as string, done: (t.progress ?? 0) >= 100 })),
     special: (done ?? []).map((t: any) => ({ text: t.title as string, done: true })),
