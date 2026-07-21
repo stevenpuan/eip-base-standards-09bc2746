@@ -87,6 +87,23 @@ function WorkLogPage() {
   const setSection = (key: "routine_morning" | "routine_afternoon" | "special_items", items: Item[]) =>
     setLog((p) => (p ? { ...p, [key]: items } : p));
 
+  // 把當日常態任務與今天完成的一次性任務併進目前日誌(去重),適用已存在的日誌
+  const syncToday = async () => {
+    if (!appUser?.id || !log) return;
+    const nextDate = new Date(new Date(date).getTime() + 864e5).toISOString().slice(0, 10);
+    const { data: rec } = await supabase.from("task").select("title,progress")
+      .eq("owner_id", appUser.id).not("recurring_rule_id", "is", null).eq("occurrence_date", date);
+    const { data: doneT } = await supabase.from("task").select("title")
+      .eq("owner_id", appUser.id).is("recurring_rule_id", null).gte("completed_at", date).lt("completed_at", nextDate);
+    const existRoutine = [...log.routine_morning, ...log.routine_afternoon].map((x) => x.text);
+    const existSpecial = log.special_items.map((x) => x.text);
+    const addRoutine: Item[] = (rec ?? []).filter((t: any) => !existRoutine.includes(t.title)).map((t: any) => ({ text: t.title as string, done: (t.progress ?? 0) >= 100 }));
+    const addSpecial: Item[] = (doneT ?? []).filter((t: any) => !existSpecial.includes(t.title)).map((t: any) => ({ text: t.title as string, done: true }));
+    if (addRoutine.length === 0 && addSpecial.length === 0) { toast.info("沒有可帶入的新任務"); return; }
+    setLog((p) => (p ? { ...p, routine_morning: [...p.routine_morning, ...addRoutine], special_items: [...p.special_items, ...addSpecial] } : p));
+    toast.success(`已帶入 ${addRoutine.length + addSpecial.length} 筆,請按「儲存草稿」或「送出」`);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title="工作日誌" description="每日填寫例行與特殊工作，送出後由單位主管批示。"
@@ -107,11 +124,14 @@ function WorkLogPage() {
       </div>
 
       {editable && (
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => persist({}, "已儲存草稿")} disabled={saving}>儲存草稿</Button>
-          <Button onClick={() => persist({ status: "submitted", submitted_at: new Date().toISOString() }, "已送出")} disabled={saving}>
-            <Send className="w-4 h-4 mr-1.5" /> 送出
-          </Button>
+        <div className="flex justify-between gap-2 flex-wrap">
+          <Button variant="outline" onClick={syncToday} disabled={saving}>同步今日任務</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => persist({}, "已儲存草稿")} disabled={saving}>儲存草稿</Button>
+            <Button onClick={() => persist({ status: "submitted", submitted_at: new Date().toISOString() }, "已送出")} disabled={saving}>
+              <Send className="w-4 h-4 mr-1.5" /> 送出
+            </Button>
+          </div>
         </div>
       )}
 
@@ -145,15 +165,21 @@ function SectionCard({ title, Icon, tone, items, editable, onChange }: {
       {items.length === 0 && <div className="text-xs text-muted-foreground mb-2 pl-1">尚無項目</div>}
       <ul className="space-y-1.5 mb-2">
         {items.map((it, i) => (
-          <li key={i} className="flex items-center gap-2 text-sm rounded-lg hover:bg-muted/40 px-1.5 py-1">
+          <li key={i} className="group flex items-center gap-2 text-sm rounded-lg hover:bg-muted/40 px-1.5 py-1">
             <button type="button" disabled={!editable}
               onClick={() => onChange(items.map((x, j) => (j === i ? { ...x, done: !x.done } : x)))}
               className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${it.done ? "bg-primary border-primary text-primary-foreground" : "bg-card"}`}>
               {it.done && <Check className="w-3 h-3" />}
             </button>
-            <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
+            {editable ? (
+              <input value={it.text}
+                onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
+                className={`flex-1 bg-transparent outline-none border-b border-transparent focus:border-border ${it.done ? "line-through text-muted-foreground" : ""}`} />
+            ) : (
+              <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
+            )}
             {editable && (
-              <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3.5 h-3.5" /></button>
+              <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><X className="w-3.5 h-3.5" /></button>
             )}
           </li>
         ))}
