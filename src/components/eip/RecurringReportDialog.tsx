@@ -38,19 +38,18 @@ export function RecurringReportDialog({
     let cancel = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("recurring_rule")
-        .select("report_fields")
-        .eq("id", recurringRuleId)
-        .maybeSingle();
+      const [rrRes, tkRes] = await Promise.all([
+        supabase.from("recurring_rule").select("report_fields").eq("id", recurringRuleId).maybeSingle(),
+        supabase.from("task").select("report_data").eq("id", taskId).maybeSingle(),
+      ]);
       if (cancel) return;
-      const raw = (data?.report_fields as ReportField[] | null) ?? [];
+      const raw = (rrRes.data?.report_fields as ReportField[] | null) ?? [];
       setFields(Array.isArray(raw) ? raw : []);
-      setValues((initialData as Record<string, unknown>) ?? {});
+      setValues(((tkRes.data?.report_data as Record<string, unknown>) ?? (initialData as Record<string, unknown>)) ?? {});
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [open, recurringRuleId, initialData]);
+  }, [open, recurringRuleId, taskId, initialData]);
 
   const submit = async () => {
     setBusy(true);
