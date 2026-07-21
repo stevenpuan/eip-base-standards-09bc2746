@@ -1297,6 +1297,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /* ============ 任務詳情/編輯對話框 ============ */
+type TaskUpdateRow = {
+  id: string;
+  created_at: string;
+  comment: string | null;
+  user_id: string;
+};
+
 export function EditTaskDialog({
   task, readOnly, onClose, onSaved, statuses, users, departments, projects,
 }: {
@@ -1304,6 +1311,48 @@ export function EditTaskDialog({
   onClose: () => void; onSaved: () => void;
   statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
 }) {
+  const { appUser } = useEipUser();
+  const userMap = useMemo(() => {
+    const m = new Map<string, string>();
+    users.forEach((u) => m.set(u.id, u.name));
+    return m;
+  }, [users]);
+
+  const [notes, setNotes] = useState<TaskUpdateRow[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
+  const [newNote, setNewNote] = useState("");
+  const [postingNote, setPostingNote] = useState(false);
+
+  const loadNotes = async () => {
+    setNotesLoading(true);
+    const { data, error } = await supabase
+      .from("task_update")
+      .select("id,created_at,comment,user_id")
+      .eq("task_id", task.id)
+      .not("comment", "is", null)
+      .order("created_at", { ascending: true });
+    setNotesLoading(false);
+    if (!error) setNotes((data ?? []) as TaskUpdateRow[]);
+  };
+  useEffect(() => { void loadNotes(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
+
+  const postNote = async () => {
+    const text = newNote.trim();
+    if (!text || !appUser?.id) return;
+    setPostingNote(true);
+    const { error } = await supabase.from("task_update").insert({
+      task_id: task.id,
+      tenant_id: task.tenant_id,
+      user_id: appUser.id,
+      comment: text,
+      progress: null,
+      status_changed_to_id: null,
+    });
+    setPostingNote(false);
+    if (error) { toast.error("補充失敗：" + formatErr(error)); return; }
+    setNewNote("");
+    void loadNotes();
+  };
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [statusId, setStatusId] = useState(task.status_id);
@@ -1415,6 +1464,42 @@ export function EditTaskDialog({
             disabled={readOnly}
           />
           {err && <div className="text-sm text-destructive">{err}</div>}
+
+          <div className="mt-2 border-t pt-3">
+            <div className="text-sm font-medium mb-2">補充說明</div>
+            {notesLoading ? (
+              <div className="text-xs text-muted-foreground">載入中…</div>
+            ) : notes.length === 0 ? (
+              <div className="text-xs text-muted-foreground">尚無補充說明</div>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {notes.map((n) => (
+                  <div key={n.id} className="rounded-md border bg-muted/30 p-2">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">{userMap.get(n.user_id) ?? "使用者"}</span>
+                      <span>{new Date(n.created_at).toLocaleString("zh-TW")}</span>
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap mt-1">{n.comment}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {appUser && (
+              <div className="mt-2 flex flex-col gap-2">
+                <Textarea
+                  rows={2}
+                  placeholder="輸入補充說明…"
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                />
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={postNote} disabled={postingNote || !newNote.trim()}>
+                    {postingNote ? "送出中…" : "送出補充"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
