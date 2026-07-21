@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { BellRing } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BellRing, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -19,6 +19,7 @@ interface Setting {
   is_active: boolean;
   department_id: string | null;
 }
+interface Dept { id: string; name: string; }
 
 const EVENT_LABEL: Record<string, string> = {
   task_assigned: "任務指派給我",
@@ -29,6 +30,7 @@ const EVENT_LABEL: Record<string, string> = {
   announcement_published: "公告發布",
   meeting_invited: "會議邀請",
 };
+const EVENT_CODES = Object.keys(EVENT_LABEL);
 
 const SCOPES: { key: string; label: string }[] = [
   { key: "owner", label: "本人（負責人）" },
@@ -43,17 +45,25 @@ function Page() {
   const editable = can("eip_notification_settings", "edit");
 
   const { data: rows = [] } = useQuery({
-    queryKey: ["notification_setting"],
+    queryKey: ["notification_setting_all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("notification_setting")
-        .select("*")
-        .is("department_id", null)
-        .order("event_code");
+      const { data, error } = await supabase.from("notification_setting").select("*").order("event_code");
       if (error) throw error;
       return data as Setting[];
     },
   });
+  const { data: depts = [] } = useQuery({
+    queryKey: ["departments_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("department").select("id,name").order("sort_order");
+      if (error) throw error;
+      return data as Dept[];
+    },
+  });
+
+  const defaults = useMemo(() => rows.filter((r) => !r.department_id), [rows]);
+  const overrides = useMemo(() => rows.filter((r) => r.department_id), [rows]);
+  const deptName = (id: string | null) => depts.find((d) => d.id === id)?.name ?? "—";
 
   const [draft, setDraft] = useState<Record<string, Setting>>({});
   useEffect(() => {
@@ -62,102 +72,128 @@ function Page() {
     setDraft(m);
   }, [rows]);
 
-  const toggleScope = (id: string, scope: string) => {
+  const toggleScope = (id: string, scope: string) =>
     setDraft((d) => {
-      const cur = d[id];
-      if (!cur) return d;
+      const cur = d[id]; if (!cur) return d;
       const has = cur.recipient_scopes.includes(scope);
-      const scopes = has ? cur.recipient_scopes.filter((s) => s !== scope) : [...cur.recipient_scopes, scope];
-      return { ...d, [id]: { ...cur, recipient_scopes: scopes } };
+      return { ...d, [id]: { ...cur, recipient_scopes: has ? cur.recipient_scopes.filter((s) => s !== scope) : [...cur.recipient_scopes, scope] } };
     });
-  };
-
-  const setFlag = (id: string, key: "in_app_enabled" | "line_enabled" | "is_active", value: boolean) => {
-    setDraft((d) => (d[id] ? { ...d, [id]: { ...d[id], [key]: value } } : d));
-  };
+  const setFlag = (id: string, key: "in_app_enabled" | "line_enabled" | "is_active", v: boolean) =>
+    setDraft((d) => (d[id] ? { ...d, [id]: { ...d[id], [key]: v } } : d));
 
   const save = async () => {
-    const updates = rows
-      .filter((r) => JSON.stringify(draft[r.id]) !== JSON.stringify({ ...r, recipient_scopes: [...(r.recipient_scopes ?? [])] }))
-      .map((r) => {
-        const d = draft[r.id];
-        return supabase
-          .from("notification_setting")
-          .update({
-            recipient_scopes: d.recipient_scopes,
-            in_app_enabled: d.in_app_enabled,
-            line_enabled: d.line_enabled,
-            is_active: d.is_active,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", r.id);
-      });
-    if (updates.length === 0) { toast.info("沒有變更"); return; }
-    const results = await Promise.all(updates);
+    const changed = rows.filter((r) => JSON.stringify(draft[r.id]) !== JSON.stringify({ ...r, recipient_scopes: [...(r.recipient_scopes ?? [])] }));
+    if (changed.length === 0) { toast.info("沒有變更"); return; }
+    const results = await Promise.all(changed.map((r) => {
+      const d = draft[r.id];
+      return supabase.from("notification_setting").update({
+        recipient_scopes: d.recipient_scopes, in_app_enabled: d.in_app_enabled,
+        line_enabled: d.line_enabled, is_active: d.is_active, updated_at: new Date().toISOString(),
+      }).eq("id", r.id);
+    }));
     const err = results.find((x) => x.error);
     if (err?.error) { toast.error(err.error.message); return; }
-    toast.success("已儲存");
-    qc.invalidateQueries({ queryKey: ["notification_setting"] });
+    toast.success("已儲存"); qc.invalidateQueries({ queryKey: ["notification_setting_all"] });
+  };
+
+  // 新增部門覆寫
+  const [ovEvent, setOvEvent] = useState(EVENT_CODES[0]);
+  const [ovDept, setOvDept] = useState("");
+  const addOverride = async () => {
+    if (!ovDept) { toast.error("請選擇部門"); return; }
+    const base = defaults.find((d) => d.event_code === ovEvent);
+    const { error } = await supabase.from("notification_setting").insert({
+      event_code: ovEvent, department_id: ovDept,
+      recipient_scopes: base?.recipient_scopes ?? ["dept_manager"],
+      in_app_enabled: base?.in_app_enabled ?? true,
+      line_enabled: base?.line_enabled ?? false, is_active: true,
+    });
+    if (error) { toast.error(error.message.includes("duplicate") ? "此部門＋事件的覆寫已存在" : error.message); return; }
+    toast.success("已新增覆寫"); qc.invalidateQueries({ queryKey: ["notification_setting_all"] });
+  };
+  const removeOverride = async (id: string) => {
+    const { error } = await supabase.from("notification_setting").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("已刪除"); qc.invalidateQueries({ queryKey: ["notification_setting_all"] });
+  };
+
+  const Row = ({ r, prefix }: { r: Setting; prefix?: string }) => {
+    const d = draft[r.id] ?? r;
+    return (
+      <div className="grid grid-cols-[1fr_80px_80px_64px_40px] items-start gap-2 px-4 py-3 border-b last:border-b-0">
+        <div className="min-w-0">
+          <div className="text-sm font-medium mb-2 flex items-center gap-2">
+            <BellRing className="w-3.5 h-3.5 text-muted-foreground" />
+            {prefix && <span className="text-primary">{prefix}</span>}
+            {EVENT_LABEL[r.event_code] ?? r.event_code}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {SCOPES.map((s) => {
+              const on = d.recipient_scopes.includes(s.key);
+              return (
+                <button key={s.key} disabled={!editable} onClick={() => toggleScope(r.id, s.key)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${on ? "bg-primary/10 text-primary border-primary/40" : "bg-card text-muted-foreground hover:bg-accent/50"} ${editable ? "" : "opacity-70 cursor-default"}`}>
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex justify-center pt-1"><Toggle on={d.in_app_enabled} disabled={!editable} onClick={() => setFlag(r.id, "in_app_enabled", !d.in_app_enabled)} /></div>
+        <div className="flex justify-center pt-1"><Toggle on={d.line_enabled} disabled={!editable} onClick={() => setFlag(r.id, "line_enabled", !d.line_enabled)} /></div>
+        <div className="flex justify-center pt-1"><Toggle on={d.is_active} disabled={!editable} onClick={() => setFlag(r.id, "is_active", !d.is_active)} /></div>
+        <div className="flex justify-center pt-1">
+          {r.department_id && editable ? (
+            <button onClick={() => removeOverride(r.id)} className="text-muted-foreground hover:text-destructive" aria-label="刪除覆寫"><Trash2 className="w-4 h-4" /></button>
+          ) : null}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="通知設定"
-        description="設定每個事件要通知哪些對象（依角色與部門層級），以及走站內或 LINE。"
-        actions={editable ? <Button onClick={save}>儲存</Button> : undefined}
-      />
+    <div className="space-y-6">
+      <PageHeader title="通知設定" description="設定每個事件要通知哪些對象（依角色與部門層級），以及走站內或 LINE。"
+        actions={editable ? <Button onClick={save}>儲存</Button> : undefined} />
 
-      <div className="rounded-xl border overflow-hidden">
-        <div className="grid grid-cols-[1fr_88px_88px_72px] items-center gap-2 px-4 py-2.5 bg-muted/50 text-xs text-muted-foreground border-b">
-          <span>通知事件 / 接收對象</span>
-          <span className="text-center">站內</span>
-          <span className="text-center">LINE</span>
-          <span className="text-center">啟用</span>
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-muted-foreground px-1">全公司預設</h2>
+        <div className="rounded-xl border overflow-hidden">
+          <div className="grid grid-cols-[1fr_80px_80px_64px_40px] items-center gap-2 px-4 py-2.5 bg-muted/50 text-xs text-muted-foreground border-b">
+            <span>通知事件 / 接收對象</span><span className="text-center">站內</span><span className="text-center">LINE</span><span className="text-center">啟用</span><span />
+          </div>
+          {defaults.map((r) => <Row key={r.id} r={r} />)}
         </div>
-        {rows.map((r) => {
-          const d = draft[r.id] ?? r;
-          return (
-            <div key={r.id} className="grid grid-cols-[1fr_88px_88px_72px] items-start gap-2 px-4 py-3 border-b last:border-b-0">
-              <div className="min-w-0">
-                <div className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <BellRing className="w-3.5 h-3.5 text-muted-foreground" />
-                  {EVENT_LABEL[r.event_code] ?? r.event_code}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {SCOPES.map((s) => {
-                    const on = d.recipient_scopes.includes(s.key);
-                    return (
-                      <button
-                        key={s.key}
-                        disabled={!editable}
-                        onClick={() => toggleScope(r.id, s.key)}
-                        className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                          on ? "bg-primary/10 text-primary border-primary/40" : "bg-card text-muted-foreground hover:bg-accent/50"
-                        } ${editable ? "" : "opacity-70 cursor-default"}`}
-                      >
-                        {s.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex justify-center pt-1">
-                <Toggle on={d.in_app_enabled} disabled={!editable} onClick={() => setFlag(r.id, "in_app_enabled", !d.in_app_enabled)} />
-              </div>
-              <div className="flex justify-center pt-1">
-                <Toggle on={d.line_enabled} disabled={!editable} onClick={() => setFlag(r.id, "line_enabled", !d.line_enabled)} />
-              </div>
-              <div className="flex justify-center pt-1">
-                <Toggle on={d.is_active} disabled={!editable} onClick={() => setFlag(r.id, "is_active", !d.is_active)} />
-              </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-muted-foreground px-1">部門覆寫（優先於全公司預設）</h2>
+        {editable && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed p-3">
+            <select value={ovEvent} onChange={(e) => setOvEvent(e.target.value)} className="h-9 rounded-md border bg-card px-2 text-sm">
+              {EVENT_CODES.map((c) => <option key={c} value={c}>{EVENT_LABEL[c]}</option>)}
+            </select>
+            <select value={ovDept} onChange={(e) => setOvDept(e.target.value)} className="h-9 rounded-md border bg-card px-2 text-sm min-w-[140px]">
+              <option value="">選擇部門…</option>
+              {depts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            <Button variant="outline" size="sm" onClick={addOverride}><Plus className="w-4 h-4 mr-1" /> 新增覆寫</Button>
+          </div>
+        )}
+        {overrides.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1">尚無部門覆寫。未設定的部門一律套用全公司預設。</p>
+        ) : (
+          <div className="rounded-xl border overflow-hidden">
+            <div className="grid grid-cols-[1fr_80px_80px_64px_40px] items-center gap-2 px-4 py-2.5 bg-muted/50 text-xs text-muted-foreground border-b">
+              <span>部門 · 事件 / 接收對象</span><span className="text-center">站內</span><span className="text-center">LINE</span><span className="text-center">啟用</span><span />
             </div>
-          );
-        })}
-      </div>
+            {overrides.map((r) => <Row key={r.id} r={r} prefix={`[${deptName(r.department_id)}] `} />)}
+          </div>
+        )}
+      </section>
 
       <p className="text-xs text-muted-foreground">
-        「上層部門主管」依部門樹往上一層解析；LINE 建議採每日彙整以控制成本。個別部門的特別設定（部門覆寫）可於後續版本加入。
+        「上層部門主管」依部門樹往上一層解析。LINE 已改為每天早上 08:00 彙整推播（每人一則）。編輯接收對象或開關後記得按右上「儲存」。
       </p>
     </div>
   );
@@ -165,15 +201,8 @@ function Page() {
 
 function Toggle({ on, disabled, onClick }: { on: boolean; disabled?: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      aria-pressed={on}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-        on ? "bg-primary" : "bg-muted-foreground/30"
-      } ${disabled ? "opacity-60 cursor-default" : ""}`}
-    >
+    <button type="button" disabled={disabled} onClick={onClick} aria-pressed={on}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${on ? "bg-primary" : "bg-muted-foreground/30"} ${disabled ? "opacity-60 cursor-default" : ""}`}>
       <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${on ? "translate-x-4" : "translate-x-0.5"}`} />
     </button>
   );
