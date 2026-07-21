@@ -968,6 +968,7 @@ function ListView({
       {label}<span className="text-[10px]">{arrow(kk)}</span>
     </button>
   );
+  const cbCls = "size-[18px] rounded-[6px] border-muted-foreground/30 shadow-none data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-colors";
 
   return (
     <div className="space-y-3">
@@ -1025,7 +1026,7 @@ function ListView({
         <div className="overflow-x-auto">
           <div style={{ minWidth: 860 }}>
             <div className="grid items-center gap-3 px-4 h-11 border-b bg-muted/40 text-xs font-medium text-muted-foreground" style={{ gridTemplateColumns: cols }}>
-              {canBulk && <Checkbox checked={allChecked} onCheckedChange={toggleAll} />}
+              {canBulk && <Checkbox className={cbCls} checked={allChecked} onCheckedChange={toggleAll} />}
               <Hd label="標題" kk="title" />
               <Hd label="負責人" kk="owner" />
               <Hd label="狀態" kk="status" />
@@ -1040,12 +1041,13 @@ function ListView({
                 <div
                   key={t.id}
                   onClick={() => onOpenDetail(t)}
-                  className={`grid items-center gap-3 px-4 min-h-[48px] py-2 border-b last:border-b-0 cursor-pointer hover:bg-accent/40 text-sm ${overdue ? "text-destructive" : ""}`}
+                  className={`grid items-center gap-3 px-4 min-h-[48px] py-2 border-b last:border-b-0 cursor-pointer transition-colors text-sm ${selected.has(t.id) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-accent/40"} ${overdue ? "text-destructive" : ""}`}
                   style={{ gridTemplateColumns: cols }}
                 >
                   {canBulk && (
                     <div onClick={(e) => e.stopPropagation()}>
                       <Checkbox
+                        className={cbCls}
                         checked={selected.has(t.id)}
                         onCheckedChange={(v) => {
                           const s = new Set(selected);
