@@ -12,7 +12,7 @@ export const Route = createFileRoute("/dashboard/")({ component: DashboardHome }
 
 
 function DashboardHome() {
-  const { profile, roleNames } = useAuth();
+  const { profile, roleNames, can } = useAuth();
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
@@ -37,10 +37,16 @@ function DashboardHome() {
           角色：{roleNames.join("、") || "—"}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" to="/dashboard/dev-todos" />
-        <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" to="/dashboard/issue-reports" />
-      </div>
+      {(can("dev_todos", "view") || can("issue_reports", "view")) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {can("dev_todos", "view") && (
+            <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" to="/dashboard/dev-todos" />
+          )}
+          {can("issue_reports", "view") && (
+            <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" to="/dashboard/issue-reports" />
+          )}
+        </div>
+      )}
 
       <EipDashboardSummary />
     </div>

@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppSidebar } from "./AppSidebar";
+import { DailyReminder } from "@/components/eip/DailyReminder";
 import { Button } from "@/components/ui/button";
 
 export function AppLayout() {
@@ -45,6 +46,7 @@ export function AppLayout() {
           <Outlet />
         </div>
       </main>
+      <DailyReminder />
     </div>
   );
 }
