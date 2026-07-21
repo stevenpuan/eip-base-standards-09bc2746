@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import * as Icons from "lucide-react";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { NotificationBell } from "@/components/eip/NotificationBell";
 import { useAuth } from "@/lib/auth";
@@ -21,6 +21,16 @@ interface MenuRow {
   is_active: boolean;
 }
 
+const OPEN_KEY = "eip.sidebar.open";
+
+function loadOpen(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(OPEN_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
 function Icon({ name, className }: { name: string | null; className?: string }) {
   const Cmp = ((Icons as any)[name ?? "Circle"] ?? Icons.Circle) as React.ComponentType<{
     className?: string;
@@ -31,6 +41,15 @@ function Icon({ name, className }: { name: string | null; className?: string }) 
 function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   const { pathname } = useLocation();
   const { profile, roleNames, signOut, can } = useAuth();
+
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>(loadOpen);
+  useEffect(() => {
+    try {
+      localStorage.setItem(OPEN_KEY, JSON.stringify(openMap));
+    } catch {
+      /* ignore */
+    }
+  }, [openMap]);
 
   const { data: menus = [] } = useQuery({
     queryKey: ["menus"],
@@ -48,6 +67,14 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   const groups = menus.filter((m) => !m.parent_id);
   const childrenOf = (id: string) => menus.filter((m) => m.parent_id === id);
   const visible = (m: MenuRow) => !m.module_key || can(m.module_key, "view");
+
+  // 群組是否展開：使用者設過就依設定；沒設過則預設收合，但含當前頁的群組自動展開
+  const isOpen = (key: string, kids: MenuRow[]) => {
+    if (key in openMap) return openMap[key];
+    return kids.some((k) => k.route === pathname);
+  };
+  const toggle = (key: string, kids: MenuRow[]) =>
+    setOpenMap((prev) => ({ ...prev, [key]: !isOpen(key, kids) }));
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -75,21 +102,39 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
           }
           const kids = childrenOf(g.id).filter(visible);
           if (!kids.length) return null;
+          const open = isOpen(g.menu_key, kids);
           return (
-            <div key={g.id} className="pt-2">
-              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {g.title}
-              </div>
-              {kids.map((k) => (
-                <SideLink
-                  key={k.id}
-                  to={k.route!}
-                  icon={k.icon}
-                  title={k.title}
-                  active={pathname === k.route}
-                  onNavigate={onNavigate}
+            <div key={g.id} className="pt-1">
+              <button
+                type="button"
+                onClick={() => toggle(g.menu_key, kids)}
+                aria-expanded={open}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50 transition-colors"
+              >
+                <Icon name={g.icon} className="w-3.5 h-3.5 shrink-0" />
+                <span className="flex-1 text-left truncate">{g.title}</span>
+                <ChevronDown
+                  className={cn(
+                    "w-3.5 h-3.5 shrink-0 transition-transform",
+                    open ? "rotate-0" : "-rotate-90"
+                  )}
                 />
-              ))}
+              </button>
+              {open && (
+                <div className="mt-0.5 space-y-0.5">
+                  {kids.map((k) => (
+                    <SideLink
+                      key={k.id}
+                      to={k.route!}
+                      icon={k.icon}
+                      title={k.title}
+                      active={pathname === k.route}
+                      onNavigate={onNavigate}
+                      indent
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -168,12 +213,14 @@ function SideLink({
   title,
   active,
   onNavigate,
+  indent,
 }: {
   to: string;
   icon: string | null;
   title: string;
   active: boolean;
   onNavigate?: () => void;
+  indent?: boolean;
 }) {
   return (
     <Link
@@ -181,6 +228,7 @@ function SideLink({
       onClick={onNavigate}
       className={cn(
         "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+        indent && "ml-2",
         active
           ? "bg-accent text-accent-foreground font-medium"
           : "text-foreground/80 hover:bg-accent/50"
