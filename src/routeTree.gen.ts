@@ -20,6 +20,8 @@ import { Route as DashboardSystemConfigRouteImport } from './routes/dashboard/sy
 import { Route as DashboardRolePermissionsRouteImport } from './routes/dashboard/role-permissions'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
 import { Route as DashboardOrgRouteImport } from './routes/dashboard/org'
+import { Route as DashboardNotificationsRouteImport } from './routes/dashboard/notifications'
+import { Route as DashboardNotificationSettingsRouteImport } from './routes/dashboard/notification-settings'
 import { Route as DashboardMenuManagementRouteImport } from './routes/dashboard/menu-management'
 import { Route as DashboardLookupsRouteImport } from './routes/dashboard/lookups'
 import { Route as DashboardIssueReportsRouteImport } from './routes/dashboard/issue-reports'
@@ -110,6 +112,17 @@ const DashboardOrgRoute = DashboardOrgRouteImport.update({
   path: '/org',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardNotificationsRoute = DashboardNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardNotificationSettingsRoute =
+  DashboardNotificationSettingsRouteImport.update({
+    id: '/notification-settings',
+    path: '/notification-settings',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardMenuManagementRoute = DashboardMenuManagementRouteImport.update({
   id: '/menu-management',
   path: '/menu-management',
@@ -302,6 +315,8 @@ export interface FileRoutesByFullPath {
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
   '/dashboard/lookups': typeof DashboardLookupsRoute
   '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/notification-settings': typeof DashboardNotificationSettingsRoute
+  '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
@@ -347,6 +362,8 @@ export interface FileRoutesByTo {
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
   '/dashboard/lookups': typeof DashboardLookupsRoute
   '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/notification-settings': typeof DashboardNotificationSettingsRoute
+  '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
@@ -391,6 +408,8 @@ export interface FileRoutesById {
   '/dashboard/issue-reports': typeof DashboardIssueReportsRoute
   '/dashboard/lookups': typeof DashboardLookupsRoute
   '/dashboard/menu-management': typeof DashboardMenuManagementRoute
+  '/dashboard/notification-settings': typeof DashboardNotificationSettingsRoute
+  '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/org': typeof DashboardOrgRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/role-permissions': typeof DashboardRolePermissionsRoute
@@ -439,6 +458,8 @@ export interface FileRouteTypes {
     | '/dashboard/issue-reports'
     | '/dashboard/lookups'
     | '/dashboard/menu-management'
+    | '/dashboard/notification-settings'
+    | '/dashboard/notifications'
     | '/dashboard/org'
     | '/dashboard/profile'
     | '/dashboard/role-permissions'
@@ -484,6 +505,8 @@ export interface FileRouteTypes {
     | '/dashboard/issue-reports'
     | '/dashboard/lookups'
     | '/dashboard/menu-management'
+    | '/dashboard/notification-settings'
+    | '/dashboard/notifications'
     | '/dashboard/org'
     | '/dashboard/profile'
     | '/dashboard/role-permissions'
@@ -527,6 +550,8 @@ export interface FileRouteTypes {
     | '/dashboard/issue-reports'
     | '/dashboard/lookups'
     | '/dashboard/menu-management'
+    | '/dashboard/notification-settings'
+    | '/dashboard/notifications'
     | '/dashboard/org'
     | '/dashboard/profile'
     | '/dashboard/role-permissions'
@@ -642,6 +667,20 @@ declare module '@tanstack/react-router' {
       path: '/org'
       fullPath: '/dashboard/org'
       preLoaderRoute: typeof DashboardOrgRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/notifications': {
+      id: '/dashboard/notifications'
+      path: '/notifications'
+      fullPath: '/dashboard/notifications'
+      preLoaderRoute: typeof DashboardNotificationsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/notification-settings': {
+      id: '/dashboard/notification-settings'
+      path: '/notification-settings'
+      fullPath: '/dashboard/notification-settings'
+      preLoaderRoute: typeof DashboardNotificationSettingsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/menu-management': {
@@ -990,6 +1029,8 @@ interface DashboardRouteChildren {
   DashboardIssueReportsRoute: typeof DashboardIssueReportsRoute
   DashboardLookupsRoute: typeof DashboardLookupsRoute
   DashboardMenuManagementRoute: typeof DashboardMenuManagementRoute
+  DashboardNotificationSettingsRoute: typeof DashboardNotificationSettingsRoute
+  DashboardNotificationsRoute: typeof DashboardNotificationsRoute
   DashboardOrgRoute: typeof DashboardOrgRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardRolePermissionsRoute: typeof DashboardRolePermissionsRoute
@@ -1012,6 +1053,8 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardIssueReportsRoute: DashboardIssueReportsRoute,
   DashboardLookupsRoute: DashboardLookupsRoute,
   DashboardMenuManagementRoute: DashboardMenuManagementRoute,
+  DashboardNotificationSettingsRoute: DashboardNotificationSettingsRoute,
+  DashboardNotificationsRoute: DashboardNotificationsRoute,
   DashboardOrgRoute: DashboardOrgRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardRolePermissionsRoute: DashboardRolePermissionsRoute,
@@ -1034,3 +1077,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
