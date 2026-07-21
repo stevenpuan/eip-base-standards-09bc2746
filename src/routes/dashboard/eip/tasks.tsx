@@ -607,24 +607,32 @@ function BoardView({
     setDragId(null);
   };
 
+  const countBadgeTone = (idx: number, isDone: boolean) => {
+    if (isDone) return "bg-[hsl(var(--muted-foreground))] text-background";
+    if (idx === 0) return "bg-primary text-primary-foreground";
+    if (idx === 1) return "bg-accent text-accent-foreground";
+    return "bg-[hsl(var(--muted-foreground))] text-background";
+  };
+
   return (
-    <div className="grid gap-3 overflow-x-auto"
-      style={{ gridTemplateColumns: `repeat(${statuses.length}, minmax(260px, 1fr))` }}>
-      {statuses.map((s) => {
+    <div className="grid gap-6 overflow-x-auto pb-2"
+      style={{ gridTemplateColumns: `repeat(${statuses.length}, minmax(280px, 1fr))` }}>
+      {statuses.map((s, idx) => {
         const list = colTasks(s.id);
         return (
           <div key={s.id}
-            className="bg-muted/30 rounded-xl p-2.5 min-h-[440px]"
+            className="flex flex-col gap-5 min-h-[440px]"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); handleColumnDrop(s.id); }}>
-            <div className="flex items-center justify-between px-2 py-1.5 mb-2">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm">{s.name}</span>
-                {s.is_done_state && <Badge variant="secondary" className="text-[10px]">完成</Badge>}
-              </div>
-              <span className="text-xs text-muted-foreground bg-background rounded-full px-2 py-0.5 min-w-[22px] text-center">{list.length}</span>
+            <div className="flex items-end justify-between px-1 pb-2 border-b-2 border-primary/10">
+              <h2 className="text-xl font-semibold text-primary flex items-center gap-3 font-[family-name:Outfit,ui-sans-serif]">
+                {s.name}
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-md tracking-tight tabular-nums ${countBadgeTone(idx, !!s.is_done_state)}`}>
+                  {String(list.length).padStart(2, "0")}
+                </span>
+              </h2>
             </div>
-            <div className="space-y-2 max-h-[calc(100vh-360px)] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[calc(100vh-320px)] overflow-y-auto pr-1 -mr-1">
               {list.map((t) => (
                 <div key={t.id}
                   onDragOver={(e) => e.preventDefault()}
@@ -649,7 +657,7 @@ function BoardView({
                 </div>
               ))}
               {list.length === 0 && (
-                <div className="text-xs text-muted-foreground px-2 py-6 text-center border border-dashed rounded-md">
+                <div className="text-xs text-muted-foreground px-2 py-10 text-center border border-dashed border-primary/15 rounded-2xl bg-card/40">
                   無任務
                 </div>
               )}
@@ -679,36 +687,58 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
   const initial = owner?.name ? owner.name.slice(0, 1) : "?";
   const showMenu = canEdit || canDelete;
   const isDone = statuses.find((s) => s.id === task.status_id)?.is_done_state;
+  const currentStatus = statuses.find((s) => s.id === task.status_id);
+  const currentStatusIdx = statuses.findIndex((s) => s.id === task.status_id);
+
+  // left priority accent bar
+  const accentBar =
+    task.priority === "urgent" ? "bg-destructive"
+    : task.priority === "high" ? "bg-accent"
+    : null;
+
+  // status select tone by column position
+  const statusTone =
+    isDone ? "bg-[hsl(var(--muted-foreground))] text-background hover:opacity-90"
+    : currentStatusIdx === 0 ? "bg-primary text-primary-foreground hover:opacity-90"
+    : currentStatusIdx === 1 ? "bg-accent text-accent-foreground hover:opacity-90"
+    : "bg-[hsl(var(--muted-foreground))] text-background hover:opacity-90";
+
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("zh-TW", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).replaceAll("/", " / ");
+  const fmtShort = (d: string) => new Date(d).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" });
+
   return (
-    <Card draggable onDragStart={onDragStart}
+    <Card
+      draggable
+      onDragStart={onDragStart}
       onClick={onOpenDetail}
-      className="cursor-pointer rounded-xl hover:shadow-md hover:border-primary/30 transition-all">
-      <CardContent className="p-3.5 space-y-2.5">
-        <div className="flex items-start gap-2">
-          <GripVertical
-            className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium leading-snug line-clamp-2">{task.title}</div>
+      className={`group relative cursor-pointer rounded-2xl border-border/70 bg-card overflow-hidden shadow-[0_10px_30px_-14px_hsl(var(--primary)/0.18)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-16px_hsl(var(--primary)/0.28)] ${task.progress >= 100 ? "opacity-80" : ""}`}
+    >
+      {accentBar && <div className={`absolute top-0 left-0 w-1.5 h-full ${accentBar}`} />}
+      <CardContent className="p-5 space-y-4">
+        {/* Header row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <GripVertical
+              className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing group-hover:text-accent transition-colors"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+            {source
+              ? <TaskSourceBadge source={source} />
+              : <span className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">一般</span>}
           </div>
-          {task.recurring_rule_id && (
-            <Badge variant="outline" className="text-[10px] gap-0.5"><Repeat className="w-2.5 h-2.5" />週期</Badge>
-          )}
-          <Badge className={`text-[10px] rounded-full px-2 ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
-            {PRIORITY_LABEL[task.priority]}
-          </Badge>
           {showMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
                   onClick={(e) => e.stopPropagation()}
-                  className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-accent text-muted-foreground shrink-0"
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-primary hover:bg-muted transition-colors shrink-0"
                   aria-label="更多操作"
                 >
-                  <MoreHorizontal className="w-3.5 h-3.5" />
+                  <MoreHorizontal className="w-4 h-4" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -729,62 +759,85 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
             </DropdownMenu>
           )}
         </div>
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-6 h-6 rounded-full bg-primary/15 text-primary text-[11px] font-medium flex items-center justify-center shrink-0">
-              {initial}
-            </div>
-            <span className="truncate">{owner?.name ?? "未指派"}</span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {subtask && subtask.total > 0 && (
-              <span className="flex items-center gap-0.5">
-                <ListChecks className="w-3 h-3" /> {subtask.done}/{subtask.total}
-              </span>
-            )}
-            {task.due_date && (
-              <span className={overdue ? "text-destructive font-medium" : ""}>
-                {overdue && "🚩 "}
-                {new Date(task.due_date).toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" })}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-          <span className="truncate">
-            建立者：{creator?.name ?? "—"}
-          </span>
-          <span className="shrink-0">
-            {new Date(task.created_at).toLocaleDateString("zh-TW", { year: "2-digit", month: "2-digit", day: "2-digit" })}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          {source && <TaskSourceBadge source={source} />}
+
+        {/* Title */}
+        <h3 className="text-[15px] font-semibold text-primary leading-snug font-[family-name:Outfit,ui-sans-serif] line-clamp-3">
+          {task.title}
+        </h3>
+
+        {/* Badges */}
+        <div className="flex flex-wrap gap-1.5">
+          <Badge className={`text-[10px] rounded-md px-2 py-0.5 border-none ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
+            {PRIORITY_LABEL[task.priority]}
+          </Badge>
+          {task.recurring_rule_id && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+              <Repeat className="w-2.5 h-2.5" /> 週期
+            </span>
+          )}
           <VisibilityBadge scope={task.visibility_scope} departmentId={task.department_id} deptMap={deptMap} />
-          {isDone && <Badge variant="secondary" className="text-[10px]">已完成</Badge>}
+          {isDone && <Badge variant="secondary" className="text-[10px] rounded-md">已完成</Badge>}
+          {subtask && subtask.total > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-muted/60 text-muted-foreground border border-border">
+              <ListChecks className="w-2.5 h-2.5" /> {subtask.done}/{subtask.total}
+            </span>
+          )}
         </div>
-        {canEdit && statuses.length > 0 && (
-          <div onClick={(e) => e.stopPropagation()}>
-            <Select value={task.status_id} onValueChange={onChangeStatus}>
-              <SelectTrigger className="h-7 text-xs">
-                <SelectValue placeholder="狀態" />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((s) => (
-                  <SelectItem key={s.id} value={s.id} className="text-xs">
-                    {s.name}{s.is_done_state ? "（完成）" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+        {/* Zoned metadata */}
+        <div className="pt-3 border-t border-border/70 space-y-3">
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70 font-bold">截止日期</span>
+              <span className={`text-xs font-semibold tabular-nums ${overdue ? "text-destructive" : "text-primary"}`}>
+                {task.due_date ? fmtDate(task.due_date) : "—"}
+                {overdue && <span className="ml-1">· 逾期</span>}
+              </span>
+            </div>
+            <div className="flex flex-col items-end min-w-0">
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70 font-bold">建立者</span>
+              <span className="text-xs text-muted-foreground truncate">
+                {creator?.name ?? "—"} · {fmtShort(task.created_at)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-[12px] font-semibold flex items-center justify-center shrink-0 border border-border">
+                {initial}
+              </div>
+              <span className="text-sm font-medium text-primary truncate">{owner?.name ?? "未指派"}</span>
+            </div>
+            {canEdit && statuses.length > 0 ? (
+              <div onClick={(e) => e.stopPropagation()} className="relative shrink-0">
+                <Select value={task.status_id} onValueChange={onChangeStatus}>
+                  <SelectTrigger className={`h-8 min-w-[92px] w-auto rounded-md text-[11px] font-bold border-none px-3 gap-1 ${statusTone}`}>
+                    <SelectValue placeholder="狀態" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((s) => (
+                      <SelectItem key={s.id} value={s.id} className="text-xs">
+                        {s.name}{s.is_done_state ? "（完成）" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${statusTone}`}>{currentStatus?.name}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Progress */}
+        {task.progress > 0 && task.progress < 100 && (
+          <div className="h-1 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-accent transition-all" style={{ width: `${task.progress}%` }} />
           </div>
         )}
-
-        <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <div className="h-full bg-primary transition-all" style={{ width: `${task.progress}%` }} />
-        </div>
         {task.recurring_rule_id && task.progress < 100 && (
-          <Button size="sm" variant="outline" className="w-full h-7 text-xs"
+          <Button size="sm" variant="outline" className="w-full h-8 text-xs rounded-md"
             onClick={(e) => { e.stopPropagation(); setReportOpen(true); }}>
             週期回報
           </Button>
