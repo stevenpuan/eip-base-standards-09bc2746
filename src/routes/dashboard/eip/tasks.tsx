@@ -1407,6 +1407,13 @@ export function EditTaskDialog({
           <DialogTitle>{readOnly ? "任務詳情" : "編輯任務"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground rounded-md border bg-muted/30 px-3 py-2">
+            <span>建立者：<span className="text-foreground font-medium">{userMap.get(task.created_by) ?? "—"}</span></span>
+            <span>建立時間：<span className="text-foreground font-medium">{new Date(task.created_at).toLocaleString("zh-TW")}</span></span>
+            {task.updated_at && (
+              <span>最後更新：<span className="text-foreground font-medium">{new Date(task.updated_at).toLocaleString("zh-TW")}</span></span>
+            )}
+          </div>
           <Field label="標題">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} disabled={readOnly} />
           </Field>
