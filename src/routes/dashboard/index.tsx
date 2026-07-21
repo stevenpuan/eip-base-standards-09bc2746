@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ListTodo, AlertCircle, type LucideIcon } from "lucide-react";
+import { ListTodo, AlertCircle, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +27,24 @@ function DashboardHome() {
     },
   });
 
+  // 待我批示的部門工作日誌（已送出、非本人；RLS 只會回傳本人可監督的日誌）
+  const { data: pendingReviews = 0 } = useQuery({
+    queryKey: ["dashboard-worklog-review", profile?.id],
+    enabled: !!profile?.id,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("work_log")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "submitted")
+        .neq("user_id", profile!.id);
+      return count ?? 0;
+    },
+  });
+
+  const showTodos = can("dev_todos", "view");
+  const showIssues = can("issue_reports", "view");
+  const showReview = pendingReviews > 0;
+
   return (
     <div className="space-y-6">
       <div>
@@ -37,12 +55,21 @@ function DashboardHome() {
           角色：{roleNames.join("、") || "—"}
         </p>
       </div>
-      {(can("dev_todos", "view") || can("issue_reports", "view")) && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {can("dev_todos", "view") && (
+      {(showTodos || showIssues || showReview) && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {showReview && (
+            <StatCard
+              title="待批示日誌"
+              value={pendingReviews}
+              icon={ClipboardCheck}
+              accent="accent"
+              to="/dashboard/eip/work-log"
+            />
+          )}
+          {showTodos && (
             <StatCard title="待辦事項" value={stats?.todos} icon={ListTodo} accent="primary" to="/dashboard/dev-todos" />
           )}
-          {can("issue_reports", "view") && (
+          {showIssues && (
             <StatCard title="待處理問題" value={stats?.issues} icon={AlertCircle} accent="destructive" to="/dashboard/issue-reports" />
           )}
         </div>
@@ -94,4 +121,3 @@ function StatCard({
   if (to) return <Link to={to as any} className="block">{card}</Link>;
   return card;
 }
-
