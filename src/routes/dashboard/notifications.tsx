@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCheck, Trash2, ClipboardList, RefreshCw, CalendarClock, AlertTriangle, Megaphone, FileText, Inbox } from "lucide-react";
+import { Bell, CheckCheck, Trash2, ClipboardList, RefreshCw, CalendarClock, AlertTriangle, Megaphone, FileText, Inbox, Stamp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ const TYPE_META: Record<string, { label: string; Icon: typeof Bell; cls: string 
   mentioned:      { label: "提及",     Icon: Bell,          cls: "bg-primary/10 text-primary" },
   due_soon:       { label: "即將到期", Icon: CalendarClock, cls: "bg-accent/15 text-accent" },
   overdue:        { label: "逾期",     Icon: AlertTriangle, cls: "bg-destructive/10 text-destructive" },
-  review_needed:  { label: "待確認",   Icon: CheckCheck,    cls: "bg-accent/15 text-accent" },
+  review_needed:  { label: "待批示",   Icon: Stamp,         cls: "bg-accent/15 text-accent" },
   announcement:   { label: "公告",     Icon: Megaphone,     cls: "bg-primary/10 text-primary" },
   quick_report:   { label: "回報",     Icon: FileText,      cls: "bg-primary/10 text-primary" },
 };
@@ -73,6 +73,7 @@ function NotificationsPage() {
     else if (n.entity_type === "announcement") navigate({ to: "/dashboard/eip/announcements" });
     else if (n.entity_type === "project") navigate({ to: "/dashboard/eip/projects" });
     else if (n.entity_type === "quick_report") navigate({ to: "/dashboard/eip/quick-reports" });
+    else if (n.entity_type === "work_log") navigate({ to: "/dashboard/eip/work-log" });
     else void load();
   };
 
