@@ -68,11 +68,14 @@ export function statusBadgeClass(s: MeetingStatus): string {
   }
 }
 
-function canManageMeeting(m: Meeting, appUser: AppUser | null): boolean {
+type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
+
+function canManageMeeting(m: Meeting, appUser: AppUser | null, can: CanFn): boolean {
   if (!appUser) return false;
-  if (appUser.role === "company_admin" || appUser.role === "dept_manager") return true;
-  return m.created_by === appUser.id;
+  if (m.created_by === appUser.id) return true;
+  return can("eip_meetings", "edit") || can("eip_meetings", "delete");
 }
+
 
 function MeetingsPage() {
   const qc = useQueryClient();
