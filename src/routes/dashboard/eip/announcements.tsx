@@ -50,7 +50,8 @@ function canDeleteAnnouncement(_a: Announcement, u: AppUser | null): boolean {
 function AnnouncementsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const canPublish = canManageEip(appUser?.role);
+  const { can } = useAuth();
+  const canPublish = can("eip_announcements", "create");
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [deleting, setDeleting] = useState<Announcement | null>(null);
