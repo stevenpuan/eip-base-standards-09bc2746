@@ -62,24 +62,32 @@ function formatErr(e: unknown): string {
   return String(e);
 }
 
-function canEditTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
+type CanFn = (key: string, action: string) => boolean;
+
+function canEditTask(task: Task, appUser: AppUser | null, can: CanFn, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
-  if (appUser.role === "company_admin") return true;
-  if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
   if (task.owner_id === appUser.id) return true;
   if (task.created_by === appUser.id) return true;
   if (collabMap?.get(task.id)?.has(appUser.id)) return true;
-  return false;
+  if (!can("eip_tasks", "edit")) return false;
+  // dept_manager 僅限本部門（後端 RLS 亦擋，此為 UI 一致性）
+  if (appUser.role === "dept_manager") {
+    return !!task.department_id && task.department_id === appUser.department_id;
+  }
+  return true;
 }
-function canDeleteTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
+function canDeleteTask(task: Task, appUser: AppUser | null, can: CanFn, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
-  if (appUser.role === "company_admin") return true;
-  if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
   if (task.owner_id === appUser.id) return true;
   if (task.created_by === appUser.id) return true;
   if (collabMap?.get(task.id)?.has(appUser.id)) return true;
-  return false;
+  if (!can("eip_tasks", "delete")) return false;
+  if (appUser.role === "dept_manager") {
+    return !!task.department_id && task.department_id === appUser.department_id;
+  }
+  return true;
 }
+
 
 
 export const Route = createFileRoute("/dashboard/eip/tasks")({
