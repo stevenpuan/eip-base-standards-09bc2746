@@ -17,6 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+// 本地日期 YYYY-MM-DD（台北）
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+// 組成帶時區的時間戳（台北 +08:00）
+const ts = (date: string, time: string) => `${date}T${(time || "00:00")}:00+08:00`;
+
 export function QuickReportButton() {
   const { appUser } = useEipUser();
 
@@ -24,27 +32,27 @@ export function QuickReportButton() {
   const [tab, setTab] = useState<"late" | "leave" | "other">("late");
   const [busy, setBusy] = useState(false);
 
-  // 遲到
-  const [eta, setEta] = useState("");
+  // 遲到：時段（幾點幾分 ~ 幾點幾分）
+  const [lateStart, setLateStart] = useState("");
+  const [lateEnd, setLateEnd] = useState("");
   const [lateDetail, setLateDetail] = useState("");
 
-  // 請假
-  const [leaveFrom, setLeaveFrom] = useState("");
-  const [leaveTo, setLeaveTo] = useState("");
-  const [leaveDetail, setLeaveDetail] = useState("");
+  // 請假：假別 / 日期區間 / 時間區間
   const [leaveType, setLeaveType] = useState("");
+  const [leaveFromDate, setLeaveFromDate] = useState("");
+  const [leaveToDate, setLeaveToDate] = useState("");
+  const [leaveFromTime, setLeaveFromTime] = useState("");
+  const [leaveToTime, setLeaveToTime] = useState("");
+  const [leaveDetail, setLeaveDetail] = useState("");
   const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string }[]>([]);
 
   // 事件
   const [otherDetail, setOtherDetail] = useState("");
 
   const reset = () => {
-    setEta("");
-    setLateDetail("");
-    setLeaveFrom("");
-    setLeaveTo("");
-    setLeaveDetail("");
-    setLeaveType("");
+    setLateStart(""); setLateEnd(""); setLateDetail("");
+    setLeaveType(""); setLeaveFromDate(""); setLeaveToDate("");
+    setLeaveFromTime(""); setLeaveToTime(""); setLeaveDetail("");
     setOtherDetail("");
   };
 
@@ -62,16 +70,21 @@ export function QuickReportButton() {
 
   const submitLate = async () => {
     if (!appUser) return;
-    if (!eta.trim() && !lateDetail.trim()) {
-      toast.error("請填寫預計到達時間或事由");
+    if (!lateStart && !lateEnd && !lateDetail.trim()) {
+      toast.error("請填寫遲到時段或事由");
       return;
     }
+    const today = todayStr();
+    const etaText = lateStart || lateEnd ? `${lateStart || "—"} ~ ${lateEnd || "—"}` : null;
     setBusy(true);
     const { error } = await supabase.from("eip_quick_report").insert({
       tenant_id: tenantId,
       submitter_id: appUser.id,
       type: "late",
-      eta: eta.trim() || null,
+      report_date: today,
+      eta: etaText,
+      leave_from: lateStart ? ts(today, lateStart) : null,
+      leave_to: lateEnd ? ts(today, lateEnd) : null,
       detail: lateDetail.trim() || null,
     });
     setBusy(false);
@@ -83,22 +96,18 @@ export function QuickReportButton() {
 
   const submitLeave = async () => {
     if (!appUser) return;
-    if (!leaveFrom || !leaveTo) {
-      toast.error("請選擇請假起訖日");
-      return;
-    }
-    if (!leaveType) {
-      toast.error("請選擇假別");
-      return;
-    }
+    if (!leaveType) { toast.error("請選擇假別"); return; }
+    if (!leaveFromDate || !leaveToDate) { toast.error("請選擇請假日期（起訖）"); return; }
+    if (leaveToDate < leaveFromDate) { toast.error("迄日不可早於起日"); return; }
     setBusy(true);
     const { error } = await supabase.from("eip_quick_report").insert({
       tenant_id: tenantId,
       submitter_id: appUser.id,
       type: "leave",
       leave_type: leaveType,
-      leave_from: leaveFrom,
-      leave_to: leaveTo,
+      report_date: leaveFromDate,
+      leave_from: ts(leaveFromDate, leaveFromTime || "00:00"),
+      leave_to: ts(leaveToDate, leaveToTime || "23:59"),
       detail: leaveDetail.trim() || null,
     });
     setBusy(false);
@@ -116,6 +125,7 @@ export function QuickReportButton() {
       tenant_id: tenantId,
       submitter_id: appUser.id,
       type: "other",
+      report_date: todayStr(),
       detail: otherDetail.trim(),
     });
     setBusy(false);
@@ -148,23 +158,24 @@ export function QuickReportButton() {
               <TabsTrigger value="other">事件</TabsTrigger>
             </TabsList>
 
+            {/* 遲到 */}
             <TabsContent value="late" className="space-y-3 pt-2">
               <div>
-                <Label>預計到達時間</Label>
-                <Input
-                  placeholder="例如 09:30 或 10:00 前到"
-                  value={eta}
-                  onChange={(e) => setEta(e.target.value)}
-                />
+                <Label>遲到時段（今日）</Label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <span className="text-xs text-muted-foreground">起</span>
+                    <Input type="time" value={lateStart} onChange={(e) => setLateStart(e.target.value)} />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">迄（預計到達）</span>
+                    <Input type="time" value={lateEnd} onChange={(e) => setLateEnd(e.target.value)} />
+                  </div>
+                </div>
               </div>
               <div>
                 <Label>事由</Label>
-                <Textarea
-                  rows={3}
-                  value={lateDetail}
-                  onChange={(e) => setLateDetail(e.target.value)}
-                  placeholder="(選填)"
-                />
+                <Textarea rows={3} value={lateDetail} onChange={(e) => setLateDetail(e.target.value)} placeholder="(選填)" />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
@@ -172,6 +183,7 @@ export function QuickReportButton() {
               </DialogFooter>
             </TabsContent>
 
+            {/* 請假 */}
             <TabsContent value="leave" className="space-y-3 pt-2">
               <div>
                 <Label>假別</Label>
@@ -186,23 +198,35 @@ export function QuickReportButton() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>起</Label>
-                  <Input type="date" value={leaveFrom} onChange={(e) => setLeaveFrom(e.target.value)} />
+              <div>
+                <Label>請假日期</Label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <span className="text-xs text-muted-foreground">起</span>
+                    <Input type="date" value={leaveFromDate} onChange={(e) => setLeaveFromDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">迄</span>
+                    <Input type="date" value={leaveToDate} onChange={(e) => setLeaveToDate(e.target.value)} />
+                  </div>
                 </div>
-                <div>
-                  <Label>迄</Label>
-                  <Input type="date" value={leaveTo} onChange={(e) => setLeaveTo(e.target.value)} />
+              </div>
+              <div>
+                <Label>請假時間 <span className="text-xs text-muted-foreground">（選填，半天／時段假可填）</span></Label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <span className="text-xs text-muted-foreground">起</span>
+                    <Input type="time" value={leaveFromTime} onChange={(e) => setLeaveFromTime(e.target.value)} />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">迄</span>
+                    <Input type="time" value={leaveToTime} onChange={(e) => setLeaveToTime(e.target.value)} />
+                  </div>
                 </div>
               </div>
               <div>
                 <Label>事由</Label>
-                <Textarea
-                  rows={3}
-                  value={leaveDetail}
-                  onChange={(e) => setLeaveDetail(e.target.value)}
-                />
+                <Textarea rows={3} value={leaveDetail} onChange={(e) => setLeaveDetail(e.target.value)} placeholder="(選填)" />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
@@ -210,6 +234,7 @@ export function QuickReportButton() {
               </DialogFooter>
             </TabsContent>
 
+            {/* 事件 */}
             <TabsContent value="other" className="space-y-3 pt-2">
               <div>
                 <Label>事件內容</Label>
