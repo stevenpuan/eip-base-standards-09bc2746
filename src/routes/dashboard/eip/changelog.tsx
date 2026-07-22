@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
+import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,8 @@ const TYPE_COLOR: Record<string, string> = {
 function ChangelogPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const canPublish = canManageEip(appUser?.role);
+  const { isAdmin } = useAuth();
+  const canPublish = isAdmin;
   const [openCreate, setOpenCreate] = useState(false);
   const [selected, setSelected] = useState<Changelog | null>(null);
 

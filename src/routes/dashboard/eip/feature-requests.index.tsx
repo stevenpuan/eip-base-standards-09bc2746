@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,7 @@ function FeatureRequestsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
   const { can } = useAuth();
-  const canManage = canManageEip(appUser?.role);
+  const canManage = can("eip_feature_pool", "edit");
   const canExport = can("eip_feature_pool", "export");
 
   const [keyword, setKeyword] = useState("");

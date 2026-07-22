@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Play, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID, PRIORITY_LABEL } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";

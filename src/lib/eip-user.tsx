@@ -84,6 +84,3 @@ export function useEipUser() {
   return ctx;
 }
 
-export function canManageEip(role?: string | null) {
-  return role === "company_admin" || role === "dept_manager";
-}

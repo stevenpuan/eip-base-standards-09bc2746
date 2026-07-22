@@ -9,7 +9,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
+import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -135,8 +136,9 @@ function canDeleteDoc(d: Doc, role: string | undefined | null, uid: string | und
 function DocumentsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const isManager = canManageEip(appUser?.role);
-  const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
+  const { can } = useAuth();
+  const isManager = can("eip_documents", "edit");
+  const canCreate = can("eip_documents", "create");
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [search, setSearch] = useState("");

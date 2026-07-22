@@ -8,7 +8,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +78,8 @@ function MeetingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { appUser } = useEipUser();
-  const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
+  const { can } = useAuth();
+  const canCreate = can("eip_meetings", "create");
 
   const [openCreate, setOpenCreate] = useState(false);
   const [deleteMeeting, setDeleteMeeting] = useState<Meeting | null>(null);

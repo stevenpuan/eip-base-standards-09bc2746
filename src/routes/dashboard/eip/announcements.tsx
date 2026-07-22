@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,7 +50,8 @@ function canDeleteAnnouncement(_a: Announcement, u: AppUser | null): boolean {
 function AnnouncementsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const canPublish = canManageEip(appUser?.role);
+  const { can } = useAuth();
+  const canPublish = can("eip_announcements", "create");
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [deleting, setDeleting] = useState<Announcement | null>(null);

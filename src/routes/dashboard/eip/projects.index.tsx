@@ -6,7 +6,7 @@ import { Plus, Download, MoreHorizontal, Pencil, Trash2, ChevronRight, ArrowRigh
 import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,8 @@ const HEALTH_DOT: Record<ProjectHealth, string> = {
 function ProjectsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const canCreate = canManageEip(appUser?.role);
+  const { can } = useAuth();
+  const canCreate = can("eip_projects", "create");
   const [openCreate, setOpenCreate] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);

@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,8 @@ function EditFeatureRequestPage() {
   const navigate = useNavigate();
   const { id } = useParams({ from: "/dashboard/eip/feature-requests/$id/edit" });
   const { appUser } = useEipUser();
-  const canManage = canManageEip(appUser?.role);
+  const { can } = useAuth();
+  const canManage = can("eip_feature_pool", "edit");
 
   const [title, setTitle] = useState("");
   const [scope, setScope] = useState("");

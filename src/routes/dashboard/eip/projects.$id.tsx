@@ -7,7 +7,8 @@ import {
   AlertTriangle, CalendarDays, Activity, MoreHorizontal,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
+import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ const MEETING_STATUS_LABEL: Record<string, string> = {
 function ProjectDetailPage() {
   const { id } = Route.useParams();
   const { appUser } = useEipUser();
+  const { can } = useAuth();
   const qc = useQueryClient();
 
   const projectQ = useQuery({
@@ -154,7 +156,7 @@ function ProjectDetailPage() {
   if (!projectQ.data) return <div className="text-destructive py-8">找不到專案</div>;
 
   const project = projectQ.data;
-  const canEdit = canManageEip(appUser?.role) || appUser?.id === project.owner_id;
+  const canEdit = can("eip_projects", "edit") || appUser?.id === project.owner_id;
 
   const tasks = tasksQ.data ?? [];
   const milestones = milestonesQ.data ?? [];

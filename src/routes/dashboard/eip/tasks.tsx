@@ -6,7 +6,7 @@ import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHor
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID, PRIORITY_COLOR, PRIORITY_LABEL } from "@/lib/eip-constants";
 import { exportToExcel } from "@/lib/eip-export";
@@ -105,7 +105,7 @@ function TasksPage() {
   const { can } = useAuth();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-  const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
+  const canCreate = can("eip_tasks", "create");
   const canExport = can("eip_tasks", "export");
 
   // 共用篩選 state
@@ -405,7 +405,7 @@ function TasksPage() {
             statuses={statusesQ.data ?? []}
             users={usersQ.data ?? []}
             appUser={appUser}
-            canManage={canManageEip(appUser?.role)}
+            canManage={can("eip_tasks", "edit") || can("eip_tasks", "delete")}
             onChanged={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
             onOpenDetail={(t) => setDetailTask(t)}
           />

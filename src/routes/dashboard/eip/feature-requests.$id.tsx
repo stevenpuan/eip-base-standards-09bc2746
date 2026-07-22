@@ -11,7 +11,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEipUser, canManageEip } from "@/lib/eip-user";
+import { useEipUser } from "@/lib/eip-user";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +74,8 @@ function FeatureRequestDetailPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const canManage = canManageEip(appUser?.role);
+  const { can } = useAuth();
+  const canManage = can("eip_feature_pool", "edit");
   const [briefOpen, setBriefOpen] = useState(false);
 
   const frQ = useQuery({
