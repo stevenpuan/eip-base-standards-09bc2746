@@ -486,7 +486,7 @@ function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: 
   return (
     <div className="space-y-3 pt-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <h2 className="text-sm font-semibold flex items-center gap-2"><Stamp className="w-4 h-4 text-primary" /> 部門日誌批示</h2>
+        <label className="text-xs text-muted-foreground flex items-center gap-1 mr-auto sr-only">部門日誌批示</label>
         <label className="text-xs text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={showLocked} onChange={(e) => setShowLocked(e.target.checked)} /> 顯示已鎖定</label>
         <div className="relative flex-1 min-w-[140px]">
           <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
