@@ -107,6 +107,29 @@ function Page() {
     },
   });
 
+  // 實際指派角色（帳號管理裡設定的角色），用於成員清單「角色」欄，與帳號管理一致
+  const { data: userRoleRows = [] } = useQuery({
+    queryKey: ["org_user_roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id, roles(name)");
+      if (error) throw error;
+      return (data ?? []) as { user_id: string; roles: { name: string } | null }[];
+    },
+  });
+  const roleNamesMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    userRoleRows.forEach((r) => {
+      const nm = r.roles?.name;
+      if (!nm) return;
+      const arr = m.get(r.user_id) ?? [];
+      arr.push(nm);
+      m.set(r.user_id, arr);
+    });
+    return m;
+  }, [userRoleRows]);
+
   const managerMap = useMemo(() => {
     const m = new Map<string, { name: string | null; job_title: string | null }>();
     allUsers.forEach((u) => m.set(u.id, { name: u.name, job_title: u.job_title }));
@@ -281,7 +304,12 @@ function Page() {
                             <TableCell className="font-mono text-xs">{m.employee_no ?? "—"}</TableCell>
                             <TableCell>{m.job_title ?? "—"}</TableCell>
                             <TableCell>{m.extension ?? "—"}</TableCell>
-                            <TableCell><Badge variant="outline">{ROLE_LABEL[m.role ?? ""] ?? m.role ?? "—"}</Badge></TableCell>
+                            <TableCell className="space-x-1">
+                              {(roleNamesMap.get(m.id) ?? []).map((rn) => (
+                                <Badge key={rn} variant="outline">{rn}</Badge>
+                              ))}
+                              {!(roleNamesMap.get(m.id) ?? []).length && <span className="text-muted-foreground">—</span>}
+                            </TableCell>
                             {isAdmin && (
                               <TableCell>
                                 <DropdownMenu>
