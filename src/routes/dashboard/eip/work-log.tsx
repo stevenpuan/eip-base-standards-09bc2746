@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw } from "lucide-react";
+import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -11,22 +11,22 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/eip/work-log")({ component: WorkLogPage });
 
-type Item = { text: string; done: boolean };
+type Item = { text: string; done: boolean; note?: string };
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const arr = (v: unknown): Item[] => (Array.isArray(v) ? (v as Item[]) : []);
 
 interface Log { id?: string; log_date: string; routine: Item[]; special: Item[]; status: string; manager_comment?: string | null; }
 
-// 建立某天的預設內容：當日常態(週期)任務→例行；今天完成的一次性任務→特殊
+// 建立某天的預設內容：當日常態(週期)任務→例行；今天完成的一次性任務→特殊（含任務說明）
 async function buildSeed(uid: string, date: string) {
   const nextDate = new Date(new Date(date).getTime() + 864e5).toISOString().slice(0, 10);
-  const { data: rec } = await supabase.from("task").select("title,progress")
+  const { data: rec } = await supabase.from("task").select("title,description,progress")
     .eq("owner_id", uid).not("recurring_rule_id", "is", null).eq("occurrence_date", date);
-  const { data: done } = await supabase.from("task").select("title")
+  const { data: done } = await supabase.from("task").select("title,description")
     .eq("owner_id", uid).is("recurring_rule_id", null).gte("completed_at", `${date}T00:00:00+08:00`).lt("completed_at", `${nextDate}T00:00:00+08:00`);
   return {
-    routine: (rec ?? []).map((t: any) => ({ text: t.title as string, done: (t.progress ?? 0) >= 100 })),
-    special: (done ?? []).map((t: any) => ({ text: t.title as string, done: true })),
+    routine: (rec ?? []).map((t: any) => ({ text: t.title as string, done: (t.progress ?? 0) >= 100, note: (t.description ?? "") as string })),
+    special: (done ?? []).map((t: any) => ({ text: t.title as string, done: true, note: (t.description ?? "") as string })),
   };
 }
 
@@ -73,6 +73,20 @@ function WorkLogPage() {
     if (msg) toast.success(msg);
   };
 
+  // 刪除整篇日誌（主管批示前皆可）
+  const deleteLog = async (id?: string, d?: string) => {
+    const targetId = id ?? log?.id;
+    if (!targetId) { toast.info("此日誌尚未儲存，無需刪除"); return; }
+    if (!window.confirm("確定刪除這篇日誌？此動作無法復原。")) return;
+    setSaving(true);
+    const { error } = await supabase.from("work_log").delete().eq("id", targetId);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("已刪除日誌");
+    setRefreshKey((k) => k + 1); // 若刪的是當前日期，load() 會重帶為草稿
+    if (d && d !== date) setRefreshKey((k) => k + 1);
+  };
+
   const syncToday = async () => {
     if (!appUser?.id || !log) return;
     const seed = await buildSeed(appUser.id, date);
@@ -89,10 +103,11 @@ function WorkLogPage() {
     return <div className="space-y-3"><div className="h-9 w-40 rounded-md bg-muted/50 animate-pulse" /><div className="h-56 rounded-2xl bg-muted/50 animate-pulse" /></div>;
   }
   const editable = log.status !== "reviewed";
+  const submitted = log.status === "submitted";
 
   return (
     <div className="space-y-6">
-      <PageHeader title="工作日誌" description="當天即可填寫，送出後由單位主管批示；主管批示後鎖定。"
+      <PageHeader title="工作日誌" description="當天即可填寫；主管批示前皆可編輯或刪除，主管批示後鎖定。"
         actions={
           <div className="flex items-center gap-2">
             <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} className="h-9 rounded-md border bg-card px-2 text-sm" />
@@ -108,10 +123,22 @@ function WorkLogPage() {
 
       {editable ? (
         <div className="flex justify-between gap-2 flex-wrap">
-          <Button variant="outline" onClick={syncToday} disabled={saving}><RefreshCw className="w-4 h-4 mr-1.5" /> 同步今日任務</Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={syncToday} disabled={saving}><RefreshCw className="w-4 h-4 mr-1.5" /> 同步今日任務</Button>
+            {log.id && <Button variant="outline" onClick={() => deleteLog()} disabled={saving} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4 mr-1.5" /> 刪除</Button>}
+          </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => persist({}, "已儲存草稿")} disabled={saving}>儲存草稿</Button>
-            <Button onClick={() => persist({ status: "submitted", submitted_at: new Date().toISOString() }, "已送出")} disabled={saving}><Send className="w-4 h-4 mr-1.5" /> 送出</Button>
+            {submitted ? (
+              <>
+                <Button variant="outline" onClick={() => persist({ status: "draft" }, "已撤回為草稿")} disabled={saving}>撤回為草稿</Button>
+                <Button onClick={() => persist({}, "已儲存修改")} disabled={saving}><Check className="w-4 h-4 mr-1.5" /> 儲存修改</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => persist({}, "已儲存草稿")} disabled={saving}>儲存草稿</Button>
+                <Button onClick={() => persist({ status: "submitted", submitted_at: new Date().toISOString() }, "已送出")} disabled={saving}><Send className="w-4 h-4 mr-1.5" /> 送出</Button>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -125,7 +152,7 @@ function WorkLogPage() {
         </div>
       )}
 
-      <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} refreshKey={refreshKey} />
+      <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} onDelete={(id, d) => deleteLog(id, d)} refreshKey={refreshKey} />
 
       {isSupervisor && <SupervisorReview meId={appUser!.id} />}
     </div>
@@ -136,7 +163,8 @@ function Section({ title, Icon, tone, items, editable, onChange }: {
   title: string; Icon: typeof Zap; tone: "primary" | "accent"; items: Item[]; editable: boolean; onChange: (v: Item[]) => void;
 }) {
   const [text, setText] = useState("");
-  const add = () => { const t = text.trim(); if (!t) return; onChange([...items, { text: t, done: false }]); setText(""); };
+  const add = () => { const t = text.trim(); if (!t) return; onChange([...items, { text: t, done: false, note: "" }]); setText(""); };
+  const setItem = (i: number, patch: Partial<Item>) => onChange(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const toneCls = tone === "accent" ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary";
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-sm">
@@ -148,21 +176,30 @@ function Section({ title, Icon, tone, items, editable, onChange }: {
       {items.length === 0 && <div className="text-xs text-muted-foreground mb-2 pl-1">尚無項目</div>}
       <ul className="space-y-1.5 mb-2">
         {items.map((it, i) => (
-          <li key={i} className="group flex items-center gap-2 text-sm rounded-lg hover:bg-muted/40 px-1.5 py-1">
-            <button type="button" disabled={!editable}
-              onClick={() => onChange(items.map((x, j) => (j === i ? { ...x, done: !x.done } : x)))}
-              className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${it.done ? "bg-primary border-primary text-primary-foreground" : "bg-card"}`}>
-              {it.done && <Check className="w-3 h-3" />}
-            </button>
+          <li key={i} className="group rounded-lg hover:bg-muted/40 px-1.5 py-1">
+            <div className="flex items-center gap-2 text-sm">
+              <button type="button" disabled={!editable}
+                onClick={() => setItem(i, { done: !it.done })}
+                className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${it.done ? "bg-primary border-primary text-primary-foreground" : "bg-card"}`}>
+                {it.done && <Check className="w-3 h-3" />}
+              </button>
+              {editable ? (
+                <input value={it.text}
+                  onChange={(e) => setItem(i, { text: e.target.value })}
+                  className={`flex-1 bg-transparent outline-none border-b border-transparent focus:border-border ${it.done ? "line-through text-muted-foreground" : ""}`} />
+              ) : (
+                <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
+              )}
+              {editable && (
+                <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><X className="w-3.5 h-3.5" /></button>
+              )}
+            </div>
             {editable ? (
-              <input value={it.text}
-                onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
-                className={`flex-1 bg-transparent outline-none border-b border-transparent focus:border-border ${it.done ? "line-through text-muted-foreground" : ""}`} />
+              <textarea value={it.note ?? ""} rows={1} placeholder="說明（選填）…"
+                onChange={(e) => setItem(i, { note: e.target.value })}
+                className="mt-1 ml-6 block w-[calc(100%-1.75rem)] resize-y rounded-md bg-transparent px-1 py-0.5 text-xs text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
             ) : (
-              <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
-            )}
-            {editable && (
-              <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><X className="w-3.5 h-3.5" /></button>
+              it.note ? <p className="mt-0.5 ml-6 text-xs text-muted-foreground whitespace-pre-wrap">{it.note}</p> : null
             )}
           </li>
         ))}
@@ -188,11 +225,11 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${s.c}`}>{s.t}</span>;
 }
 
-const txtOf = (r: any) => [...arr(r.routine_morning), ...arr(r.routine_afternoon), ...arr(r.special_items)].map((x) => x.text).join(" ");
+const txtOf = (r: any) => [...arr(r.routine_morning), ...arr(r.routine_afternoon), ...arr(r.special_items)].map((x) => `${x.text} ${x.note ?? ""}`).join(" ");
 const cntOf = (r: any) => arr(r.routine_morning).length + arr(r.routine_afternoon).length + arr(r.special_items).length;
 
 // 我的日誌記錄：預設本月，可切月份、篩狀態、搜尋（避免全部累積秀出來）
-function MyHistory({ meId, activeDate, onPick, refreshKey }: { meId: string; activeDate: string; onPick: (d: string) => void; refreshKey: number }) {
+function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: string; activeDate: string; onPick: (d: string) => void; onDelete: (id: string, d: string) => void; refreshKey: number }) {
   const [month, setMonth] = useState(today().slice(0, 7));
   const [q, setQ] = useState("");
   const [st, setSt] = useState("all");
@@ -227,12 +264,17 @@ function MyHistory({ meId, activeDate, onPick, refreshKey }: { meId: string; act
       ) : (
         <div className="rounded-2xl border overflow-hidden bg-card">
           {filtered.map((r) => (
-            <button key={r.id} onClick={() => onPick(r.log_date)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 text-sm hover:bg-accent/40 transition-colors ${r.log_date === activeDate ? "bg-primary/5" : ""}`}>
-              <span className="font-medium tabular-nums shrink-0">{r.log_date}</span>
-              <span className="text-xs text-muted-foreground flex-1 text-left truncate">{cntOf(r)} 個項目</span>
+            <div key={r.id} className={`group flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 text-sm hover:bg-accent/40 transition-colors ${r.log_date === activeDate ? "bg-primary/5" : ""}`}>
+              <button onClick={() => onPick(r.log_date)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                <span className="font-medium tabular-nums shrink-0">{r.log_date}</span>
+                <span className="text-xs text-muted-foreground flex-1 text-left truncate">{cntOf(r)} 個項目</span>
+              </button>
               <StatusBadge status={r.status} />
-            </button>
+              {r.status !== "reviewed" && (
+                <button onClick={() => onDelete(r.id, r.log_date)} title="刪除此日誌"
+                  className="text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Trash2 className="w-4 h-4" /></button>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -266,9 +308,15 @@ function SupervisorReview({ meId }: { meId: string }) {
     if (error) { toast.error(error.message); return; }
     toast.success("已批示"); void load();
   };
-  const fmt = (v: any) => (Array.isArray(v) ? v.map((x: any) => (x.done ? "✓ " : "· ") + x.text).join("、") : "");
+  const fmtItems = (v: any) => (Array.isArray(v) ? v : []);
   const nameOf = (r: any) => names[r.user_id] ?? "同仁";
   const filtered = rows.filter((r) => !q || (nameOf(r) + txtOf(r)).toLowerCase().includes(q.toLowerCase()));
+  const ItemLine = ({ it }: { it: any }) => (
+    <div className="pl-1">
+      <div>{it.done ? "✓ " : "· "}{it.text}</div>
+      {it.note ? <div className="pl-4 text-muted-foreground/80 whitespace-pre-wrap">{it.note}</div> : null}
+    </div>
+  );
   return (
     <div className="space-y-3 pt-2">
       <div className="flex items-center gap-2 flex-wrap">
@@ -287,9 +335,13 @@ function SupervisorReview({ meId }: { meId: string }) {
       ) : filtered.map((r) => (
         <div key={r.id} className="rounded-2xl border bg-card p-4 space-y-2 shadow-sm">
           <div className="flex items-center justify-between"><div className="text-sm font-medium">{nameOf(r)} · {r.log_date}</div><StatusBadge status={r.status} /></div>
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <div><span className="text-foreground font-medium">例行：</span>{[fmt(r.routine_morning), fmt(r.routine_afternoon)].filter(Boolean).join("、") || "—"}</div>
-            <div><span className="text-foreground font-medium">特殊：</span>{fmt(r.special_items) || "—"}</div>
+          <div className="text-xs space-y-1">
+            <div><span className="text-foreground font-medium">例行</span>
+              <div className="mt-0.5 space-y-0.5">{[...fmtItems(r.routine_morning), ...fmtItems(r.routine_afternoon)].map((it: any, i: number) => <ItemLine key={i} it={it} />)}{[...fmtItems(r.routine_morning), ...fmtItems(r.routine_afternoon)].length === 0 && <span className="text-muted-foreground pl-1">—</span>}</div>
+            </div>
+            <div><span className="text-foreground font-medium">特殊</span>
+              <div className="mt-0.5 space-y-0.5">{fmtItems(r.special_items).map((it: any, i: number) => <ItemLine key={i} it={it} />)}{fmtItems(r.special_items).length === 0 && <span className="text-muted-foreground pl-1">—</span>}</div>
+            </div>
           </div>
           {r.status === "reviewed" ? (
             <div className="text-sm rounded-lg bg-primary/5 border border-primary/20 p-2"><span className="text-primary font-medium">批示：</span>{r.manager_comment}</div>
