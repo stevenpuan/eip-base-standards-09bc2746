@@ -1153,6 +1153,7 @@ export type Database = {
           id: string
           leave_from: string | null
           leave_to: string | null
+          leave_type: string | null
           report_date: string
           status: string
           submitter_id: string
@@ -1167,6 +1168,7 @@ export type Database = {
           id?: string
           leave_from?: string | null
           leave_to?: string | null
+          leave_type?: string | null
           report_date?: string
           status?: string
           submitter_id: string
@@ -1181,6 +1183,7 @@ export type Database = {
           id?: string
           leave_from?: string | null
           leave_to?: string | null
+          leave_type?: string | null
           report_date?: string
           status?: string
           submitter_id?: string
@@ -1326,6 +1329,36 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_type: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          tenant_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          tenant_id?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       line_bind_code: {
         Row: {
           code: string
@@ -1366,6 +1399,85 @@ export type Database = {
             foreignKeyName: "line_bind_code_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      line_pending_task: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          description: string | null
+          due_date: string | null
+          owner_id: string | null
+          priority: string
+          tenant_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          owner_id?: string | null
+          priority?: string
+          tenant_id?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          owner_id?: string | null
+          priority?: string
+          tenant_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "line_pending_task_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "line_pending_task_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "line_pending_task_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "line_pending_task_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "line_pending_task_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "line_pending_task_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "eip_org_chart"
             referencedColumns: ["user_id"]
           },
@@ -1796,6 +1908,8 @@ export type Database = {
           entity_type: Database["public"]["Enums"]["notification_entity"]
           id: string
           is_read: boolean
+          line_pending: boolean
+          line_sent_at: string | null
           message: string
           tenant_id: string
           type: Database["public"]["Enums"]["notification_type"]
@@ -1807,6 +1921,8 @@ export type Database = {
           entity_type: Database["public"]["Enums"]["notification_entity"]
           id?: string
           is_read?: boolean
+          line_pending?: boolean
+          line_sent_at?: string | null
           message: string
           tenant_id: string
           type: Database["public"]["Enums"]["notification_type"]
@@ -1818,6 +1934,8 @@ export type Database = {
           entity_type?: Database["public"]["Enums"]["notification_entity"]
           id?: string
           is_read?: boolean
+          line_pending?: boolean
+          line_sent_at?: string | null
           message?: string
           tenant_id?: string
           type?: Database["public"]["Enums"]["notification_type"]
@@ -2686,6 +2804,68 @@ export type Database = {
           },
         ]
       }
+      task_change_log: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          task_id: string
+          tenant_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          task_id: string
+          tenant_id?: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          task_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_change_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_change_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_change_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "eip_recurring_overview"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_change_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_collaborator: {
         Row: {
           task_id: string
@@ -2936,6 +3116,239 @@ export type Database = {
           },
         ]
       }
+      work_log: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          id: string
+          locked: boolean
+          locked_at: string | null
+          locked_by: string | null
+          log_date: string
+          manager_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          routine_afternoon: Json
+          routine_morning: Json
+          special_items: Json
+          status: string
+          submitted_at: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+          log_date?: string
+          manager_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          routine_afternoon?: Json
+          routine_morning?: Json
+          special_items?: Json
+          status?: string
+          submitted_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+          log_date?: string
+          manager_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          routine_afternoon?: Json
+          routine_morning?: Json
+          special_items?: Json
+          status?: string
+          submitted_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_log_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_log_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "work_log_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_log_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "work_log_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_log_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "work_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      work_log_attachment: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          storage_path: string
+          tenant_id: string
+          user_id: string
+          work_log_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          storage_path: string
+          tenant_id?: string
+          user_id?: string
+          work_log_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          storage_path?: string
+          tenant_id?: string
+          user_id?: string
+          work_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_log_attachment_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_log_attachment_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "work_log_attachment_work_log_id_fkey"
+            columns: ["work_log_id"]
+            isOneToOne: false
+            referencedRelation: "work_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_log_review: {
+        Row: {
+          comment: string
+          created_at: string
+          id: string
+          reviewer_id: string
+          reviewer_role: string
+          tenant_id: string
+          updated_at: string
+          work_log_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          id?: string
+          reviewer_id?: string
+          reviewer_role?: string
+          tenant_id?: string
+          updated_at?: string
+          work_log_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          id?: string
+          reviewer_id?: string
+          reviewer_role?: string
+          tenant_id?: string
+          updated_at?: string
+          work_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_log_review_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_log_review_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "work_log_review_work_log_id_fkey"
+            columns: ["work_log_id"]
+            isOneToOne: false
+            referencedRelation: "work_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       eip_org_chart: {
@@ -3112,6 +3525,10 @@ export type Database = {
         Args: { p_dept: string; p_root: string }
         Returns: boolean
       }
+      eip_derive_app_role: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
       eip_emit_notification: {
         Args: {
           p_actor_id: string
@@ -3126,6 +3543,11 @@ export type Database = {
         Returns: number
       }
       eip_generate_line_bind_code: { Args: never; Returns: string }
+      eip_has_perm: {
+        Args: { p_action: string; p_module: string }
+        Returns: boolean
+      }
+      eip_is_dept_supervisor: { Args: { p_dept: string }; Returns: boolean }
       eip_is_task_collaborator: {
         Args: { p_task_id: string }
         Returns: boolean
@@ -3147,6 +3569,7 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: boolean
       }
+      eip_priority_label: { Args: { p: string }; Returns: string }
       eip_purge_old_logs: { Args: { p_days?: number }; Returns: string }
       eip_rule_due_on: {
         Args: {
@@ -3156,11 +3579,16 @@ export type Database = {
         Returns: boolean
       }
       eip_run_recurring: { Args: { p_date?: string }; Returns: undefined }
+      eip_send_line_digests: { Args: never; Returns: number }
       eip_set_user_roles: {
         Args: { p_role_ids: string[]; p_user_id: string }
         Returns: undefined
       }
       eip_user_can_scope_dept: { Args: { p_dept: string }; Returns: boolean }
+      eip_worklog_file_access: {
+        Args: { p_path: string; p_write: boolean }
+        Returns: boolean
+      }
       is_admin: { Args: { _uid: string }; Returns: boolean }
       redeem_invitation: { Args: { p_code: string }; Returns: string }
     }
@@ -3184,6 +3612,7 @@ export type Database = {
         | "project"
         | "announcement"
         | "quick_report"
+        | "work_log"
       notification_type:
         | "assigned"
         | "status_changed"
@@ -3346,6 +3775,7 @@ export const Constants = {
         "project",
         "announcement",
         "quick_report",
+        "work_log",
       ],
       notification_type: [
         "assigned",
