@@ -25,11 +25,20 @@ const todayStr = () => {
 // 組成帶時區的時間戳（台北 +08:00）
 const ts = (date: string, time: string) => `${date}T${(time || "00:00")}:00+08:00`;
 
+const TYPE_LABEL: Record<string, string> = { late: "遲到", leave: "請假", other: "事件" };
+const TYPE_COLOR: Record<string, string> = {
+  late: "bg-amber-100 text-amber-700 border-amber-300",
+  leave: "bg-blue-100 text-blue-700 border-blue-300",
+  other: "bg-slate-100 text-slate-700 border-slate-300",
+};
+const STATUS_LABEL: Record<string, string> = { open: "待處理", acknowledged: "已處理", done: "已處理", closed: "已處理" };
+const DONE_STATUSES = new Set(["acknowledged", "done", "closed"]);
+
 export function QuickReportButton() {
   const { appUser } = useEipUser();
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"late" | "leave" | "other">("late");
+  const [tab, setTab] = useState<"late" | "leave" | "other" | "mine">("late");
   const [busy, setBusy] = useState(false);
 
   // 遲到：時段（幾點幾分 ~ 幾點幾分）
