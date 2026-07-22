@@ -442,7 +442,7 @@ function TasksPage() {
         <EditTaskDialog
           key={detailTask.id}
           task={detailTask}
-          readOnly={!canEditTask(detailTask, appUser, collabMap)}
+          readOnly={!canEditTask(detailTask, appUser, can, collabMap)}
           onClose={() => setDetailTask(null)}
           statuses={statusesQ.data ?? []}
           users={usersQ.data ?? []}
@@ -600,7 +600,8 @@ function MiniSelect({ value, onChange, options }: {
 
 /* ============ 看板視圖 ============ */
 function BoardView({
-  tasks, statuses, userMap, subtaskMap, sourceMap, deptMap, collabMap, appUser, onMove, onOpenDetail, onAskDelete,
+  tasks, statuses, userMap, subtaskMap, sourceMap, deptMap, collabMap, appUser, can, onMove, onOpenDetail, onAskDelete,
+
 }: {
   tasks: Task[]; statuses: Status[];
   userMap: Map<string, AppUser>;
@@ -667,8 +668,9 @@ function BoardView({
                     source={sourceMap.get(t.id)}
                     deptMap={deptMap}
                     statuses={statuses}
-                    canEdit={canEditTask(t, appUser, collabMap)}
-                    canDelete={canDeleteTask(t, appUser, collabMap)}
+                    canEdit={canEditTask(t, appUser, can, collabMap)}
+                    canDelete={canDeleteTask(t, appUser, can, collabMap)}
+
                     onDragStart={() => setDragId(t.id)}
                     onOpenDetail={() => onOpenDetail(t)}
                     onAskDelete={() => onAskDelete(t)}
