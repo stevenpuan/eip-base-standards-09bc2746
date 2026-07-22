@@ -264,6 +264,8 @@ function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: s
     })();
   }, [meId, month, refreshKey]);
   const filtered = rows.filter((r) => (st === "all" || r.status === st) && (!q || txtOf(r).toLowerCase().includes(q.toLowerCase())));
+  const hasFilter = st !== "all" || !!q;
+  const stLabel = st === "draft" ? "草稿" : st === "submitted" ? "已送出" : "";
   return (
     <div className="space-y-2 pt-2">
       <div className="flex items-center gap-2 flex-wrap">
@@ -276,9 +278,18 @@ function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: s
           <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜尋內容…" className="h-8 w-full rounded-md border bg-card pl-7 pr-2 text-xs" />
         </div>
+        {hasFilter && (
+          <button onClick={() => { setSt("all"); setQ(""); }} className="text-xs text-primary hover:underline">清除篩選</button>
+        )}
       </div>
       {filtered.length === 0 ? (
-        <p className="text-xs text-muted-foreground px-1">此月份沒有符合的日誌。</p>
+        <p className="text-xs text-muted-foreground px-1">
+          {rows.length === 0
+            ? "此月份沒有任何日誌。"
+            : hasFilter
+              ? <>此月份共 {rows.length} 筆日誌，但沒有符合目前篩選條件（{stLabel && `狀態：${stLabel}`}{stLabel && q ? "、" : ""}{q && `關鍵字：「${q}」`}）的資料。</>
+              : "此月份沒有符合的日誌。"}
+        </p>
       ) : (
         <div className="rounded-2xl border overflow-hidden bg-card">
           {filtered.map((r) => (
