@@ -38,7 +38,7 @@ export function QuickReportButton() {
   const { appUser } = useEipUser();
 
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"late" | "leave" | "other" | "mine">("late");
+  const [tab, setTab] = useState<"late" | "leave" | "other">("late");
   const [busy, setBusy] = useState(false);
 
   // 遲到：時段（幾點幾分 ~ 幾點幾分）
@@ -67,25 +67,6 @@ export function QuickReportButton() {
 
   const tenantId = appUser?.tenant_id ?? DEFAULT_TENANT_ID;
 
-  // 我的回報紀錄
-  type MyRow = {
-    id: string; type: string; status: string; report_date: string; created_at: string;
-    eta: string | null; leave_from: string | null; leave_to: string | null; leave_type: string | null; detail: string | null;
-  };
-  const [myRows, setMyRows] = useState<MyRow[]>([]);
-  const [loadingMine, setLoadingMine] = useState(false);
-  const loadMine = async () => {
-    if (!appUser) return;
-    setLoadingMine(true);
-    const { data } = await supabase
-      .from("eip_quick_report")
-      .select("id,type,status,report_date,created_at,eta,leave_from,leave_to,leave_type,detail")
-      .eq("submitter_id", appUser.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setMyRows((data ?? []) as MyRow[]);
-    setLoadingMine(false);
-  };
   useEffect(() => {
     if (!open) return;
     void supabase
@@ -95,7 +76,7 @@ export function QuickReportButton() {
       .order("sort_order")
       .then((res: any) => setLeaveTypes(res.data ?? []));
   }, [open]);
-  useEffect(() => { if (open && tab === "mine") void loadMine(); /* eslint-disable-next-line */ }, [open, tab, appUser?.id]);
+
 
   const submitLate = async () => {
     if (!appUser) return;
