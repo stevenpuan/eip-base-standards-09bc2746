@@ -115,17 +115,19 @@ function Page() {
         .from("user_roles")
         .select("user_id, roles(name)");
       if (error) throw error;
-      return (data ?? []) as { user_id: string; roles: { name: string } | null }[];
+      return (data ?? []) as unknown as { user_id: string; roles: { name: string } | { name: string }[] | null }[];
     },
   });
   const roleNamesMap = useMemo(() => {
     const m = new Map<string, string[]>();
     userRoleRows.forEach((r) => {
-      const nm = r.roles?.name;
+      const rel = Array.isArray(r.roles) ? r.roles[0] : r.roles;
+      const nm = rel?.name;
       if (!nm) return;
       const arr = m.get(r.user_id) ?? [];
       arr.push(nm);
       m.set(r.user_id, arr);
+
     });
     return m;
   }, [userRoleRows]);
