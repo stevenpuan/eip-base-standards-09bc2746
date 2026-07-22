@@ -327,21 +327,34 @@ function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refre
     void load();
   };
 
-  const group = (r: "manager" | "unit") => reviews.filter((x) => x.reviewer_role === r);
-  const Block = ({ label, r }: { label: string; r: "manager" | "unit" }) => (
-    <div>
-      <div className="text-xs font-semibold text-primary mb-1">{label}</div>
-      {group(r).length === 0 ? (
-        <p className="text-xs text-muted-foreground pl-1">尚未批示</p>
-      ) : (
-        <div className="space-y-1.5">
-          {group(r).map((rv) => {
+  // 位階由小到大：單位主管 → 經理
+  const ROLE_RANK: Record<string, number> = { unit: 1, manager: 2 };
+  const ROLE_LABEL: Record<string, string> = { unit: "單位主管", manager: "經理" };
+  const sortedReviews = [...reviews].sort((a, b) => {
+    const ra = ROLE_RANK[a.reviewer_role] ?? 99;
+    const rb = ROLE_RANK[b.reviewer_role] ?? 99;
+    if (ra !== rb) return ra - rb;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+
+  const hasAny = reviews.length > 0;
+  if (!canReview && !hasAny) return null;
+
+  return (
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+      <div className="text-xs font-semibold text-primary flex items-center gap-1.5"><Stamp className="w-3.5 h-3.5" /> 主管批示</div>
+      {hasAny ? (
+        <div className="space-y-2">
+          {sortedReviews.map((rv) => {
             const u = names[rv.reviewer_id];
             return (
               <div key={rv.id} className="text-sm rounded-lg bg-muted/40 px-2.5 py-1.5">
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-0.5 flex-wrap">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                    {ROLE_LABEL[rv.reviewer_role] ?? "主管"}
+                  </span>
                   <span className="font-medium text-foreground">{u?.name ?? "主管"}</span>
-                  {u?.job_title && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{u.job_title}</span>}
+                  {u?.job_title && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{u.job_title}</span>}
                   <span>{new Date(rv.created_at).toLocaleString("zh-TW")}</span>
                   {canReview && !locked && rv.reviewer_id === meId && (
                     <button onClick={() => del(rv.id)} className="ml-auto hover:text-destructive">刪除</button>
@@ -352,20 +365,10 @@ function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refre
             );
           })}
         </div>
+      ) : (
+        <p className="text-xs text-muted-foreground pl-1">尚未批示</p>
       )}
-    </div>
-  );
 
-  const hasAny = reviews.length > 0;
-  if (!canReview && !hasAny) return null;
-
-  return (
-    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
-      <div className="text-xs font-semibold text-primary flex items-center gap-1.5"><Stamp className="w-3.5 h-3.5" /> 主管批示</div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Block label="經理" r="manager" />
-        <Block label="單位主管" r="unit" />
-      </div>
       {canReview && !locked && (
         <div className="border-t pt-3 space-y-2">
           <Textarea rows={2} placeholder="輸入批示內容（可留空）…" value={text} onChange={(e) => setText(e.target.value)} />
