@@ -620,10 +620,6 @@ function ManagerDialog({
   };
 
   const promote = async (yes: boolean) => {
-    if (yes && pendingPromote) {
-      const { error } = await supabase.from("app_user").update({ role: "dept_manager" }).eq("id", pendingPromote);
-      if (error) toast.error("無法更新角色"); else toast.success("已將該員角色設為部門主管");
-    }
     setPendingPromote(null);
     onSaved();
   };
@@ -686,7 +682,6 @@ function MemberFormDialog({
   const [jobTitle, setJobTitle] = useState(member.job_title ?? "");
   const [ext, setExt] = useState(member.extension ?? "");
   const [deptId, setDeptId] = useState(member.department_id ?? "__none__");
-  const [role, setRole] = useState(member.role ?? "member");
   const [status, setStatus] = useState(member.status ?? "active");
   const [saving, setSaving] = useState(false);
 
@@ -706,7 +701,6 @@ function MemberFormDialog({
         job_title: jobTitle.trim() || null,
         extension: ext.trim() || null,
         department_id: deptId === "__none__" ? null : deptId,
-        role,
         status,
       }).eq("id", member.id);
       if (error) throw error;
@@ -754,14 +748,8 @@ function MemberFormDialog({
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>EIP 角色</Label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground">角色與權限請至「帳號管理」設定（此處僅編輯基本資料）。</p>
             </div>
             <div>
               <Label>狀態</Label>
@@ -876,4 +864,3 @@ function AddMemberDialog({
     </Dialog>
   );
 }
-
