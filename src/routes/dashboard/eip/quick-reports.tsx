@@ -101,6 +101,8 @@ function QuickReportsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [keyword, setKeyword] = useState("");
+  const [mineOnly, setMineOnly] = useState<boolean>(false);
+
 
   const listQ = useQuery({
     queryKey: ["eip", "quick-reports"],
@@ -131,6 +133,7 @@ function QuickReportsPage() {
   const rows = useMemo(() => {
     const all = listQ.data ?? [];
     return all.filter((r) => {
+      if (mineOnly && appUser && r.submitter_id !== appUser.id) return false;
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (statusFilter !== "all") {
         if (statusFilter === "done") {
@@ -146,7 +149,8 @@ function QuickReportsPage() {
       }
       return true;
     });
-  }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap]);
+  }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap, mineOnly, appUser]);
+
 
   if (authLoading) return <div className="text-muted-foreground">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" />;
@@ -170,6 +174,14 @@ function QuickReportsPage() {
       <PageHeader title="臨時回報" description="檢視遲到 / 請假 / 事件回報（同仁看自己的，主管看部門）。" />
 
       <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={mineOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => setMineOnly((v) => !v)}
+        >
+          {mineOnly ? "顯示：只看我的" : "只看我的"}
+        </Button>
+
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
           <SelectContent>
