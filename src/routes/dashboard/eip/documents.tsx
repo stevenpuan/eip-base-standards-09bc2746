@@ -122,16 +122,19 @@ const STATUS_COLOR: Record<string, string> = {
   archived: "bg-amber-100 text-amber-700",
 };
 
-function canEditDoc(d: Doc, role: string | undefined | null, uid: string | undefined | null): boolean {
-  if (!role || !uid) return false;
-  if (role === "company_admin" || role === "dept_manager") return true;
-  return d.owner_id === uid || d.created_by === uid;
+type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
+
+function canEditDoc(d: Doc, uid: string | undefined | null, can: CanFn): boolean {
+  if (!uid) return false;
+  if (d.owner_id === uid || d.created_by === uid) return true;
+  return can("eip_documents", "edit");
 }
-function canDeleteDoc(d: Doc, role: string | undefined | null, uid: string | undefined | null): boolean {
-  if (!role || !uid) return false;
-  if (role === "company_admin") return true;
-  return d.owner_id === uid;
+function canDeleteDoc(d: Doc, uid: string | undefined | null, can: CanFn): boolean {
+  if (!uid) return false;
+  if (d.owner_id === uid) return true;
+  return can("eip_documents", "delete");
 }
+
 
 function DocumentsPage() {
   const qc = useQueryClient();
@@ -324,8 +327,9 @@ function DocumentsPage() {
               ) : (
                 <div className="divide-y">
                   {filteredDocs.map((d) => {
-                    const cE = canEditDoc(d, appUser?.role, appUser?.id);
-                    const cD = canDeleteDoc(d, appUser?.role, appUser?.id);
+                    const cE = canEditDoc(d, appUser?.id, can);
+                    const cD = canDeleteDoc(d, appUser?.id, can);
+
                     return (
                       <div key={d.id} className="relative">
                         <button
@@ -600,6 +604,8 @@ function DocDetailDialog({
   userMap: Map<string, string>; appUser: { id: string; role: string } | null;
 }) {
   const qc = useQueryClient();
+  const { can } = useAuth();
+
   const [showHistory, setShowHistory] = useState(false);
   const [viewVersionId, setViewVersionId] = useState<string | null>(null);
 
@@ -628,8 +634,9 @@ function DocDetailDialog({
   const viewing = viewVersionId
     ? versions.find((v) => v.id === viewVersionId)
     : versions.find((v) => v.version_no === doc?.current_version) ?? versions[0];
-  const canEdit = doc ? canEditDoc(doc, appUser?.role, appUser?.id) : false;
-  const canDelete = doc ? canDeleteDoc(doc, appUser?.role, appUser?.id) : false;
+  const canEdit = doc ? canEditDoc(doc, appUser?.id, can) : false;
+  const canDelete = doc ? canDeleteDoc(doc, appUser?.id, can) : false;
+
 
   const publish = async (status: string) => {
     if (!doc) return;

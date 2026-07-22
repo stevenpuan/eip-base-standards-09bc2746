@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, Plus, ChevronUp, ChevronDown, X, ExternalLink, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useAuth } from "@/lib/auth";
+
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,11 +53,14 @@ const ACTION_LABEL: Record<ActionStatus, string> = {
   open: "待處理", converted: "已轉任務", done: "已完成",
 };
 
-function canManage(m: Meeting | null, u: AppUser | null): boolean {
+type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
+
+function canManage(m: Meeting | null, u: AppUser | null, can: CanFn): boolean {
   if (!m || !u) return false;
-  if (u.role === "company_admin" || u.role === "dept_manager") return true;
-  return m.created_by === u.id;
+  if (m.created_by === u.id) return true;
+  return can("eip_meetings", "edit") || can("eip_meetings", "delete");
 }
+
 
 function toLocalDt(iso: string) {
   const d = new Date(iso);
@@ -67,6 +72,8 @@ function MeetingDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { appUser } = useEipUser();
+  const { can } = useAuth();
+
 
   const meetingQ = useQuery({
     queryKey: ["eip", "meeting", id],
@@ -128,7 +135,7 @@ function MeetingDetailPage() {
   }
 
   const meeting = meetingQ.data;
-  const canEdit = canManage(meeting, appUser);
+  const canEdit = canManage(meeting, appUser, can);
 
   return (
     <div className="space-y-4">

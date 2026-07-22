@@ -37,15 +37,19 @@ type Audience = Database["public"]["Enums"]["announcement_audience"];
 
 const AUDIENCE_LABEL: Record<Audience, string> = { all: "全公司", department: "指定部門", users: "指定人員" };
 
-function canEditAnnouncement(a: Announcement, u: AppUser | null): boolean {
+type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
+
+function canEditAnnouncement(a: Announcement, u: AppUser | null, can: CanFn): boolean {
   if (!u) return false;
-  if (u.role === "company_admin") return true;
-  if (u.role === "dept_manager" && a.created_by === u.id) return true;
-  return false;
+  if (a.created_by === u.id) return true;
+  return can("eip_announcements", "edit");
 }
-function canDeleteAnnouncement(_a: Announcement, u: AppUser | null): boolean {
-  return u?.role === "company_admin";
+function canDeleteAnnouncement(a: Announcement, u: AppUser | null, can: CanFn): boolean {
+  if (!u) return false;
+  if (a.created_by === u.id && can("eip_announcements", "delete")) return true;
+  return can("eip_announcements", "delete") && u.role === "company_admin";
 }
+
 
 function AnnouncementsPage() {
   const qc = useQueryClient();
@@ -380,8 +384,10 @@ function AnnouncementRow({
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
-  const canEdit = canEditAnnouncement(a, appUser);
-  const canDel = canDeleteAnnouncement(a, appUser);
+  const { can } = useAuth();
+  const canEdit = canEditAnnouncement(a, appUser, can);
+  const canDel = canDeleteAnnouncement(a, appUser, can);
+
   const isOwnerOrAdmin = !!appUser && (appUser.role === "company_admin" || appUser.id === a.created_by);
 
   // 展開時若已發布且當前使用者尚未讀，標為已讀

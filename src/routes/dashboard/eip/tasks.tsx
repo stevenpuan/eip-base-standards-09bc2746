@@ -62,24 +62,32 @@ function formatErr(e: unknown): string {
   return String(e);
 }
 
-function canEditTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
+type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
+
+function canEditTask(task: Task, appUser: AppUser | null, can: CanFn, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
-  if (appUser.role === "company_admin") return true;
-  if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
   if (task.owner_id === appUser.id) return true;
   if (task.created_by === appUser.id) return true;
   if (collabMap?.get(task.id)?.has(appUser.id)) return true;
-  return false;
+  if (!can("eip_tasks", "edit")) return false;
+  // dept_manager 僅限本部門（後端 RLS 亦擋，此為 UI 一致性）
+  if (appUser.role === "dept_manager") {
+    return !!task.department_id && task.department_id === appUser.department_id;
+  }
+  return true;
 }
-function canDeleteTask(task: Task, appUser: AppUser | null, collabMap?: Map<string, Set<string>>): boolean {
+function canDeleteTask(task: Task, appUser: AppUser | null, can: CanFn, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
-  if (appUser.role === "company_admin") return true;
-  if (appUser.role === "dept_manager" && task.department_id && task.department_id === appUser.department_id) return true;
   if (task.owner_id === appUser.id) return true;
   if (task.created_by === appUser.id) return true;
   if (collabMap?.get(task.id)?.has(appUser.id)) return true;
-  return false;
+  if (!can("eip_tasks", "delete")) return false;
+  if (appUser.role === "dept_manager") {
+    return !!task.department_id && task.department_id === appUser.department_id;
+  }
+  return true;
 }
+
 
 
 export const Route = createFileRoute("/dashboard/eip/tasks")({
@@ -385,6 +393,8 @@ function TasksPage() {
             deptMap={deptMap}
             collabMap={collabMap}
             appUser={appUser}
+            can={can}
+
 
             onMove={(taskId, toStatusId, newPosition) =>
               moveMutation.mutate({ taskId, toStatusId, newPosition })
@@ -434,7 +444,7 @@ function TasksPage() {
         <EditTaskDialog
           key={detailTask.id}
           task={detailTask}
-          readOnly={!canEditTask(detailTask, appUser, collabMap)}
+          readOnly={!canEditTask(detailTask, appUser, can, collabMap)}
           onClose={() => setDetailTask(null)}
           statuses={statusesQ.data ?? []}
           users={usersQ.data ?? []}
@@ -592,7 +602,8 @@ function MiniSelect({ value, onChange, options }: {
 
 /* ============ 看板視圖 ============ */
 function BoardView({
-  tasks, statuses, userMap, subtaskMap, sourceMap, deptMap, collabMap, appUser, onMove, onOpenDetail, onAskDelete,
+  tasks, statuses, userMap, subtaskMap, sourceMap, deptMap, collabMap, appUser, can, onMove, onOpenDetail, onAskDelete,
+
 }: {
   tasks: Task[]; statuses: Status[];
   userMap: Map<string, AppUser>;
@@ -601,6 +612,8 @@ function BoardView({
   deptMap: Map<string, Department>;
   collabMap: Map<string, Set<string>>;
   appUser: AppUser | null;
+  can: CanFn;
+
   onMove: (taskId: string, toStatusId: string, newPosition: number) => void;
   onOpenDetail: (t: Task) => void;
   onAskDelete: (t: Task) => void;
@@ -659,8 +672,9 @@ function BoardView({
                     source={sourceMap.get(t.id)}
                     deptMap={deptMap}
                     statuses={statuses}
-                    canEdit={canEditTask(t, appUser, collabMap)}
-                    canDelete={canDeleteTask(t, appUser, collabMap)}
+                    canEdit={canEditTask(t, appUser, can, collabMap)}
+                    canDelete={canDeleteTask(t, appUser, can, collabMap)}
+
                     onDragStart={() => setDragId(t.id)}
                     onOpenDetail={() => onOpenDetail(t)}
                     onAskDelete={() => onAskDelete(t)}
