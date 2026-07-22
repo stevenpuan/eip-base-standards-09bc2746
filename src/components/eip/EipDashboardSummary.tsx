@@ -15,12 +15,8 @@ interface AppUserLite {
 }
 
 export function EipDashboardSummary() {
-  const { user, roles } = useAuth();
-  const isManager =
-    roles.includes("admin") ||
-    roles.includes("manager") ||
-    roles.includes("company_admin") ||
-    roles.includes("dept_manager");
+  const { user } = useAuth();
+
 
   const appUserQ = useQuery({
     enabled: !!user?.id,
@@ -37,7 +33,8 @@ export function EipDashboardSummary() {
 
   const appUser = appUserQ.data;
   const managerLevel =
-    isManager || appUser?.role === "company_admin" || appUser?.role === "dept_manager";
+    appUser?.role === "company_admin" || appUser?.role === "dept_manager";
+
 
   const statusesQ = useQuery({
     queryKey: ["eip", "task_status"],
