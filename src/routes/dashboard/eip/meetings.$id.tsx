@@ -72,6 +72,8 @@ function MeetingDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { appUser } = useEipUser();
+  const { can } = useAuth();
+
 
   const meetingQ = useQuery({
     queryKey: ["eip", "meeting", id],
@@ -133,7 +135,7 @@ function MeetingDetailPage() {
   }
 
   const meeting = meetingQ.data;
-  const canEdit = canManage(meeting, appUser);
+  const canEdit = canManage(meeting, appUser, can);
 
   return (
     <div className="space-y-4">
