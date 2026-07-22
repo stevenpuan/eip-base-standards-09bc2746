@@ -62,7 +62,7 @@ function formatErr(e: unknown): string {
   return String(e);
 }
 
-type CanFn = (key: string, action: string) => boolean;
+type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
 
 function canEditTask(task: Task, appUser: AppUser | null, can: CanFn, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
@@ -610,6 +610,8 @@ function BoardView({
   deptMap: Map<string, Department>;
   collabMap: Map<string, Set<string>>;
   appUser: AppUser | null;
+  can: CanFn;
+
   onMove: (taskId: string, toStatusId: string, newPosition: number) => void;
   onOpenDetail: (t: Task) => void;
   onAskDelete: (t: Task) => void;
