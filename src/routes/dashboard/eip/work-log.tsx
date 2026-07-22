@@ -151,7 +151,7 @@ function WorkLogPage() {
         </div>
       ) : (
         <div className="flex items-center gap-2 text-xs text-muted-foreground rounded-lg bg-muted/40 px-3 py-2">
-          <Lock className="w-3.5 h-3.5" /> 此日誌已由 {log.locked_by ? (names[log.locked_by] ?? "主管") : "主管"} 於 {log.locked_at ? new Date(log.locked_at).toLocaleString("zh-TW") : ""} 鎖定，已凍結編輯。
+          <Lock className="w-3.5 h-3.5" /> 此日誌已由 {log.locked_by ? (names[log.locked_by]?.name ?? "主管") : "主管"} 於 {log.locked_at ? new Date(log.locked_at).toLocaleString("zh-TW") : ""} 鎖定，已凍結編輯。
         </div>
       )}
 
