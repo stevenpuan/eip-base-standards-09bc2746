@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -150,6 +150,12 @@ function WorkLogPage() {
           <div className="text-xs font-semibold text-primary mb-1 flex items-center gap-1.5"><Stamp className="w-3.5 h-3.5" /> 單位主管批示</div>
           <div className="text-sm whitespace-pre-wrap">{log.manager_comment}</div>
         </div>
+      )}
+
+      {log.id ? (
+        <Attachments workLogId={log.id} canEdit={editable} />
+      ) : (
+        <p className="text-xs text-muted-foreground pl-1">附加檔案：請先按「儲存草稿」後即可上傳 PDF／Word／Excel／圖片。</p>
       )}
 
       <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} onDelete={(id, d) => deleteLog(id, d)} refreshKey={refreshKey} />
@@ -343,6 +349,7 @@ function SupervisorReview({ meId }: { meId: string }) {
               <div className="mt-0.5 space-y-0.5">{fmtItems(r.special_items).map((it: any, i: number) => <ItemLine key={i} it={it} />)}{fmtItems(r.special_items).length === 0 && <span className="text-muted-foreground pl-1">—</span>}</div>
             </div>
           </div>
+          <Attachments workLogId={r.id} canEdit={false} />
           {r.status === "reviewed" ? (
             <div className="text-sm rounded-lg bg-primary/5 border border-primary/20 p-2"><span className="text-primary font-medium">批示：</span>{r.manager_comment}</div>
           ) : (
@@ -353,6 +360,89 @@ function SupervisorReview({ meId }: { meId: string }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// 工作日誌附加檔案（PDF／Word／Excel／圖片；本人可上傳/刪除、部門主管可檢視下載）
+function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boolean }) {
+  const [files, setFiles] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const load = async () => {
+    const { data } = await supabase.from("work_log_attachment").select("*").eq("work_log_id", workLogId).order("created_at");
+    setFiles(data ?? []);
+  };
+  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [workLogId]);
+
+  const onPick = async (e: any) => {
+    const list: FileList | null = e.target.files;
+    if (!list || !list.length) return;
+    setBusy(true);
+    let ok = 0;
+    for (const f of Array.from(list)) {
+      if (f.size > 10 * 1024 * 1024) { toast.error(`${f.name} 超過 10MB`); continue; }
+      const path = `${workLogId}/${crypto.randomUUID()}`;
+      const up = await supabase.storage.from("worklog").upload(path, f, { contentType: f.type || undefined, upsert: false });
+      if (up.error) { toast.error(`${f.name} 上傳失敗：${up.error.message}`); continue; }
+      const ins = await supabase.from("work_log_attachment").insert({
+        work_log_id: workLogId, file_name: f.name, storage_path: path, mime_type: f.type || null, file_size: f.size,
+      });
+      if (ins.error) { toast.error(ins.error.message); await supabase.storage.from("worklog").remove([path]); continue; }
+      ok += 1;
+    }
+    setBusy(false); e.target.value = "";
+    if (ok) toast.success(`已上傳 ${ok} 個檔案`);
+    void load();
+  };
+
+  const download = async (a: any) => {
+    const { data, error } = await supabase.storage.from("worklog").createSignedUrl(a.storage_path, 60);
+    if (error) { toast.error(error.message); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+  const remove = async (a: any) => {
+    if (!window.confirm(`刪除附件「${a.file_name}」？`)) return;
+    await supabase.storage.from("worklog").remove([a.storage_path]);
+    const { error } = await supabase.from("work_log_attachment").delete().eq("id", a.id);
+    if (error) { toast.error(error.message); return; }
+    void load();
+  };
+  const fmtSize = (n?: number) => !n ? "" : n < 1024 ? `${n}B` : n < 1048576 ? `${(n / 1024).toFixed(0)}KB` : `${(n / 1048576).toFixed(1)}MB`;
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Paperclip className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-semibold">附加檔案</span>
+        <span className="text-xs text-muted-foreground">（PDF／Word／Excel／圖片，單檔 ≤10MB）</span>
+        {canEdit && (
+          <label className="ml-auto">
+            <input type="file" multiple className="hidden" disabled={busy}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" onChange={onPick} />
+            <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border cursor-pointer hover:bg-accent/50 ${busy ? "opacity-50 pointer-events-none" : ""}`}>
+              <UploadCloud className="w-4 h-4" /> {busy ? "上傳中…" : "上傳檔案"}
+            </span>
+          </label>
+        )}
+      </div>
+      {files.length === 0 ? (
+        <p className="text-xs text-muted-foreground pl-1">尚無附件</p>
+      ) : (
+        <ul className="space-y-1">
+          {files.map((a) => (
+            <li key={a.id} className="group flex items-center gap-2 text-sm rounded-lg hover:bg-muted/40 px-2 py-1">
+              <button type="button" onClick={() => download(a)} className="flex items-center gap-2 flex-1 min-w-0 text-left text-primary hover:underline">
+                <Download className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{a.file_name}</span>
+              </button>
+              <span className="text-[11px] text-muted-foreground shrink-0">{fmtSize(a.file_size)}</span>
+              {canEdit && (
+                <button type="button" onClick={() => remove(a)} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
