@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { BellRing, Plus, Trash2 } from "lucide-react";
+import { BellRing, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -20,6 +20,7 @@ interface Setting {
   department_id: string | null;
 }
 interface Dept { id: string; name: string; }
+interface UserLite { id: string; name: string; department_id: string | null; }
 
 const EVENT_LABEL: Record<string, string> = {
   task_assigned: "任務指派給我",
@@ -29,6 +30,7 @@ const EVENT_LABEL: Record<string, string> = {
   recurring_overdue: "常態工作逾期",
   announcement_published: "公告發布",
   meeting_invited: "會議邀請",
+  worklog_submitted: "工作日誌送出",
 };
 const EVENT_CODES = Object.keys(EVENT_LABEL);
 
@@ -60,6 +62,15 @@ function Page() {
       return data as Dept[];
     },
   });
+  const { data: users = [] } = useQuery({
+    queryKey: ["appusers_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_user").select("id,name,department_id").eq("status", "active").order("name");
+      if (error) throw error;
+      return data as UserLite[];
+    },
+  });
+  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? "未知人員";
 
   const defaults = useMemo(() => rows.filter((r) => !r.department_id), [rows]);
   const overrides = useMemo(() => rows.filter((r) => r.department_id), [rows]);
@@ -77,6 +88,18 @@ function Page() {
       const cur = d[id]; if (!cur) return d;
       const has = cur.recipient_scopes.includes(scope);
       return { ...d, [id]: { ...cur, recipient_scopes: has ? cur.recipient_scopes.filter((s) => s !== scope) : [...cur.recipient_scopes, scope] } };
+    });
+  const addUserScope = (id: string, uid: string) =>
+    setDraft((d) => {
+      const cur = d[id]; if (!cur) return d;
+      const tok = `user:${uid}`;
+      if (cur.recipient_scopes.includes(tok)) return d;
+      return { ...d, [id]: { ...cur, recipient_scopes: [...cur.recipient_scopes, tok] } };
+    });
+  const removeScope = (id: string, tok: string) =>
+    setDraft((d) => {
+      const cur = d[id]; if (!cur) return d;
+      return { ...d, [id]: { ...cur, recipient_scopes: cur.recipient_scopes.filter((s) => s !== tok) } };
     });
   const setFlag = (id: string, key: "in_app_enabled" | "line_enabled" | "is_active", v: boolean) =>
     setDraft((d) => (d[id] ? { ...d, [id]: { ...d[id], [key]: v } } : d));
@@ -119,6 +142,7 @@ function Page() {
 
   const Row = ({ r, prefix }: { r: Setting; prefix?: string }) => {
     const d = draft[r.id] ?? r;
+    const userTokens = d.recipient_scopes.filter((s) => s.startsWith("user:"));
     return (
       <div className="grid grid-cols-[1fr_80px_80px_64px_40px] items-start gap-2 px-4 py-3 border-b last:border-b-0">
         <div className="min-w-0">
@@ -138,6 +162,30 @@ function Page() {
               );
             })}
           </div>
+          {/* 指定人員（除層級外，額外指定特定同仁也會收到） */}
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <span className="text-[11px] text-muted-foreground shrink-0">指定人員：</span>
+            {userTokens.length === 0 && <span className="text-[11px] text-muted-foreground/50">（無）</span>}
+            {userTokens.map((tok) => (
+              <span key={tok} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-accent/50 bg-accent/20 text-foreground">
+                {userName(tok.slice(5))}
+                {editable && (
+                  <button onClick={() => removeScope(r.id, tok)} className="text-muted-foreground hover:text-destructive" aria-label="移除">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+            {editable && (
+              <select value="" onChange={(e) => { if (e.target.value) { addUserScope(r.id, e.target.value); } }}
+                className="h-6 rounded-md border bg-card px-1 text-[11px] text-muted-foreground">
+                <option value="">＋加入人員…</option>
+                {users.filter((u) => !d.recipient_scopes.includes(`user:${u.id}`)).map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
         <div className="flex justify-center pt-1"><Toggle on={d.in_app_enabled} disabled={!editable} onClick={() => setFlag(r.id, "in_app_enabled", !d.in_app_enabled)} /></div>
         <div className="flex justify-center pt-1"><Toggle on={d.line_enabled} disabled={!editable} onClick={() => setFlag(r.id, "line_enabled", !d.line_enabled)} /></div>
@@ -153,7 +201,7 @@ function Page() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="通知設定" description="設定每個事件要通知哪些對象（依角色與部門層級），以及走站內或 LINE。"
+      <PageHeader title="通知設定" description="設定每個事件要通知哪些對象（依角色與部門層級，或指定特定人員），以及走站內或 LINE。"
         actions={editable ? <Button onClick={save}>儲存</Button> : undefined} />
 
       <section className="space-y-2">
@@ -193,7 +241,7 @@ function Page() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        「上層部門主管」依部門樹往上一層解析。LINE 已改為每天早上 08:00 彙整推播（每人一則）。編輯接收對象或開關後記得按右上「儲存」。
+        「上層部門主管」依部門樹往上一層解析；「指定人員」可額外把特定同仁（不限直線主管）加入接收名單。LINE 已改為每天早上 08:00 彙整推播（每人一則）。編輯後記得按右上「儲存」。
       </p>
     </div>
   );
