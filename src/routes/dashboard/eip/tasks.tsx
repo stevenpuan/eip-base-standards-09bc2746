@@ -976,7 +976,7 @@ function ListView({
     onChanged();
   };
 
-  const canBulk = can("eip_tasks", "delete");
+  const canBulk = canManage;
 
   const cols = canBulk
     ? "32px minmax(0,1fr) 96px 88px 84px 64px 112px 132px"
