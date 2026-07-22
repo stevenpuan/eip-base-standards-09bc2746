@@ -317,7 +317,9 @@ function ProjectRow({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const canManage = canManageProject(p, appUser);
+  const { can } = useAuth();
+  const canManage = canManageProject(p, appUser, can);
+
   const owner = userMap.get(p.owner_id);
   const pct = taskStat && taskStat.total ? Math.round((taskStat.done / taskStat.total) * 100) : 0;
   const kpiAvg = kpiStat && kpiStat.count ? Math.round(kpiStat.sum / kpiStat.count) : null;
