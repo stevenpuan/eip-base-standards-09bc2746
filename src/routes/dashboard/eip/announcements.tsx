@@ -384,8 +384,10 @@ function AnnouncementRow({
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
-  const canEdit = canEditAnnouncement(a, appUser);
-  const canDel = canDeleteAnnouncement(a, appUser);
+  const { can } = useAuth();
+  const canEdit = canEditAnnouncement(a, appUser, can);
+  const canDel = canDeleteAnnouncement(a, appUser, can);
+
   const isOwnerOrAdmin = !!appUser && (appUser.role === "company_admin" || appUser.id === a.created_by);
 
   // 展開時若已發布且當前使用者尚未讀，標為已讀
