@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud, Lock, Unlock } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud, Lock, Unlock, ChevronDown, History, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -156,19 +156,77 @@ function WorkLogPage() {
       )}
 
       {/* 批示紀錄（本人檢視） */}
-      {log.id && <Reviews workLogId={log.id} meId={appUser!.id} names={names} canReview={false} locked={log.locked} defaultRole={myReviewRole} />}
+      {log.id && (
+        <ReviewsCollapsible workLogId={log.id} meId={appUser!.id} names={names} locked={log.locked} defaultRole={myReviewRole} />
+      )}
 
       {/* 附加檔案 */}
       {log.id ? (
-        <Attachments workLogId={log.id} canEdit={editable} />
+        <Collapsible title="附加檔案" Icon={Paperclip} defaultOpen={false}>
+          <Attachments workLogId={log.id} canEdit={editable} />
+        </Collapsible>
       ) : (
         <p className="text-xs text-muted-foreground pl-1">附加檔案：請先按「儲存草稿」後即可上傳 PDF／Word／Excel／圖片。</p>
       )}
 
-      <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} onDelete={(id, d) => deleteLog(id, d)} refreshKey={refreshKey} />
+      <Collapsible title="我的日誌記錄" Icon={History} defaultOpen={false}>
+        <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} onDelete={(id, d) => deleteLog(id, d)} refreshKey={refreshKey} />
+      </Collapsible>
 
-      {isSupervisor && <SupervisorReview meId={appUser!.id} names={names} myReviewRole={myReviewRole} />}
+      {isSupervisor && (
+        <Collapsible title="部門日誌批示" Icon={Users} defaultOpen={false} tone="primary">
+          <SupervisorReview meId={appUser!.id} names={names} myReviewRole={myReviewRole} />
+        </Collapsible>
+      )}
     </div>
+  );
+}
+
+// 可收合區塊
+function Collapsible({ title, Icon, children, defaultOpen = false, tone, badge }: {
+  title: string; Icon?: typeof Zap; children: ReactNode; defaultOpen?: boolean; tone?: "primary" | "accent"; badge?: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const iconCls = tone === "primary" ? "text-primary" : tone === "accent" ? "text-accent" : "text-muted-foreground";
+  return (
+    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/40 transition-colors text-left">
+        {Icon && <Icon className={`w-4 h-4 shrink-0 ${iconCls}`} />}
+        <span className="text-sm font-semibold flex-1">{title}</span>
+        {badge}
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="px-4 pb-4 pt-1 border-t">{children}</div>}
+    </div>
+  );
+}
+
+// Reviews 包裝：計算是否有資料再決定是否顯示，並展示批示數量徽章
+function ReviewsCollapsible({ workLogId, meId, names, locked, defaultRole }: {
+  workLogId: string; meId: string; names: Record<string, { name: string; job_title?: string | null }>; locked: boolean; defaultRole: "manager" | "unit";
+}) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    (async () => {
+      const { count: c } = await supabase.from("work_log_review").select("id", { count: "exact", head: true }).eq("work_log_id", workLogId);
+      setCount(c ?? 0);
+    })();
+  }, [workLogId]);
+  return (
+    <Collapsible
+      title="主管批示"
+      Icon={Stamp}
+      tone="primary"
+      defaultOpen={(count ?? 0) > 0}
+      badge={count != null && count > 0 ? (
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{count}</span>
+      ) : (
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">尚未批示</span>
+      )}
+    >
+      <Reviews workLogId={workLogId} meId={meId} names={names} canReview={false} locked={locked} defaultRole={defaultRole} />
+    </Collapsible>
   );
 }
 
@@ -269,7 +327,6 @@ function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: s
   return (
     <div className="space-y-2 pt-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <h2 className="text-sm font-semibold text-muted-foreground">我的日誌記錄</h2>
         <input type="month" value={month} max={today().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-md border bg-card px-2 text-xs" />
         <select value={st} onChange={(e) => setSt(e.target.value)} className="h-8 rounded-md border bg-card px-2 text-xs">
           <option value="all">全部狀態</option><option value="draft">草稿</option><option value="submitted">已送出</option>
@@ -429,7 +486,7 @@ function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: 
   return (
     <div className="space-y-3 pt-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <h2 className="text-sm font-semibold flex items-center gap-2"><Stamp className="w-4 h-4 text-primary" /> 部門日誌批示</h2>
+        
         <label className="text-xs text-muted-foreground flex items-center gap-1"><input type="checkbox" checked={showLocked} onChange={(e) => setShowLocked(e.target.checked)} /> 顯示已鎖定</label>
         <div className="relative flex-1 min-w-[140px]">
           <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
