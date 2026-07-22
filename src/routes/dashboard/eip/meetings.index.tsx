@@ -78,7 +78,8 @@ function MeetingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { appUser } = useEipUser();
-  const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
+  const { can } = useAuth();
+  const canCreate = can("eip_meetings", "create");
 
   const [openCreate, setOpenCreate] = useState(false);
   const [deleteMeeting, setDeleteMeeting] = useState<Meeting | null>(null);
