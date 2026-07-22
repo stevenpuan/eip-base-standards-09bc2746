@@ -73,8 +73,10 @@ function RecurringPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
   const { can } = useAuth();
-  const allowed = can("eip_recurring", "view") || canManageEip(appUser?.role);
-  const canManage = can("eip_recurring", "edit") || canManageEip(appUser?.role);
+  // 權限一律讀「角色權限設定」（常態工作模組），不寫死角色
+  const allowed = can("eip_recurring", "view");
+  const canCreate = can("eip_recurring", "create");
+  const canManage = can("eip_recurring", "edit");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Rule | null>(null);
@@ -153,7 +155,7 @@ function RecurringPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={runNow} disabled={running}><Play className="w-4 h-4 mr-1" />{running ? "產生中…" : "立即產生/檢查"}</Button>
-            {canManage && (
+            {canCreate && (
               <Button onClick={() => { setEditing(null); setOpen(true); }}>
                 <Plus className="w-4 h-4 mr-1" />新增規則
               </Button>
