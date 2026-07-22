@@ -68,6 +68,7 @@ const MEETING_STATUS_LABEL: Record<string, string> = {
 function ProjectDetailPage() {
   const { id } = Route.useParams();
   const { appUser } = useEipUser();
+  const { can } = useAuth();
   const qc = useQueryClient();
 
   const projectQ = useQuery({
