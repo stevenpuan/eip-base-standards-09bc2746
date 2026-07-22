@@ -69,10 +69,8 @@ function fmtDate(d: Date) {
 function ReportsPage() {
   const { roles, loading: authLoading, can } = useAuth();
   const { appUser } = useEipUser();
-  const isManager =
-    roles.includes("admin") || roles.includes("manager") ||
-    roles.includes("company_admin") || roles.includes("dept_manager") ||
-    canManageEip(appUser?.role);
+  // 進頁與檢視權限一律讀「角色權限設定」（報表分析模組的檢視權），不寫死角色
+  const isManager = can("eip_reports", "view");
 
   const [period, setPeriod] = useState<Period>("month");
   const [deptId, setDeptId] = useState<string>("all");
