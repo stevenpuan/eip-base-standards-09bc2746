@@ -33,6 +33,7 @@ import { Route as DashboardDevHistoryRouteImport } from './routes/dashboard/dev-
 import { Route as DashboardAuditLogsRouteImport } from './routes/dashboard/audit-logs'
 import { Route as DashboardAssistantIntentRouteImport } from './routes/dashboard/assistant-intent'
 import { Route as DashboardActivityLogsRouteImport } from './routes/dashboard/activity-logs'
+import { Route as DashboardEipWorkLogRouteImport } from './routes/dashboard/eip/work-log'
 import { Route as DashboardEipTasksRouteImport } from './routes/dashboard/eip/tasks'
 import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/reports'
 import { Route as DashboardEipRecurringRouteImport } from './routes/dashboard/eip/recurring'
@@ -179,6 +180,11 @@ const DashboardActivityLogsRoute = DashboardActivityLogsRouteImport.update({
   id: '/activity-logs',
   path: '/activity-logs',
   getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardEipWorkLogRoute = DashboardEipWorkLogRouteImport.update({
+  id: '/work-log',
+  path: '/work-log',
+  getParentRoute: () => DashboardEipRoute,
 } as any)
 const DashboardEipTasksRoute = DashboardEipTasksRouteImport.update({
   id: '/tasks',
@@ -339,6 +345,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
   '/dashboard/eip/reports': typeof DashboardEipReportsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
+  '/dashboard/eip/work-log': typeof DashboardEipWorkLogRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
   '/dashboard/eip/meetings/$id': typeof DashboardEipMeetingsIdRoute
@@ -383,6 +390,7 @@ export interface FileRoutesByTo {
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
   '/dashboard/eip/reports': typeof DashboardEipReportsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
+  '/dashboard/eip/work-log': typeof DashboardEipWorkLogRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
   '/dashboard/eip/meetings/$id': typeof DashboardEipMeetingsIdRoute
@@ -432,6 +440,7 @@ export interface FileRoutesById {
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
   '/dashboard/eip/reports': typeof DashboardEipReportsRoute
   '/dashboard/eip/tasks': typeof DashboardEipTasksRoute
+  '/dashboard/eip/work-log': typeof DashboardEipWorkLogRoute
   '/dashboard/eip/feature-requests/$id': typeof DashboardEipFeatureRequestsIdRouteWithChildren
   '/dashboard/eip/feature-requests/new': typeof DashboardEipFeatureRequestsNewRoute
   '/dashboard/eip/meetings/$id': typeof DashboardEipMeetingsIdRoute
@@ -482,6 +491,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/recurring'
     | '/dashboard/eip/reports'
     | '/dashboard/eip/tasks'
+    | '/dashboard/eip/work-log'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
     | '/dashboard/eip/meetings/$id'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/recurring'
     | '/dashboard/eip/reports'
     | '/dashboard/eip/tasks'
+    | '/dashboard/eip/work-log'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
     | '/dashboard/eip/meetings/$id'
@@ -574,6 +585,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/recurring'
     | '/dashboard/eip/reports'
     | '/dashboard/eip/tasks'
+    | '/dashboard/eip/work-log'
     | '/dashboard/eip/feature-requests/$id'
     | '/dashboard/eip/feature-requests/new'
     | '/dashboard/eip/meetings/$id'
@@ -759,6 +771,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/activity-logs'
       preLoaderRoute: typeof DashboardActivityLogsRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/eip/work-log': {
+      id: '/dashboard/eip/work-log'
+      path: '/work-log'
+      fullPath: '/dashboard/eip/work-log'
+      preLoaderRoute: typeof DashboardEipWorkLogRouteImport
+      parentRoute: typeof DashboardEipRoute
     }
     '/dashboard/eip/tasks': {
       id: '/dashboard/eip/tasks'
@@ -993,6 +1012,7 @@ interface DashboardEipRouteChildren {
   DashboardEipRecurringRoute: typeof DashboardEipRecurringRoute
   DashboardEipReportsRoute: typeof DashboardEipReportsRoute
   DashboardEipTasksRoute: typeof DashboardEipTasksRoute
+  DashboardEipWorkLogRoute: typeof DashboardEipWorkLogRoute
 }
 
 const DashboardEipRouteChildren: DashboardEipRouteChildren = {
@@ -1011,6 +1031,7 @@ const DashboardEipRouteChildren: DashboardEipRouteChildren = {
   DashboardEipRecurringRoute: DashboardEipRecurringRoute,
   DashboardEipReportsRoute: DashboardEipReportsRoute,
   DashboardEipTasksRoute: DashboardEipTasksRoute,
+  DashboardEipWorkLogRoute: DashboardEipWorkLogRoute,
 }
 
 const DashboardEipRouteWithChildren = DashboardEipRoute._addFileChildren(
@@ -1077,3 +1098,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
