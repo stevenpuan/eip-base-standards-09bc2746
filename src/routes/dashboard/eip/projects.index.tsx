@@ -29,11 +29,14 @@ import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type Visibi
 
 export const Route = createFileRoute("/dashboard/eip/projects/")({ component: ProjectsPage });
 
-function canManageProject(p: Project, appUser: AppUser | null): boolean {
+type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
+
+function canManageProject(p: Project, appUser: AppUser | null, can: CanFn): boolean {
   if (!appUser) return false;
-  if (appUser.role === "company_admin" || appUser.role === "dept_manager") return true;
-  return p.owner_id === appUser.id;
+  if (p.owner_id === appUser.id) return true;
+  return can("eip_projects", "edit") || can("eip_projects", "delete");
 }
+
 
 type Project = Database["public"]["Tables"]["project"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
