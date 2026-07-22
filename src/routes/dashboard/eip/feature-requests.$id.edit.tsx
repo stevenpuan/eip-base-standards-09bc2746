@@ -29,7 +29,8 @@ function EditFeatureRequestPage() {
   const navigate = useNavigate();
   const { id } = useParams({ from: "/dashboard/eip/feature-requests/$id/edit" });
   const { appUser } = useEipUser();
-  const canManage = canManageEip(appUser?.role);
+  const { can } = useAuth();
+  const canManage = can("eip_feature_pool", "edit");
 
   const [title, setTitle] = useState("");
   const [scope, setScope] = useState("");
