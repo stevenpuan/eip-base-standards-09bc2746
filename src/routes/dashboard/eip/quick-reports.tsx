@@ -101,6 +101,8 @@ function QuickReportsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [keyword, setKeyword] = useState("");
+  const [mineOnly, setMineOnly] = useState<boolean>(false);
+
 
   const listQ = useQuery({
     queryKey: ["eip", "quick-reports"],
