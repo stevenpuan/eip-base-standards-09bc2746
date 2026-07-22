@@ -327,7 +327,6 @@ function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: s
   return (
     <div className="space-y-2 pt-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <h2 className="text-sm font-semibold text-muted-foreground">我的日誌記錄</h2>
         <input type="month" value={month} max={today().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} className="h-8 rounded-md border bg-card px-2 text-xs" />
         <select value={st} onChange={(e) => setSt(e.target.value)} className="h-8 rounded-md border bg-card px-2 text-xs">
           <option value="all">全部狀態</option><option value="draft">草稿</option><option value="submitted">已送出</option>
