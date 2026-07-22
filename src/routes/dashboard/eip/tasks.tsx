@@ -1412,6 +1412,37 @@ export function EditTaskDialog({
   const [notesLoading, setNotesLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
   const [postingNote, setPostingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [savingNoteEdit, setSavingNoteEdit] = useState(false);
+
+  const startEditNote = (n: TaskUpdateRow) => {
+    setEditingNoteId(n.id);
+    setEditingNoteText(n.comment ?? "");
+  };
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteText("");
+  };
+  const saveEditNote = async (id: string) => {
+    const text = editingNoteText.trim();
+    if (!text) return;
+    setSavingNoteEdit(true);
+    const { error } = await supabase
+      .from("task_update")
+      .update({ comment: text })
+      .eq("id", id);
+    setSavingNoteEdit(false);
+    if (error) { toast.error("修改失敗：" + formatErr(error)); return; }
+    cancelEditNote();
+    void loadNotes();
+  };
+  const deleteNote = async (id: string) => {
+    if (!confirm("確定要刪除這則補充說明？")) return;
+    const { error } = await supabase.from("task_update").delete().eq("id", id);
+    if (error) { toast.error("刪除失敗：" + formatErr(error)); return; }
+    void loadNotes();
+  };
 
   const [changeLog, setChangeLog] = useState<ChangeLogRow[]>([]);
   const [changeLogLoading, setChangeLogLoading] = useState(true);
@@ -1585,15 +1616,39 @@ export function EditTaskDialog({
               <div className="text-xs text-muted-foreground">尚無補充說明</div>
             ) : (
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {notes.map((n) => (
-                  <div key={n.id} className="rounded-md border bg-muted/30 p-2">
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span className="font-medium text-foreground">{userMap.get(n.user_id) ?? "使用者"}</span>
-                      <span>{new Date(n.created_at).toLocaleString("zh-TW")}</span>
+                {notes.map((n) => {
+                  const canModify = appUser?.id === n.user_id;
+                  const isEditing = editingNoteId === n.id;
+                  return (
+                    <div key={n.id} className="rounded-md border bg-muted/30 p-2">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">{userMap.get(n.user_id) ?? "使用者"}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{new Date(n.created_at).toLocaleString("zh-TW")}</span>
+                          {canModify && !isEditing && (
+                            <>
+                              <button type="button" className="text-primary hover:underline" onClick={() => startEditNote(n)}>編輯</button>
+                              <button type="button" className="text-destructive hover:underline" onClick={() => deleteNote(n.id)}>刪除</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {isEditing ? (
+                        <div className="mt-1 flex flex-col gap-2">
+                          <Textarea rows={2} value={editingNoteText} onChange={(e) => setEditingNoteText(e.target.value)} />
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={cancelEditNote} disabled={savingNoteEdit}>取消</Button>
+                            <Button size="sm" onClick={() => saveEditNote(n.id)} disabled={savingNoteEdit || !editingNoteText.trim()}>
+                              {savingNoteEdit ? "儲存中…" : "儲存"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm whitespace-pre-wrap mt-1">{n.comment}</div>
+                      )}
                     </div>
-                    <div className="text-sm whitespace-pre-wrap mt-1">{n.comment}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {appUser && (
