@@ -303,6 +303,8 @@ function TasksPage() {
         { header: "優先級", key: "priority", map: (r) => PRIORITY_LABEL[r.priority] ?? r.priority },
         { header: "進度(%)", key: "progress" },
         { header: "負責人", key: "owner_id", map: (r) => userMap.get(r.owner_id)?.name ?? "" },
+        { header: "建立者", key: "created_by", map: (r) => userMap.get(r.created_by)?.name ?? "" },
+        { header: "協作者", key: "id", map: (r) => Array.from(collabMap.get(r.id) ?? []).map((uid) => userMap.get(uid)?.name).filter(Boolean).join("、") },
         { header: "部門", key: "department_id", map: (r) => (r.department_id ? deptMap.get(r.department_id)?.name ?? "" : "") },
         { header: "專案", key: "project_id", map: (r) => (r.project_id ? projectMap.get(r.project_id)?.name ?? "" : "") },
         { header: "期限", key: "due_date", map: (r) => r.due_date ?? "" },
@@ -1382,6 +1384,16 @@ type TaskUpdateRow = {
   user_id: string;
 };
 
+type ChangeLogRow = {
+  id: string;
+  task_id: string;
+  changed_by: string | null;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+};
+
 export function EditTaskDialog({
   task, readOnly, onClose, onSaved, statuses, users, departments, projects,
 }: {
@@ -1400,6 +1412,21 @@ export function EditTaskDialog({
   const [notesLoading, setNotesLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
   const [postingNote, setPostingNote] = useState(false);
+
+  const [changeLog, setChangeLog] = useState<ChangeLogRow[]>([]);
+  const [changeLogLoading, setChangeLogLoading] = useState(true);
+
+  const loadChangeLog = async () => {
+    setChangeLogLoading(true);
+    const { data, error } = await supabase
+      .from("task_change_log")
+      .select("*")
+      .eq("task_id", task.id)
+      .order("created_at", { ascending: false });
+    setChangeLogLoading(false);
+    if (!error) setChangeLog((data ?? []) as ChangeLogRow[]);
+  };
+  useEffect(() => { void loadChangeLog(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
 
   const loadNotes = async () => {
     setNotesLoading(true);
@@ -1585,6 +1612,38 @@ export function EditTaskDialog({
               </div>
             )}
           </div>
+
+          {task.id && (
+            <div className="mt-2 border-t pt-3">
+              <div className="text-sm font-medium mb-2">變更紀錄</div>
+              {changeLogLoading ? (
+                <div className="text-xs text-muted-foreground">載入中…</div>
+              ) : changeLog.length === 0 ? (
+                <div className="text-xs text-muted-foreground">尚無變更紀錄</div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {changeLog.map((c) => {
+                    const actor = c.changed_by == null ? "系統" : (userMap.get(c.changed_by) ?? "—");
+                    const desc =
+                      c.old_value == null
+                        ? `新增${c.field}：${c.new_value}`
+                        : c.new_value == null
+                          ? `移除${c.field}：${c.old_value}`
+                          : `${c.field}：${c.old_value} → ${c.new_value}`;
+                    return (
+                      <div key={c.id} className="rounded-lg border bg-muted/30 p-2">
+                        <div className="text-sm">{desc}</div>
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
+                          <span className="font-medium text-foreground">{actor}</span>
+                          <span>{new Date(c.created_at).toLocaleString("zh-TW")}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
