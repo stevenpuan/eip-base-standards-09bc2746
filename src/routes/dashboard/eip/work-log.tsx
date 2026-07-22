@@ -379,7 +379,7 @@ function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refre
 }
 
 // 部門日誌批示：預設待批示，可切換顯示已鎖定、可搜尋
-function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: Record<string, string>; myReviewRole: "manager" | "unit" }) {
+function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: Record<string, { name: string; job_title?: string | null }>; myReviewRole: "manager" | "unit" }) {
   const [rows, setRows] = useState<any[]>([]);
   const [showLocked, setShowLocked] = useState(false);
   const [q, setQ] = useState("");
