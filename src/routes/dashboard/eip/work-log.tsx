@@ -401,7 +401,7 @@ function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: 
   };
 
   const fmtItems = (v: any) => (Array.isArray(v) ? v : []);
-  const nameOf = (r: any) => names[r.user_id] ?? "同仁";
+  const nameOf = (r: any) => names[r.user_id]?.name ?? "同仁";
   const filtered = rows
     .filter((r) => showLocked || !r.locked)
     .filter((r) => !q || (nameOf(r) + txtOf(r)).toLowerCase().includes(q.toLowerCase()));
