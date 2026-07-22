@@ -181,11 +181,13 @@ export function QuickReportButton() {
             <DialogTitle>快速回報</DialogTitle>
           </DialogHeader>
           <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="late">遲到</TabsTrigger>
               <TabsTrigger value="leave">請假</TabsTrigger>
               <TabsTrigger value="other">事件</TabsTrigger>
+              <TabsTrigger value="mine">我的紀錄</TabsTrigger>
             </TabsList>
+
 
             {/* 遲到 */}
             <TabsContent value="late" className="space-y-3 pt-2">
