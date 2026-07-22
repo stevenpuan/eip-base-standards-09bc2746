@@ -143,20 +143,23 @@ function Page() {
   const Row = ({ r, prefix }: { r: Setting; prefix?: string }) => {
     const d = draft[r.id] ?? r;
     const userTokens = d.recipient_scopes.filter((s) => s.startsWith("user:"));
+    const inactive = !d.is_active;
+    const canInteract = editable && !inactive;
     return (
-      <div className="grid grid-cols-[1fr_80px_80px_64px_40px] items-start gap-2 px-4 py-3 border-b last:border-b-0">
-        <div className="min-w-0">
+      <div className={`grid grid-cols-[1fr_80px_80px_64px_40px] items-start gap-2 px-4 py-3 border-b last:border-b-0 transition-colors ${inactive ? "bg-muted/30" : ""}`}>
+        <div className={`min-w-0 transition-opacity ${inactive ? "opacity-50" : ""}`}>
           <div className="text-sm font-medium mb-2 flex items-center gap-2">
             <BellRing className="w-3.5 h-3.5 text-muted-foreground" />
             {prefix && <span className="text-primary">{prefix}</span>}
             {EVENT_LABEL[r.event_code] ?? r.event_code}
+            {inactive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border">已停用</span>}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {SCOPES.map((s) => {
               const on = d.recipient_scopes.includes(s.key);
               return (
-                <button key={s.key} disabled={!editable} onClick={() => toggleScope(r.id, s.key)}
-                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${on ? "bg-primary/10 text-primary border-primary/40" : "bg-card text-muted-foreground hover:bg-accent/50"} ${editable ? "" : "opacity-70 cursor-default"}`}>
+                <button key={s.key} disabled={!canInteract} onClick={() => toggleScope(r.id, s.key)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${on ? "bg-primary/10 text-primary border-primary/40" : "bg-card text-muted-foreground hover:bg-accent/50"} ${canInteract ? "" : "opacity-70 cursor-not-allowed"}`}>
                   {s.label}
                 </button>
               );
@@ -169,14 +172,14 @@ function Page() {
             {userTokens.map((tok) => (
               <span key={tok} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-accent/50 bg-accent/20 text-foreground">
                 {userName(tok.slice(5))}
-                {editable && (
+                {canInteract && (
                   <button onClick={() => removeScope(r.id, tok)} className="text-muted-foreground hover:text-destructive" aria-label="移除">
                     <X className="w-3 h-3" />
                   </button>
                 )}
               </span>
             ))}
-            {editable && (
+            {canInteract && (
               <select value="" onChange={(e) => { if (e.target.value) { addUserScope(r.id, e.target.value); } }}
                 className="h-6 rounded-md border bg-card px-1 text-[11px] text-muted-foreground">
                 <option value="">＋加入人員…</option>
@@ -187,8 +190,8 @@ function Page() {
             )}
           </div>
         </div>
-        <div className="flex justify-center pt-1"><Toggle on={d.in_app_enabled} disabled={!editable} onClick={() => setFlag(r.id, "in_app_enabled", !d.in_app_enabled)} /></div>
-        <div className="flex justify-center pt-1"><Toggle on={d.line_enabled} disabled={!editable} onClick={() => setFlag(r.id, "line_enabled", !d.line_enabled)} /></div>
+        <div className={`flex justify-center pt-1 ${inactive ? "opacity-50" : ""}`}><Toggle on={d.in_app_enabled} disabled={!canInteract} onClick={() => setFlag(r.id, "in_app_enabled", !d.in_app_enabled)} /></div>
+        <div className={`flex justify-center pt-1 ${inactive ? "opacity-50" : ""}`}><Toggle on={d.line_enabled} disabled={!canInteract} onClick={() => setFlag(r.id, "line_enabled", !d.line_enabled)} /></div>
         <div className="flex justify-center pt-1"><Toggle on={d.is_active} disabled={!editable} onClick={() => setFlag(r.id, "is_active", !d.is_active)} /></div>
         <div className="flex justify-center pt-1">
           {r.department_id && editable ? (
