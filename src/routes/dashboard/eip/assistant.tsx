@@ -111,6 +111,9 @@ function AssistantPage() {
       if (newId) {
         qc.invalidateQueries({ queryKey: ["eip", "assistant", "messages", newId] });
       }
+      // Clear optimistic entries so the refetched persisted rows are the single source
+      // of truth (otherwise the just-sent exchange renders twice).
+      setOptimistic([]);
     } catch (e: any) {
       setError(e?.message ?? "未知錯誤");
       setOptimistic((prev) => prev.filter((m) => !m.pending));

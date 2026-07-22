@@ -312,6 +312,20 @@ function TasksPage() {
     });
   };
 
+  const anyLoadError = [statusesQ, tasksQ, subtasksQ, collabQ, usersQ, deptsQ, projectsQ, typesQ].some((q) => q && (q as any).isError);
+  if (anyLoadError) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <p className="text-sm text-muted-foreground">載入任務資料時發生錯誤，請稍後再試。</p>
+        <button
+          onClick={() => { statusesQ.refetch(); tasksQ.refetch(); subtasksQ.refetch(); collabQ.refetch(); usersQ.refetch(); deptsQ.refetch(); projectsQ.refetch(); typesQ.refetch(); }}
+          className="px-4 py-2 rounded-md border text-sm hover:bg-accent"
+        >
+          重新載入
+        </button>
+      </div>
+    );
+  }
   if (statusesQ.isLoading || tasksQ.isLoading) {
     return <div className="text-muted-foreground py-8">載入中…</div>;
   }
@@ -929,9 +943,9 @@ function ListView({
     if (bulkDue) patch.due_date = bulkDue;
     if (!Object.keys(patch).length) return toast.error("請選擇要套用的欄位");
     const ids = Array.from(selected);
-    const { error } = await supabase.from("task").update(patch).in("id", ids);
+    const { data, error } = await supabase.from("task").update(patch).in("id", ids).select("id");
     if (error) return toast.error(error.message);
-    toast.success(`已更新 ${ids.length} 筆`);
+    toast.success(`已更新 ${data?.length ?? 0} 筆`);
     setSelected(new Set()); setBulkStatus(""); setBulkOwner(""); setBulkDue("");
     onChanged();
   };

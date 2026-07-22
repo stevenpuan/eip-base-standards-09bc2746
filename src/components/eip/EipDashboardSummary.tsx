@@ -55,11 +55,24 @@ export function EipDashboardSummary() {
 
   const tasksQ = useQuery({
     enabled: !!appUser?.id,
-    queryKey: ["dashboard", "eip-tasks", appUser?.id],
+    queryKey: ["dashboard", "eip-tasks", appUser?.id, appUser?.role, appUser?.department_id],
     queryFn: async () => {
-      const { data } = await supabase
+      // 依角色縮小抓取範圍，避免每次登入都抓全公司任務：
+      // 一般員工→只抓自己(負責/建立)；部門主管→本部門+自己；公司層管理者→全部(需公司概況)
+      let q = supabase
         .from("task")
         .select("id,title,status_id,owner_id,created_by,due_date,progress,department_id,project_id");
+      const role = appUser?.role;
+      if (role === "company_admin") {
+        // 全公司概況需要全部任務（僅限公司層管理者）
+      } else if (role === "dept_manager" && appUser?.department_id) {
+        q = q.or(
+          `department_id.eq.${appUser.department_id},owner_id.eq.${appUser.id},created_by.eq.${appUser.id}`,
+        );
+      } else {
+        q = q.or(`owner_id.eq.${appUser!.id},created_by.eq.${appUser!.id}`);
+      }
+      const { data } = await q;
       return data ?? [];
     },
   });

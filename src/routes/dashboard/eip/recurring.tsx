@@ -78,6 +78,7 @@ function RecurringPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Rule | null>(null);
+  const [running, setRunning] = useState(false);
 
   const rulesQ = useQuery({
     queryKey: ["eip", "recurring"],
@@ -133,9 +134,12 @@ function RecurringPage() {
     else { toast.success("已刪除"); refresh(); }
   };
   const runNow = async () => {
+    if (running) return;
+    setRunning(true);
     const { error } = await supabase.rpc("eip_run_recurring", {});
+    setRunning(false);
     if (error) toast.error(error.message);
-    else toast.success("已執行：產生到期任務與提醒");
+    else { toast.success("已執行：產生到期任務與提醒"); refresh(); }
   };
 
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
@@ -148,7 +152,7 @@ function RecurringPage() {
         description="集中管理週期性任務（每日 / 每週 / 每月 / 每年），由系統自動依排程生成任務與提醒。"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={runNow}><Play className="w-4 h-4 mr-1" />立即產生/檢查</Button>
+            <Button variant="outline" onClick={runNow} disabled={running}><Play className="w-4 h-4 mr-1" />{running ? "產生中…" : "立即產生/檢查"}</Button>
             {canManage && (
               <Button onClick={() => { setEditing(null); setOpen(true); }}>
                 <Plus className="w-4 h-4 mr-1" />新增規則
@@ -752,4 +756,3 @@ function MetricCard({ label, value, tone }: { label: string; value: number; tone
     </Card>
   );
 }
-
