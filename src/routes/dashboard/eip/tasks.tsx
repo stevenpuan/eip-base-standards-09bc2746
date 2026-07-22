@@ -405,7 +405,7 @@ function TasksPage() {
             statuses={statusesQ.data ?? []}
             users={usersQ.data ?? []}
             appUser={appUser}
-            canManage={canManageEip(appUser?.role)}
+            canManage={can("eip_tasks", "edit") || can("eip_tasks", "delete")}
             onChanged={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
             onOpenDetail={(t) => setDetailTask(t)}
           />
