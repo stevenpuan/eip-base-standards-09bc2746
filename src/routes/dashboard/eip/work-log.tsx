@@ -39,11 +39,13 @@ function WorkLogPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [names, setNames] = useState<Record<string, string>>({});
+  const [names, setNames] = useState<Record<string, { name: string; job_title?: string | null }>>({});
 
   useEffect(() => {
-    void supabase.from("app_user").select("id,name").then((r: any) => {
-      const m: Record<string, string> = {}; (r.data ?? []).forEach((u: any) => (m[u.id] = u.name)); setNames(m);
+    void supabase.from("app_user").select("id,name,job_title").then((r: any) => {
+      const m: Record<string, { name: string; job_title?: string | null }> = {};
+      (r.data ?? []).forEach((u: any) => (m[u.id] = { name: u.name, job_title: u.job_title }));
+      setNames(m);
     });
   }, []);
 
