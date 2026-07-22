@@ -99,8 +99,6 @@ type Priority = Database["public"]["Enums"]["task_priority"];
 
 const ALL_PRIORITIES: Priority[] = ["low", "normal", "high", "urgent"];
 
-const PAGE_SIZE = 50;
-
 function TasksPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
@@ -890,6 +888,7 @@ function ListView({
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkOwner, setBulkOwner] = useState("");
@@ -920,11 +919,11 @@ function ListView({
     return list;
   }, [tasks, sortKey, sortDir, userMap, statusMap, projectMap]);
 
-  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const paged = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   // 篩選/排序後清單改變時回到第 1 頁
-  useEffect(() => { setPage(1); }, [sorted.length]);
+  useEffect(() => { setPage(1); }, [sorted.length, pageSize]);
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -1099,15 +1098,27 @@ function ListView({
           </div>
         </div>
       </div>
-      {sorted.length > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>第 {page} / {pageCount} 頁（共 {sorted.length} 筆）</span>
+      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+        <div className="flex items-center gap-2">
+          <span>每頁</span>
+          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+            <SelectTrigger className="h-8 w-[72px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span>筆</span>
+        </div>
+        {sorted.length > pageSize && (
           <div className="flex items-center gap-2">
+            <span>第 {page} / {pageCount} 頁（共 {sorted.length} 筆）</span>
             <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</Button>
             <Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>下一頁</Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
