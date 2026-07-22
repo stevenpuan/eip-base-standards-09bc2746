@@ -215,7 +215,7 @@ function MeetingsPage() {
 
           <div className="space-y-2">
             {filtered.map((m) => {
-              const canManage = canManageMeeting(m, appUser);
+              const canManage = canManageMeeting(m, appUser, can);
               const count = attendeesCountQ.data?.get(m.id) ?? 0;
               return (
                 <Card
