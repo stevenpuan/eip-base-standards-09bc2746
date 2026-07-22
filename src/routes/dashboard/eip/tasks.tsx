@@ -105,7 +105,7 @@ function TasksPage() {
   const { can } = useAuth();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-  const canCreate = canManageEip(appUser?.role) || appUser?.role === "member";
+  const canCreate = can("eip_tasks", "create");
   const canExport = can("eip_tasks", "export");
 
   // 共用篩選 state
