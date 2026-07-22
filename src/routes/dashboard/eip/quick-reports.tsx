@@ -174,6 +174,14 @@ function QuickReportsPage() {
       <PageHeader title="臨時回報" description="檢視遲到 / 請假 / 事件回報（同仁看自己的，主管看部門）。" />
 
       <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={mineOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => setMineOnly((v) => !v)}
+        >
+          {mineOnly ? "顯示：只看我的" : "只看我的"}
+        </Button>
+
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
           <SelectContent>
