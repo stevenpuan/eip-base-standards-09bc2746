@@ -99,6 +99,8 @@ type Priority = Database["public"]["Enums"]["task_priority"];
 
 const ALL_PRIORITIES: Priority[] = ["low", "normal", "high", "urgent"];
 
+const PAGE_SIZE = 50;
+
 function TasksPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
@@ -888,7 +890,6 @@ function ListView({
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
-  const pageSize = 20;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkOwner, setBulkOwner] = useState("");
@@ -919,8 +920,11 @@ function ListView({
     return list;
   }, [tasks, sortKey, sortDir, userMap, statusMap, projectMap]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const paged = sorted.slice((page - 1) * pageSize, page * pageSize);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // 篩選/排序後清單改變時回到第 1 頁
+  useEffect(() => { setPage(1); }, [sorted.length]);
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -1095,14 +1099,15 @@ function ListView({
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>共 {sorted.length} 筆</span>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</Button>
-          <span>{page} / {totalPages}</span>
-          <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>下一頁</Button>
+      {sorted.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>第 {page} / {pageCount} 頁（共 {sorted.length} 筆）</span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</Button>
+            <Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>下一頁</Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
