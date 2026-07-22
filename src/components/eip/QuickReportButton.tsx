@@ -262,55 +262,8 @@ export function QuickReportButton() {
                 <Button disabled={busy} onClick={submitOther}>送出</Button>
               </DialogFooter>
             </TabsContent>
-            {/* 我的紀錄 */}
-            <TabsContent value="mine" className="pt-2">
-              <div className="max-h-[60vh] overflow-y-auto -mx-1 px-1">
-                {loadingMine ? (
-                  <div className="text-sm text-muted-foreground py-8 text-center">載入中…</div>
-                ) : myRows.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-10 text-center">
-                    尚無回報紀錄。切到「遲到／請假／事件」分頁提交第一筆吧。
-                  </div>
-                ) : (
-                  <ul className="space-y-2">
-                    {myRows.map((r) => {
-                      const done = DONE_STATUSES.has(r.status);
-                      return (
-                        <li key={r.id} className="rounded-md border bg-card p-2.5 text-sm">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs ${TYPE_COLOR[r.type] ?? ""}`}>
-                              {TYPE_LABEL[r.type] ?? r.type}
-                            </span>
-                            <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs ${done ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-amber-100 text-amber-700 border-amber-300"}`}>
-                              {STATUS_LABEL[r.status] ?? r.status}
-                            </span>
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              {r.report_date} · {new Date(r.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                          {r.type === "late" && r.eta && (
-                            <div className="text-xs text-muted-foreground">時段：{r.eta}</div>
-                          )}
-                          {r.type === "leave" && (
-                            <div className="text-xs text-muted-foreground">
-                              {r.leave_type ? `${r.leave_type}｜` : ""}
-                              {r.leave_from && r.leave_to
-                                ? `${new Date(r.leave_from).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} ~ ${new Date(r.leave_to).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
-                                : ""}
-                            </div>
-                          )}
-                          {r.detail && <div className="mt-1 whitespace-pre-wrap">{r.detail}</div>}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-              <DialogFooter className="mt-3">
-                <Button variant="outline" onClick={() => void loadMine()} disabled={loadingMine}>重新整理</Button>
-                <Button onClick={() => setOpen(false)}>關閉</Button>
-              </DialogFooter>
-            </TabsContent>
+
+
           </Tabs>
         </DialogContent>
       </Dialog>
