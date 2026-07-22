@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
 import { PRIORITY_COLOR, PRIORITY_LABEL } from "@/lib/eip-constants";
@@ -25,6 +27,7 @@ function MyTasksPage() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [groupBy, setGroupBy] = useState<"none" | "source" | "project">("none");
   const [editTask, setEditTask] = useState<Task | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const statusesQ = useQuery({
     queryKey: ["eip", "task_status"],
@@ -129,9 +132,21 @@ function MyTasksPage() {
     qc.invalidateQueries({ queryKey: ["eip", "my-collab", appUser.id] });
   };
 
+  // 本人負責且尚未結案(狀態非完成)才可刪除
+  const canDelete = (t: Task) => t.owner_id === appUser.id && !statusMap.get(t.status_id)?.is_done_state;
+  const handleDelete = async (t: Task) => {
+    if (!window.confirm(`確定刪除任務「${t.title}」？子任務與協作紀錄會一併移除，此動作無法復原。`)) return;
+    setDeleting(t.id);
+    const { error } = await supabase.from("task").delete().eq("id", t.id);
+    setDeleting(null);
+    if (error) { toast.error(error.message); return; }
+    toast.success("已刪除任務");
+    refetch();
+  };
+
   return (
     <div>
-      <PageHeader title="我的工作" description="個人聚合中心,顯示與我相關的所有任務(一般、專案、會議來源)。" />
+      <PageHeader title="我的工作" description="個人聚合中心,顯示與我相關的所有任務(一般、專案、會議來源)。未結案的任務可編輯或刪除。" />
 
       <Card className="mb-3">
         <CardContent className="p-3 flex flex-wrap items-center gap-3">
@@ -165,10 +180,10 @@ function MyTasksPage() {
           <TabsTrigger value="collab">我協作 ({collab.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="owned" className="mt-3">
-          <Grouped tasks={owned} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} />
+          <Grouped tasks={owned} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
         </TabsContent>
         <TabsContent value="collab" className="mt-3">
-          <Grouped tasks={collab} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} />
+          <Grouped tasks={collab} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
         </TabsContent>
       </Tabs>
 
@@ -190,13 +205,16 @@ function MyTasksPage() {
 }
 
 function Grouped({
-  tasks, sourceMap, statusMap, groupBy, onOpen,
+  tasks, sourceMap, statusMap, groupBy, onOpen, canDelete, onDelete, deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
   statusMap: Map<string, Status>;
   groupBy: "none" | "source" | "project";
   onOpen: (t: Task) => void;
+  canDelete: (t: Task) => boolean;
+  onDelete: (t: Task) => void;
+  deleting: string | null;
 }) {
   const sorted = useMemo(() => {
     return [...tasks].sort((a, b) => {
@@ -211,7 +229,7 @@ function Grouped({
   }
 
   if (groupBy === "none") {
-    return <TaskList tasks={sorted} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} />;
+    return <TaskList tasks={sorted} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />;
   }
 
   const groups = new Map<string, Task[]>();
@@ -235,7 +253,7 @@ function Grouped({
       {Array.from(groups.entries()).map(([key, list]) => (
         <div key={key} className="space-y-2">
           <div className="text-sm font-semibold text-muted-foreground">{key} ({list.length})</div>
-          <TaskList tasks={list} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} />
+          <TaskList tasks={list} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />
         </div>
       ))}
     </div>
@@ -243,12 +261,15 @@ function Grouped({
 }
 
 function TaskList({
-  tasks, sourceMap, statusMap, onOpen,
+  tasks, sourceMap, statusMap, onOpen, canDelete, onDelete, deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
   statusMap: Map<string, Status>;
   onOpen: (t: Task) => void;
+  canDelete: (t: Task) => boolean;
+  onDelete: (t: Task) => void;
+  deleting: string | null;
 }) {
   return (
     <div className="space-y-2">
@@ -257,10 +278,11 @@ function TaskList({
         const overdue =
           t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()) && t.progress < 100;
         const src = sourceMap.get(t.id);
+        const removable = canDelete(t);
         return (
           <Card
             key={t.id}
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className="group cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => onOpen(t)}
           >
             <CardContent className="p-3 flex items-center gap-3">
@@ -287,6 +309,17 @@ function TaskList({
               <Badge className={`text-[10px] ${PRIORITY_COLOR[t.priority]}`} variant="secondary">
                 {PRIORITY_LABEL[t.priority]}
               </Badge>
+              {removable && (
+                <button
+                  type="button"
+                  title="刪除任務"
+                  disabled={deleting === t.id}
+                  onClick={(e) => { e.stopPropagation(); onDelete(t); }}
+                  className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shrink-0 disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </CardContent>
           </Card>
         );
