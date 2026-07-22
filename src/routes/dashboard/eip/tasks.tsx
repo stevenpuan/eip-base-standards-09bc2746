@@ -1412,6 +1412,37 @@ export function EditTaskDialog({
   const [notesLoading, setNotesLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
   const [postingNote, setPostingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [savingNoteEdit, setSavingNoteEdit] = useState(false);
+
+  const startEditNote = (n: TaskUpdateRow) => {
+    setEditingNoteId(n.id);
+    setEditingNoteText(n.comment ?? "");
+  };
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteText("");
+  };
+  const saveEditNote = async (id: string) => {
+    const text = editingNoteText.trim();
+    if (!text) return;
+    setSavingNoteEdit(true);
+    const { error } = await supabase
+      .from("task_update")
+      .update({ comment: text })
+      .eq("id", id);
+    setSavingNoteEdit(false);
+    if (error) { toast.error("修改失敗：" + formatErr(error)); return; }
+    cancelEditNote();
+    void loadNotes();
+  };
+  const deleteNote = async (id: string) => {
+    if (!confirm("確定要刪除這則補充說明？")) return;
+    const { error } = await supabase.from("task_update").delete().eq("id", id);
+    if (error) { toast.error("刪除失敗：" + formatErr(error)); return; }
+    void loadNotes();
+  };
 
   const [changeLog, setChangeLog] = useState<ChangeLogRow[]>([]);
   const [changeLogLoading, setChangeLogLoading] = useState(true);
