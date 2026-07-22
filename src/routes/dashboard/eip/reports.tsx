@@ -447,36 +447,20 @@ function ReportsPage() {
             </ChartCard>
           </div>
 
-          {/* 第二列：趨勢、需求 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <ChartCard title="任務趨勢（近 8 週）">
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={trend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="created" name="新增" stroke={COLORS[0]} strokeWidth={2} />
-                  <Line type="monotone" dataKey="completed" name="完成" stroke={COLORS[1]} strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-
-            <ChartCard title="需求許願池狀態分佈">
-              {frDist.length === 0 ? <Empty /> : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={frDist}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" name="件數" fill={COLORS[4]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </ChartCard>
-          </div>
+          {/* 第二列：任務趨勢（滿版） */}
+          <ChartCard title="任務趨勢（近 8 週）">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={trend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="week" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="created" name="新增" stroke={COLORS[0]} strokeWidth={2} />
+                <Line type="monotone" dataKey="completed" name="完成" stroke={COLORS[1]} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
 
           {/* 依負責人 */}
           <Card>
