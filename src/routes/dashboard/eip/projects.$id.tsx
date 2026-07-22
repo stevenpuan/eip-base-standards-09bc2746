@@ -156,7 +156,7 @@ function ProjectDetailPage() {
   if (!projectQ.data) return <div className="text-destructive py-8">找不到專案</div>;
 
   const project = projectQ.data;
-  const canEdit = canManageEip(appUser?.role) || appUser?.id === project.owner_id;
+  const canEdit = can("eip_projects", "edit") || appUser?.id === project.owner_id;
 
   const tasks = tasksQ.data ?? [];
   const milestones = milestonesQ.data ?? [];
