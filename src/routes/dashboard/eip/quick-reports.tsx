@@ -133,6 +133,7 @@ function QuickReportsPage() {
   const rows = useMemo(() => {
     const all = listQ.data ?? [];
     return all.filter((r) => {
+      if (mineOnly && appUser && r.submitter_id !== appUser.id) return false;
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
       if (statusFilter !== "all") {
         if (statusFilter === "done") {
@@ -148,7 +149,8 @@ function QuickReportsPage() {
       }
       return true;
     });
-  }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap]);
+  }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap, mineOnly, appUser]);
+
 
   if (authLoading) return <div className="text-muted-foreground">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" />;
