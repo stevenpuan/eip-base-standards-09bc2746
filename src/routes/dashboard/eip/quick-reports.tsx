@@ -78,7 +78,6 @@ function formatLeave(from: string | null, to: string | null) {
 }
 function formatEta(eta: string | null) {
   if (!eta) return "—";
-  // eta 可能為 "HH:mm" 字串或完整 ISO
   if (/^\d{2}:\d{2}/.test(eta)) return eta.slice(0, 5);
   try {
     return new Date(eta).toLocaleTimeString("zh-TW", {
@@ -92,13 +91,11 @@ function formatEta(eta: string | null) {
 }
 
 function QuickReportsPage() {
-  const { roles, loading: authLoading } = useAuth();
+  const { loading: authLoading, can } = useAuth();
   const { appUser } = useEipUser();
-  const isManager =
-    roles.includes("admin") ||
-    roles.includes("manager") ||
-    roles.includes("company_admin") ||
-    roles.includes("dept_manager");
+  // 進頁與清單顯示一律讀「角色權限設定」（臨時回報模組檢視權），不寫死角色。
+  // 一般同仁有檢視權時，RLS 會只回傳「自己送出的」紀錄；主管則看部門/全公司。
+  const canView = can("eip_quick_reports", "view");
 
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -107,7 +104,7 @@ function QuickReportsPage() {
 
   const listQ = useQuery({
     queryKey: ["eip", "quick-reports"],
-    enabled: !!appUser && isManager,
+    enabled: !!appUser && canView,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("eip_quick_report")
@@ -152,7 +149,7 @@ function QuickReportsPage() {
   }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap]);
 
   if (authLoading) return <div className="text-muted-foreground">載入中…</div>;
-  if (!isManager) return <Navigate to="/dashboard/eip/my-tasks" />;
+  if (!canView) return <Navigate to="/dashboard/eip/my-tasks" />;
 
   const ack = async (id: string) => {
     const { error } = await supabase
@@ -165,10 +162,12 @@ function QuickReportsPage() {
   };
 
   const hasFilter = typeFilter !== "all" || statusFilter !== "all" || dateFilter || keyword;
+  // 是否可執行「確認」動作（處理他人回報）：讀臨時回報編輯權
+  const canAck = can("eip_quick_reports", "edit");
 
   return (
     <div className="space-y-4">
-      <PageHeader title="臨時回報" description="檢視同仁的遲到 / 請假 / 事件回報。" />
+      <PageHeader title="臨時回報" description="檢視遲到 / 請假 / 事件回報（同仁看自己的，主管看部門）。" />
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -215,7 +214,7 @@ function QuickReportsPage() {
           <div className="text-sm text-muted-foreground max-w-md">
             {hasFilter
               ? "沒有符合篩選條件的回報,試著清除篩選看看。"
-              : "目前沒有同仁回報。員工可點右下角「快速回報」提交遲到／請假／事件回報。"}
+              : "目前沒有回報。可點右下角「快速回報」提交遲到／請假／事件回報。"}
           </div>
         </div>
       ) : (
@@ -279,7 +278,7 @@ function QuickReportsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {!isDone && (
+                      {!isDone && canAck && (
                         <Button size="sm" variant="outline" onClick={() => ack(r.id)}>確認</Button>
                       )}
                     </TableCell>
