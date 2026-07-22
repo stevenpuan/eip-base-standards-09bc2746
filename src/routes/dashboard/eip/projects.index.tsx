@@ -64,7 +64,7 @@ const HEALTH_DOT: Record<ProjectHealth, string> = {
 function ProjectsPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const canCreate = canManageEip(appUser?.role);
+  const canCreate = can("eip_projects", "create");
   const [openCreate, setOpenCreate] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
