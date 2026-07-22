@@ -39,11 +39,13 @@ function WorkLogPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [names, setNames] = useState<Record<string, string>>({});
+  const [names, setNames] = useState<Record<string, { name: string; job_title?: string | null }>>({});
 
   useEffect(() => {
-    void supabase.from("app_user").select("id,name").then((r: any) => {
-      const m: Record<string, string> = {}; (r.data ?? []).forEach((u: any) => (m[u.id] = u.name)); setNames(m);
+    void supabase.from("app_user").select("id,name,job_title").then((r: any) => {
+      const m: Record<string, { name: string; job_title?: string | null }> = {};
+      (r.data ?? []).forEach((u: any) => (m[u.id] = { name: u.name, job_title: u.job_title }));
+      setNames(m);
     });
   }, []);
 
@@ -149,7 +151,7 @@ function WorkLogPage() {
         </div>
       ) : (
         <div className="flex items-center gap-2 text-xs text-muted-foreground rounded-lg bg-muted/40 px-3 py-2">
-          <Lock className="w-3.5 h-3.5" /> 此日誌已由 {log.locked_by ? (names[log.locked_by] ?? "主管") : "主管"} 於 {log.locked_at ? new Date(log.locked_at).toLocaleString("zh-TW") : ""} 鎖定，已凍結編輯。
+          <Lock className="w-3.5 h-3.5" /> 此日誌已由 {log.locked_by ? (names[log.locked_by]?.name ?? "主管") : "主管"} 於 {log.locked_at ? new Date(log.locked_at).toLocaleString("zh-TW") : ""} 鎖定，已凍結編輯。
         </div>
       )}
 
@@ -298,13 +300,12 @@ function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: s
   );
 }
 
-// 批示紀錄（經理 / 單位主管 兩類；可多人批示）
+// 批示紀錄（經理 / 單位主管 兩類；可多人批示，順序不限）
 function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refreshSignal }: {
-  workLogId: string; meId: string; names: Record<string, string>; canReview: boolean; locked: boolean; defaultRole: "manager" | "unit"; refreshSignal?: number;
+  workLogId: string; meId: string; names: Record<string, { name: string; job_title?: string | null }>; canReview: boolean; locked: boolean; defaultRole: "manager" | "unit"; refreshSignal?: number;
 }) {
   const [reviews, setReviews] = useState<any[]>([]);
   const [text, setText] = useState("");
-  const [role, setRole] = useState<"manager" | "unit">(defaultRole);
   const [busy, setBusy] = useState(false);
   const load = async () => {
     const { data } = await supabase.from("work_log_review").select("*").eq("work_log_id", workLogId).order("created_at");
@@ -313,9 +314,8 @@ function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refre
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [workLogId, refreshSignal]);
 
   const add = async () => {
-    if (!text.trim()) { toast.error("請輸入批示內容"); return; }
     setBusy(true);
-    const { error } = await supabase.from("work_log_review").insert({ work_log_id: workLogId, reviewer_role: role, comment: text.trim() });
+    const { error } = await supabase.from("work_log_review").insert({ work_log_id: workLogId, reviewer_role: defaultRole, comment: text.trim() });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setText(""); toast.success("已批示"); void load();
@@ -335,25 +335,29 @@ function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refre
         <p className="text-xs text-muted-foreground pl-1">尚未批示</p>
       ) : (
         <div className="space-y-1.5">
-          {group(r).map((rv) => (
-            <div key={rv.id} className="text-sm rounded-lg bg-muted/40 px-2.5 py-1.5">
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-0.5">
-                <span className="font-medium text-foreground">{names[rv.reviewer_id] ?? "主管"}</span>
-                <span>{new Date(rv.created_at).toLocaleString("zh-TW")}</span>
-                {canReview && !locked && rv.reviewer_id === meId && (
-                  <button onClick={() => del(rv.id)} className="ml-auto hover:text-destructive">刪除</button>
-                )}
+          {group(r).map((rv) => {
+            const u = names[rv.reviewer_id];
+            return (
+              <div key={rv.id} className="text-sm rounded-lg bg-muted/40 px-2.5 py-1.5">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-0.5 flex-wrap">
+                  <span className="font-medium text-foreground">{u?.name ?? "主管"}</span>
+                  {u?.job_title && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{u.job_title}</span>}
+                  <span>{new Date(rv.created_at).toLocaleString("zh-TW")}</span>
+                  {canReview && !locked && rv.reviewer_id === meId && (
+                    <button onClick={() => del(rv.id)} className="ml-auto hover:text-destructive">刪除</button>
+                  )}
+                </div>
+                {rv.comment ? <div className="whitespace-pre-wrap">{rv.comment}</div> : <div className="text-xs text-muted-foreground italic">（已確認，無附註）</div>}
               </div>
-              <div className="whitespace-pre-wrap">{rv.comment}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 
   const hasAny = reviews.length > 0;
-  if (!canReview && !hasAny) return null; // 本人檢視且尚無批示 → 不顯示區塊
+  if (!canReview && !hasAny) return null;
 
   return (
     <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
@@ -364,14 +368,7 @@ function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refre
       </div>
       {canReview && !locked && (
         <div className="border-t pt-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">以身分批示：</span>
-            <select value={role} onChange={(e) => setRole(e.target.value as any)} className="h-8 rounded-md border bg-card px-2 text-xs">
-              <option value="manager">經理</option>
-              <option value="unit">單位主管</option>
-            </select>
-          </div>
-          <Textarea rows={2} placeholder="輸入批示內容…" value={text} onChange={(e) => setText(e.target.value)} />
+          <Textarea rows={2} placeholder="輸入批示內容（可留空）…" value={text} onChange={(e) => setText(e.target.value)} />
           <div className="flex justify-end">
             <Button size="sm" onClick={add} disabled={busy}><Stamp className="w-4 h-4 mr-1.5" /> {busy ? "送出中…" : "送出批示"}</Button>
           </div>
@@ -382,7 +379,7 @@ function Reviews({ workLogId, meId, names, canReview, locked, defaultRole, refre
 }
 
 // 部門日誌批示：預設待批示，可切換顯示已鎖定、可搜尋
-function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: Record<string, string>; myReviewRole: "manager" | "unit" }) {
+function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: Record<string, { name: string; job_title?: string | null }>; myReviewRole: "manager" | "unit" }) {
   const [rows, setRows] = useState<any[]>([]);
   const [showLocked, setShowLocked] = useState(false);
   const [q, setQ] = useState("");
@@ -404,7 +401,7 @@ function SupervisorReview({ meId, names, myReviewRole }: { meId: string; names: 
   };
 
   const fmtItems = (v: any) => (Array.isArray(v) ? v : []);
-  const nameOf = (r: any) => names[r.user_id] ?? "同仁";
+  const nameOf = (r: any) => names[r.user_id]?.name ?? "同仁";
   const filtered = rows
     .filter((r) => showLocked || !r.locked)
     .filter((r) => !q || (nameOf(r) + txtOf(r)).toLowerCase().includes(q.toLowerCase()));
