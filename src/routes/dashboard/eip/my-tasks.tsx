@@ -175,6 +175,20 @@ function MyTasksPage() {
             </Tabs>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">狀態</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="all">全部狀態</option>
+              <option value="open">未完成</option>
+              {sortedStatuses.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">分組</span>
             <Tabs value={groupBy} onValueChange={(v) => setGroupBy(v as typeof groupBy)}>
               <TabsList className="h-8">
