@@ -116,17 +116,29 @@ function MyTasksPage() {
 
   const sourceMap = useTaskSources(allMy);
 
-  const applySrcFilter = (list: Task[]) =>
+  const sortedStatuses = useMemo(
+    () => [...(statusesQ.data ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [statusesQ.data]
+  );
+
+  const applyFilters = (list: Task[]) =>
     list.filter((t) => {
-      if (sourceFilter === "all") return true;
-      const s = sourceMap.get(t.id);
-      return s?.type === sourceFilter;
+      if (sourceFilter !== "all") {
+        const s = sourceMap.get(t.id);
+        if (s?.type !== sourceFilter) return false;
+      }
+      if (statusFilter === "open") {
+        if (statusMap.get(t.status_id)?.is_done_state) return false;
+      } else if (statusFilter !== "all") {
+        if (t.status_id !== statusFilter) return false;
+      }
+      return true;
     });
 
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
 
-  const owned = applySrcFilter(ownedQ.data ?? []);
-  const collab = applySrcFilter(collabQ.data ?? []);
+  const owned = applyFilters(ownedQ.data ?? []);
+  const collab = applyFilters(collabQ.data ?? []);
 
   const refetch = () => {
     qc.invalidateQueries({ queryKey: ["eip", "my-owned", appUser.id] });
