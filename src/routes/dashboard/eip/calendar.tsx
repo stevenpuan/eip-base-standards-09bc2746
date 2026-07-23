@@ -143,7 +143,7 @@ function CalendarPage() {
     if (show.task) {
       (tasksQ.data ?? []).forEach((t: any) => {
         const d = toYMD(t.due_date);
-        if (d) list.push({ id: `t-${t.id}`, type: "task", title: t.title, date: d, endDate: toYMD(t.start_date) ?? undefined, href: `/dashboard/eip/tasks` });
+        if (d) list.push({ id: `t-${t.id}`, type: "task", title: t.title, date: d, endDate: toYMD(t.start_date) ?? undefined, href: `/dashboard/eip/tasks`, taskId: t.id });
       });
     }
     if (show.meeting) {
