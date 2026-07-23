@@ -207,10 +207,10 @@ function MyTasksPage() {
           <TabsTrigger value="collab">我協作 ({collab.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="owned" className="mt-3">
-          <Grouped tasks={owned} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
+          <Grouped tasks={owned} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
         </TabsContent>
         <TabsContent value="collab" className="mt-3">
-          <Grouped tasks={collab} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
+          <Grouped tasks={collab} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
         </TabsContent>
       </Tabs>
 
