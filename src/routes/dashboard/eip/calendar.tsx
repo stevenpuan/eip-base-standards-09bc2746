@@ -364,6 +364,19 @@ function CalendarPage() {
                               </button>
                             );
                           }
+                          if (e.type === "task" && e.taskId) {
+                            return (
+                              <Link
+                                key={e.id}
+                                to="/dashboard/eip/tasks"
+                                search={{ openTask: e.taskId }}
+                                className={cls + " hover:opacity-80"}
+                                title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
+                              >
+                                {displayTitle}
+                              </Link>
+                            );
+                          }
                           return e.href ? (
                             <Link key={e.id} to={e.href as any} className={cls + " hover:opacity-80"} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>
                               {displayTitle}
