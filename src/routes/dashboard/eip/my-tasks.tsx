@@ -25,6 +25,7 @@ function MyTasksPage() {
   const { appUser } = useEipUser();
   const qc = useQueryClient();
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all"); // all | open | <status_id>
   const [groupBy, setGroupBy] = useState<"none" | "source" | "project">("none");
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -115,17 +116,29 @@ function MyTasksPage() {
 
   const sourceMap = useTaskSources(allMy);
 
-  const applySrcFilter = (list: Task[]) =>
+  const sortedStatuses = useMemo(
+    () => [...(statusesQ.data ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [statusesQ.data]
+  );
+
+  const applyFilters = (list: Task[]) =>
     list.filter((t) => {
-      if (sourceFilter === "all") return true;
-      const s = sourceMap.get(t.id);
-      return s?.type === sourceFilter;
+      if (sourceFilter !== "all") {
+        const s = sourceMap.get(t.id);
+        if (s?.type !== sourceFilter) return false;
+      }
+      if (statusFilter === "open") {
+        if (statusMap.get(t.status_id)?.is_done_state) return false;
+      } else if (statusFilter !== "all") {
+        if (t.status_id !== statusFilter) return false;
+      }
+      return true;
     });
 
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
 
-  const owned = applySrcFilter(ownedQ.data ?? []);
-  const collab = applySrcFilter(collabQ.data ?? []);
+  const owned = applyFilters(ownedQ.data ?? []);
+  const collab = applyFilters(collabQ.data ?? []);
 
   const refetch = () => {
     qc.invalidateQueries({ queryKey: ["eip", "my-owned", appUser.id] });
@@ -162,6 +175,20 @@ function MyTasksPage() {
             </Tabs>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">狀態</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="all">全部狀態</option>
+              <option value="open">未完成</option>
+              {sortedStatuses.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">分組</span>
             <Tabs value={groupBy} onValueChange={(v) => setGroupBy(v as typeof groupBy)}>
               <TabsList className="h-8">
@@ -180,10 +207,10 @@ function MyTasksPage() {
           <TabsTrigger value="collab">我協作 ({collab.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="owned" className="mt-3">
-          <Grouped tasks={owned} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
+          <Grouped tasks={owned} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
         </TabsContent>
         <TabsContent value="collab" className="mt-3">
-          <Grouped tasks={collab} sourceMap={sourceMap} statusMap={statusMap} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
+          <Grouped tasks={collab} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
         </TabsContent>
       </Tabs>
 
@@ -205,11 +232,12 @@ function MyTasksPage() {
 }
 
 function Grouped({
-  tasks, sourceMap, statusMap, groupBy, onOpen, canDelete, onDelete, deleting,
+  tasks, sourceMap, statusMap, sortedStatuses, groupBy, onOpen, canDelete, onDelete, deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
   statusMap: Map<string, Status>;
+  sortedStatuses: Status[];
   groupBy: "none" | "source" | "project";
   onOpen: (t: Task) => void;
   canDelete: (t: Task) => boolean;
@@ -229,7 +257,7 @@ function Grouped({
   }
 
   if (groupBy === "none") {
-    return <TaskList tasks={sorted} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />;
+    return <TaskList tasks={sorted} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />;
   }
 
   const groups = new Map<string, Task[]>();
@@ -253,7 +281,7 @@ function Grouped({
       {Array.from(groups.entries()).map(([key, list]) => (
         <div key={key} className="space-y-2">
           <div className="text-sm font-semibold text-muted-foreground">{key} ({list.length})</div>
-          <TaskList tasks={list} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />
+          <TaskList tasks={list} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />
         </div>
       ))}
     </div>
@@ -261,16 +289,25 @@ function Grouped({
 }
 
 function TaskList({
-  tasks, sourceMap, statusMap, onOpen, canDelete, onDelete, deleting,
+  tasks, sourceMap, statusMap, sortedStatuses, onOpen, canDelete, onDelete, deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
   statusMap: Map<string, Status>;
+  sortedStatuses: Status[];
   onOpen: (t: Task) => void;
   canDelete: (t: Task) => boolean;
   onDelete: (t: Task) => void;
   deleting: string | null;
 }) {
+  const statusTone = (s: Status | undefined) => {
+    if (!s) return "bg-muted text-muted-foreground";
+    if (s.is_done_state) return "bg-[hsl(var(--muted-foreground))] text-background";
+    const idx = sortedStatuses.findIndex((x) => x.id === s.id);
+    if (idx === 0) return "bg-primary text-primary-foreground";
+    if (idx === 1) return "bg-accent text-accent-foreground";
+    return "bg-[hsl(var(--muted-foreground))] text-background";
+  };
   return (
     <div className="space-y-2">
       {tasks.map((t) => {
@@ -291,10 +328,14 @@ function TaskList({
                   <span className="truncate">{t.title}</span>
                   {src && <TaskSourceBadge source={src} />}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {status?.name ?? "—"}
+                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                  {status ? (
+                    <Badge className={`text-[10px] ${statusTone(status)}`}>{status.name}</Badge>
+                  ) : (
+                    <span>—</span>
+                  )}
                   {t.due_date && (
-                    <span className={`ml-2 ${overdue ? "text-destructive font-medium" : ""}`}>
+                    <span className={overdue ? "text-destructive font-medium" : ""}>
                       期限 {new Date(t.due_date).toLocaleDateString("zh-TW")}
                     </span>
                   )}
