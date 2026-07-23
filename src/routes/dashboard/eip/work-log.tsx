@@ -114,7 +114,7 @@ function WorkLogPage() {
   if (loading || !log) {
     return <div className="space-y-3"><div className="h-9 w-40 rounded-md bg-muted/50 animate-pulse" /><div className="h-56 rounded-2xl bg-muted/50 animate-pulse" /></div>;
   }
-  const editable = !log.locked;         // 未鎖定即可由本人編輯
+  const editable = !log.locked && (log.id ? canEdit : canCreate); // 未鎖定且具對應權限
   const submitted = log.status === "submitted";
 
   return (
