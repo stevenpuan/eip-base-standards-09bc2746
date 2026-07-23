@@ -33,7 +33,10 @@ async function buildSeed(uid: string, date: string) {
 
 function WorkLogPage() {
   const { appUser } = useEipUser();
-  const isSupervisor = appUser?.role === "dept_manager" || appUser?.role === "company_admin";
+  const { can } = useAuth();
+  const canCreate = can("eip_work_log", "create");
+  const canEdit = can("eip_work_log", "edit");
+  const canExport = can("eip_work_log", "export");
   const myReviewRole: "manager" | "unit" = appUser?.role === "dept_manager" ? "unit" : "manager";
   const [date, setDate] = useState(today());
   const [log, setLog] = useState<Log | null>(null);
