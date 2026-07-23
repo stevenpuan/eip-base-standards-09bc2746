@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import * as Icons from "lucide-react";
 import { LogOut, Menu, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { NotificationBell } from "@/components/eip/NotificationBell";
+
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -158,7 +158,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
           >
             <LogOut className="w-4 h-4" />
           </button>
-          <NotificationBell />
+
         </div>
       </div>
     </div>
