@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud, Lock, Unlock, ChevronDown, History, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,10 @@ async function buildSeed(uid: string, date: string) {
 
 function WorkLogPage() {
   const { appUser } = useEipUser();
-  const isSupervisor = appUser?.role === "dept_manager" || appUser?.role === "company_admin";
+  const { can } = useAuth();
+  const canCreate = can("eip_work_log", "create");
+  const canEdit = can("eip_work_log", "edit");
+  const canExport = can("eip_work_log", "export");
   const myReviewRole: "manager" | "unit" = appUser?.role === "dept_manager" ? "unit" : "manager";
   const [date, setDate] = useState(today());
   const [log, setLog] = useState<Log | null>(null);
@@ -110,7 +114,7 @@ function WorkLogPage() {
   if (loading || !log) {
     return <div className="space-y-3"><div className="h-9 w-40 rounded-md bg-muted/50 animate-pulse" /><div className="h-56 rounded-2xl bg-muted/50 animate-pulse" /></div>;
   }
-  const editable = !log.locked;         // 未鎖定即可由本人編輯
+  const editable = !log.locked && (log.id ? canEdit : canCreate); // 未鎖定且具對應權限
   const submitted = log.status === "submitted";
 
   return (
@@ -173,7 +177,7 @@ function WorkLogPage() {
         <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} onDelete={(id, d) => deleteLog(id, d)} refreshKey={refreshKey} />
       </Collapsible>
 
-      {isSupervisor && (
+      {canEdit && (
         <Collapsible title="部門日誌批示" Icon={Users} defaultOpen={false} tone="primary">
           <SupervisorReview meId={appUser!.id} names={names} myReviewRole={myReviewRole} />
         </Collapsible>
