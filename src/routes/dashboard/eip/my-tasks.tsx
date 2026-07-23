@@ -25,6 +25,7 @@ function MyTasksPage() {
   const { appUser } = useEipUser();
   const qc = useQueryClient();
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all"); // all | open | <status_id>
   const [groupBy, setGroupBy] = useState<"none" | "source" | "project">("none");
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
