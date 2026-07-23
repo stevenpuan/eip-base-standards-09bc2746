@@ -328,10 +328,14 @@ function TaskList({
                   <span className="truncate">{t.title}</span>
                   {src && <TaskSourceBadge source={src} />}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {status?.name ?? "—"}
+                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                  {status ? (
+                    <Badge className={`text-[10px] ${statusTone(status)}`}>{status.name}</Badge>
+                  ) : (
+                    <span>—</span>
+                  )}
                   {t.due_date && (
-                    <span className={`ml-2 ${overdue ? "text-destructive font-medium" : ""}`}>
+                    <span className={overdue ? "text-destructive font-medium" : ""}>
                       期限 {new Date(t.due_date).toLocaleDateString("zh-TW")}
                     </span>
                   )}
