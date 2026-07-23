@@ -266,7 +266,7 @@ function Section({ title, Icon, tone, items, editable, onChange }: {
                 <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
               )}
               {editable && (
-                <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><X className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"><X className="w-3.5 h-3.5" /></button>
               )}
             </div>
             {editable ? (
@@ -362,7 +362,7 @@ function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: s
               <StatusBadge status={r.status} locked={r.locked} />
               {!r.locked && (
                 <button onClick={() => onDelete(r.id, r.log_date)} title="刪除此日誌"
-                  className="text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Trash2 className="w-4 h-4" /></button>
+                  className="text-muted-foreground/40 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"><Trash2 className="w-4 h-4" /></button>
               )}
             </div>
           ))}
@@ -565,7 +565,8 @@ function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boole
   const download = async (a: any) => {
     const { data, error } = await supabase.storage.from("worklog").createSignedUrl(a.storage_path, 60);
     if (error) { toast.error(error.message); return; }
-    window.open(data.signedUrl, "_blank");
+    // 同分頁開啟：避免手機在 await 後攔截 window.open 彈窗
+    if (data?.signedUrl) window.location.href = data.signedUrl;
   };
   const remove = async (a: any) => {
     if (!window.confirm(`刪除附件「${a.file_name}」？`)) return;
@@ -604,7 +605,7 @@ function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boole
               </button>
               <span className="text-[11px] text-muted-foreground shrink-0">{fmtSize(a.file_size)}</span>
               {canEdit && (
-                <button type="button" onClick={() => remove(a)} className="text-muted-foreground/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => remove(a)} className="text-muted-foreground/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
               )}
             </li>
           ))}
