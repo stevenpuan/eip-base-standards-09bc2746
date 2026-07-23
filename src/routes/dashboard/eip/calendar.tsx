@@ -24,6 +24,7 @@ type CalEvent = {
   title: string;
   date: string;
   href?: string;
+  taskId?: string;
   endDate?: string;
   personal?: PersonalEvent;
   readOnly?: boolean;
@@ -142,7 +143,7 @@ function CalendarPage() {
     if (show.task) {
       (tasksQ.data ?? []).forEach((t: any) => {
         const d = toYMD(t.due_date);
-        if (d) list.push({ id: `t-${t.id}`, type: "task", title: t.title, date: d, endDate: toYMD(t.start_date) ?? undefined, href: `/dashboard/eip/tasks` });
+        if (d) list.push({ id: `t-${t.id}`, type: "task", title: t.title, date: d, endDate: toYMD(t.start_date) ?? undefined, href: `/dashboard/eip/tasks`, taskId: t.id });
       });
     }
     if (show.meeting) {
@@ -361,6 +362,19 @@ function CalendarPage() {
                               <button key={e.id} type="button" onClick={onClick} className={cls + " hover:opacity-80 text-left w-full"} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>
                                 {displayTitle}
                               </button>
+                            );
+                          }
+                          if (e.type === "task" && e.taskId) {
+                            return (
+                              <Link
+                                key={e.id}
+                                to="/dashboard/eip/tasks"
+                                search={{ openTask: e.taskId }}
+                                className={cls + " hover:opacity-80"}
+                                title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
+                              >
+                                {displayTitle}
+                              </Link>
                             );
                           }
                           return e.href ? (
