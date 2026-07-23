@@ -232,11 +232,12 @@ function MyTasksPage() {
 }
 
 function Grouped({
-  tasks, sourceMap, statusMap, groupBy, onOpen, canDelete, onDelete, deleting,
+  tasks, sourceMap, statusMap, sortedStatuses, groupBy, onOpen, canDelete, onDelete, deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
   statusMap: Map<string, Status>;
+  sortedStatuses: Status[];
   groupBy: "none" | "source" | "project";
   onOpen: (t: Task) => void;
   canDelete: (t: Task) => boolean;
@@ -256,7 +257,7 @@ function Grouped({
   }
 
   if (groupBy === "none") {
-    return <TaskList tasks={sorted} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />;
+    return <TaskList tasks={sorted} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />;
   }
 
   const groups = new Map<string, Task[]>();
@@ -280,7 +281,7 @@ function Grouped({
       {Array.from(groups.entries()).map(([key, list]) => (
         <div key={key} className="space-y-2">
           <div className="text-sm font-semibold text-muted-foreground">{key} ({list.length})</div>
-          <TaskList tasks={list} sourceMap={sourceMap} statusMap={statusMap} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />
+          <TaskList tasks={list} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />
         </div>
       ))}
     </div>
@@ -288,16 +289,25 @@ function Grouped({
 }
 
 function TaskList({
-  tasks, sourceMap, statusMap, onOpen, canDelete, onDelete, deleting,
+  tasks, sourceMap, statusMap, sortedStatuses, onOpen, canDelete, onDelete, deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
   statusMap: Map<string, Status>;
+  sortedStatuses: Status[];
   onOpen: (t: Task) => void;
   canDelete: (t: Task) => boolean;
   onDelete: (t: Task) => void;
   deleting: string | null;
 }) {
+  const statusTone = (s: Status | undefined) => {
+    if (!s) return "bg-muted text-muted-foreground";
+    if (s.is_done_state) return "bg-[hsl(var(--muted-foreground))] text-background";
+    const idx = sortedStatuses.findIndex((x) => x.id === s.id);
+    if (idx === 0) return "bg-primary text-primary-foreground";
+    if (idx === 1) return "bg-accent text-accent-foreground";
+    return "bg-[hsl(var(--muted-foreground))] text-background";
+  };
   return (
     <div className="space-y-2">
       {tasks.map((t) => {
