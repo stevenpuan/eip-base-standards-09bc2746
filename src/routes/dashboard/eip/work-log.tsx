@@ -177,7 +177,7 @@ function WorkLogPage() {
         <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} onDelete={(id, d) => deleteLog(id, d)} refreshKey={refreshKey} />
       </Collapsible>
 
-      {isSupervisor && (
+      {canEdit && (
         <Collapsible title="部門日誌批示" Icon={Users} defaultOpen={false} tone="primary">
           <SupervisorReview meId={appUser!.id} names={names} myReviewRole={myReviewRole} />
         </Collapsible>
