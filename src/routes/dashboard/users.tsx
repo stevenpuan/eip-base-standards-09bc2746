@@ -89,7 +89,7 @@ function UsersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_user")
-        .select("id, department_id, line_user_id, status");
+        .select("id, department_id, line_user_id, status, deputy_id, name");
       if (error) throw error;
       return (data ?? []) as AppUserRow[];
     },
