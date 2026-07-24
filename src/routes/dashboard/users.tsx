@@ -186,6 +186,7 @@ function UsersPage() {
       const { error } = await supabase.from("app_user").update({
         department_id: editDept === "none" ? null : editDept,
         line_user_id: editLine.trim() || null,
+        deputy_id: editDeputy === "none" ? null : editDeputy,
       }).eq("id", editing.id);
       if (error) { toast.error(error.message); return; }
     }
