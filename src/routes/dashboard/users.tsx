@@ -154,6 +154,7 @@ function UsersPage() {
   const [editRoleIds, setEditRoleIds] = useState<string[]>([]);
   const [editDept, setEditDept] = useState<string>("none");
   const [editLine, setEditLine] = useState<string>("");
+  const [editDeputy, setEditDeputy] = useState<string>("none");
 
   const openEdit = (row: ProfileRow) => {
     setEditing(row);
@@ -161,6 +162,7 @@ function UsersPage() {
     const a = appUserMap[row.id];
     setEditDept(a?.department_id ?? "none");
     setEditLine(a?.line_user_id ?? "");
+    setEditDeputy(a?.deputy_id ?? "none");
   };
   const toggleRole = (id: string) => {
     setEditRoleIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
