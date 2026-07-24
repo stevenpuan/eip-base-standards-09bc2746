@@ -42,6 +42,8 @@ interface AppUserRow {
   department_id: string | null;
   line_user_id: string | null;
   status: string | null;
+  deputy_id?: string | null;
+  name?: string | null;
 }
 interface Invitation {
   id: string;
