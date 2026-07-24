@@ -426,12 +426,25 @@ function KpiDialog({ kpi, projectId, tenantId, onClose, onSaved }: { kpi: Kpi | 
 }
 
 /* ---------- Milestones ---------- */
-function MilestonesSection({ projectId, tenantId, milestones, canEdit }: { projectId: string; tenantId: string; milestones: Milestone[]; canEdit: boolean }) {
+function MilestonesSection({ projectId, tenantId, milestones, canEdit, highlightId }: { projectId: string; tenantId: string; milestones: Milestone[]; canEdit: boolean; highlightId?: string }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [due, setDue] = useState("");
+  const [flashId, setFlashId] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
   const refetch = () => qc.invalidateQueries({ queryKey: ["eip", "milestones", projectId] });
+
+  useEffect(() => {
+    if (!highlightId || milestones.length === 0) return;
+    if (!milestones.some((m) => m.id === highlightId)) return;
+    const el = document.getElementById(`ms-${highlightId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlashId(highlightId);
+      const t = setTimeout(() => setFlashId(null), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [highlightId, milestones]);
 
   const add = async () => {
     if (!name.trim()) return;
