@@ -25,6 +25,9 @@ type CalEvent = {
   date: string;
   href?: string;
   taskId?: string;
+  meetingId?: string;
+  milestoneId?: string;
+  projectId?: string;
   endDate?: string;
   personal?: PersonalEvent;
   readOnly?: boolean;
@@ -149,13 +152,13 @@ function CalendarPage() {
     if (show.meeting) {
       (meetingsQ.data ?? []).forEach((m: any) => {
         const d = toYMD(m.meeting_date);
-        if (d) list.push({ id: `m-${m.id}`, type: "meeting", title: m.title, date: d, href: `/dashboard/eip/meetings` });
+        if (d) list.push({ id: `m-${m.id}`, type: "meeting", title: m.title, date: d, meetingId: m.id });
       });
     }
     if (show.milestone) {
       (milestonesQ.data ?? []).forEach((ms: any) => {
         const d = toYMD(ms.due_date);
-        if (d) list.push({ id: `ms-${ms.id}`, type: "milestone", title: ms.name, date: d, href: ms.project_id ? `/dashboard/eip/projects/${ms.project_id}` : undefined });
+        if (d) list.push({ id: `ms-${ms.id}`, type: "milestone", title: ms.name, date: d, projectId: ms.project_id ?? undefined, milestoneId: ms.id });
       });
     }
     if (show.personal) {
@@ -370,6 +373,33 @@ function CalendarPage() {
                                 key={e.id}
                                 to="/dashboard/eip/tasks"
                                 search={{ openTask: e.taskId }}
+                                className={cls + " hover:opacity-80"}
+                                title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
+                              >
+                                {displayTitle}
+                              </Link>
+                            );
+                          }
+                          if (e.type === "meeting" && e.meetingId) {
+                            return (
+                              <Link
+                                key={e.id}
+                                to="/dashboard/eip/meetings/$id"
+                                params={{ id: e.meetingId }}
+                                className={cls + " hover:opacity-80"}
+                                title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
+                              >
+                                {displayTitle}
+                              </Link>
+                            );
+                          }
+                          if (e.type === "milestone" && e.projectId) {
+                            return (
+                              <Link
+                                key={e.id}
+                                to="/dashboard/eip/projects/$id"
+                                params={{ id: e.projectId }}
+                                search={{ milestone: e.milestoneId }}
                                 className={cls + " hover:opacity-80"}
                                 title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
                               >

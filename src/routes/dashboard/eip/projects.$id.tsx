@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -32,6 +32,9 @@ import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 import { VisibilityBadge } from "@/components/eip/VisibilityScope";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    milestone: typeof search.milestone === "string" ? search.milestone : undefined,
+  }),
   component: ProjectDetailPage,
 });
 
@@ -67,6 +70,7 @@ const MEETING_STATUS_LABEL: Record<string, string> = {
 
 function ProjectDetailPage() {
   const { id } = Route.useParams();
+  const { milestone: highlightMilestoneId } = Route.useSearch();
   const { appUser } = useEipUser();
   const { can } = useAuth();
   const qc = useQueryClient();
@@ -260,7 +264,7 @@ function ProjectDetailPage() {
 
       {/* D. 里程碑 */}
       <Section icon={Flag} title="里程碑">
-        <MilestonesSection projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canEdit} />
+        <MilestonesSection projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canEdit} highlightId={highlightMilestoneId} />
       </Section>
 
       {/* E. 任務 */}
@@ -422,12 +426,25 @@ function KpiDialog({ kpi, projectId, tenantId, onClose, onSaved }: { kpi: Kpi | 
 }
 
 /* ---------- Milestones ---------- */
-function MilestonesSection({ projectId, tenantId, milestones, canEdit }: { projectId: string; tenantId: string; milestones: Milestone[]; canEdit: boolean }) {
+function MilestonesSection({ projectId, tenantId, milestones, canEdit, highlightId }: { projectId: string; tenantId: string; milestones: Milestone[]; canEdit: boolean; highlightId?: string }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [due, setDue] = useState("");
+  const [flashId, setFlashId] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
   const refetch = () => qc.invalidateQueries({ queryKey: ["eip", "milestones", projectId] });
+
+  useEffect(() => {
+    if (!highlightId || milestones.length === 0) return;
+    if (!milestones.some((m) => m.id === highlightId)) return;
+    const el = document.getElementById(`ms-${highlightId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlashId(highlightId);
+      const t = setTimeout(() => setFlashId(null), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [highlightId, milestones]);
 
   const add = async () => {
     if (!name.trim()) return;
@@ -462,7 +479,7 @@ function MilestonesSection({ projectId, tenantId, milestones, canEdit }: { proje
             {milestones.map((m) => {
               const overdue = m.due_date && m.due_date < today && m.status !== "done";
               return (
-                <div key={m.id} className="flex items-center gap-2 relative">
+                <div key={m.id} id={`ms-${m.id}`} className={`flex items-center gap-2 relative rounded-md transition-shadow ${flashId === m.id ? "ring-2 ring-primary ring-offset-1" : ""}`}>
                   <button
                     type="button"
                     disabled={!canEdit}
