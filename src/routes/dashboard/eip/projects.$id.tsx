@@ -70,6 +70,7 @@ const MEETING_STATUS_LABEL: Record<string, string> = {
 
 function ProjectDetailPage() {
   const { id } = Route.useParams();
+  const { milestone: highlightMilestoneId } = Route.useSearch();
   const { appUser } = useEipUser();
   const { can } = useAuth();
   const qc = useQueryClient();
