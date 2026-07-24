@@ -36,6 +36,7 @@ const EVENT_CODES = Object.keys(EVENT_LABEL);
 
 const SCOPES: { key: string; label: string }[] = [
   { key: "owner", label: "本人（負責人）" },
+  { key: "deputy", label: "職務代理人" },
   { key: "dept_manager", label: "部門主管" },
   { key: "parent_dept_manager", label: "上層部門主管" },
   { key: "all_company", label: "全公司" },
