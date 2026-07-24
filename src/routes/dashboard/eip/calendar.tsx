@@ -152,13 +152,13 @@ function CalendarPage() {
     if (show.meeting) {
       (meetingsQ.data ?? []).forEach((m: any) => {
         const d = toYMD(m.meeting_date);
-        if (d) list.push({ id: `m-${m.id}`, type: "meeting", title: m.title, date: d, href: `/dashboard/eip/meetings` });
+        if (d) list.push({ id: `m-${m.id}`, type: "meeting", title: m.title, date: d, meetingId: m.id });
       });
     }
     if (show.milestone) {
       (milestonesQ.data ?? []).forEach((ms: any) => {
         const d = toYMD(ms.due_date);
-        if (d) list.push({ id: `ms-${ms.id}`, type: "milestone", title: ms.name, date: d, href: ms.project_id ? `/dashboard/eip/projects/${ms.project_id}` : undefined });
+        if (d) list.push({ id: `ms-${ms.id}`, type: "milestone", title: ms.name, date: d, projectId: ms.project_id ?? undefined, milestoneId: ms.id });
       });
     }
     if (show.personal) {
