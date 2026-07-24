@@ -490,6 +490,25 @@ function UsersPage() {
                 )}
               </div>
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs">職務代理人（此人請假/離開時代理處理通知）</Label>
+              <Select value={editDeputy} onValueChange={setEditDeputy}>
+                <SelectTrigger><SelectValue placeholder="未設定" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未設定</SelectItem>
+                  {appUsers
+                    .filter((a) => a.status === "active" && a.id !== editing?.id)
+                    .map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name ?? a.id}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {editDeputy !== "none" && (
+                <p className="text-xs text-muted-foreground">
+                  目前職代：{appUserMap[editDeputy]?.name ?? "—"}
+                </p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>取消</Button>
