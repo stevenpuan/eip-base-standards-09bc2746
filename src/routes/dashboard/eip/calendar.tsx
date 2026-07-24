@@ -380,6 +380,33 @@ function CalendarPage() {
                               </Link>
                             );
                           }
+                          if (e.type === "meeting" && e.meetingId) {
+                            return (
+                              <Link
+                                key={e.id}
+                                to="/dashboard/eip/meetings/$id"
+                                params={{ id: e.meetingId }}
+                                className={cls + " hover:opacity-80"}
+                                title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
+                              >
+                                {displayTitle}
+                              </Link>
+                            );
+                          }
+                          if (e.type === "milestone" && e.projectId) {
+                            return (
+                              <Link
+                                key={e.id}
+                                to="/dashboard/eip/projects/$id"
+                                params={{ id: e.projectId }}
+                                search={{ milestone: e.milestoneId }}
+                                className={cls + " hover:opacity-80"}
+                                title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
+                              >
+                                {displayTitle}
+                              </Link>
+                            );
+                          }
                           return e.href ? (
                             <Link key={e.id} to={e.href as any} className={cls + " hover:opacity-80"} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>
                               {displayTitle}
