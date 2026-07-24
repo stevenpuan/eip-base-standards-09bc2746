@@ -32,6 +32,9 @@ import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 import { VisibilityBadge } from "@/components/eip/VisibilityScope";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    milestone: typeof search.milestone === "string" ? search.milestone : undefined,
+  }),
   component: ProjectDetailPage,
 });
 
