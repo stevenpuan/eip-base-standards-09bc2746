@@ -42,6 +42,8 @@ interface AppUserRow {
   department_id: string | null;
   line_user_id: string | null;
   status: string | null;
+  deputy_id?: string | null;
+  name?: string | null;
 }
 interface Invitation {
   id: string;
@@ -87,7 +89,7 @@ function UsersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_user")
-        .select("id, department_id, line_user_id, status");
+        .select("id, department_id, line_user_id, status, deputy_id, name");
       if (error) throw error;
       return (data ?? []) as AppUserRow[];
     },
@@ -152,6 +154,7 @@ function UsersPage() {
   const [editRoleIds, setEditRoleIds] = useState<string[]>([]);
   const [editDept, setEditDept] = useState<string>("none");
   const [editLine, setEditLine] = useState<string>("");
+  const [editDeputy, setEditDeputy] = useState<string>("none");
 
   const openEdit = (row: ProfileRow) => {
     setEditing(row);
@@ -159,6 +162,7 @@ function UsersPage() {
     const a = appUserMap[row.id];
     setEditDept(a?.department_id ?? "none");
     setEditLine(a?.line_user_id ?? "");
+    setEditDeputy(a?.deputy_id ?? "none");
   };
   const toggleRole = (id: string) => {
     setEditRoleIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -182,6 +186,7 @@ function UsersPage() {
       const { error } = await supabase.from("app_user").update({
         department_id: editDept === "none" ? null : editDept,
         line_user_id: editLine.trim() || null,
+        deputy_id: editDeputy === "none" ? null : editDeputy,
       }).eq("id", editing.id);
       if (error) { toast.error(error.message); return; }
     }
@@ -484,6 +489,25 @@ function UsersPage() {
                   <Button type="button" variant="outline" onClick={() => setEditLine("")}>清除</Button>
                 )}
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">職務代理人（此人請假/離開時代理處理通知）</Label>
+              <Select value={editDeputy} onValueChange={setEditDeputy}>
+                <SelectTrigger><SelectValue placeholder="未設定" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">未設定</SelectItem>
+                  {appUsers
+                    .filter((a) => a.status === "active" && a.id !== editing?.id)
+                    .map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name ?? a.id}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {editDeputy !== "none" && (
+                <p className="text-xs text-muted-foreground">
+                  目前職代：{appUserMap[editDeputy]?.name ?? "—"}
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>

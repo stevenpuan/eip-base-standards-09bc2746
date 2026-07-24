@@ -224,6 +224,7 @@ export type Database = {
         Row: {
           created_at: string
           department_id: string | null
+          deputy_id: string | null
           email: string | null
           employee_no: string | null
           extension: string | null
@@ -240,6 +241,7 @@ export type Database = {
         Insert: {
           created_at?: string
           department_id?: string | null
+          deputy_id?: string | null
           email?: string | null
           employee_no?: string | null
           extension?: string | null
@@ -256,6 +258,7 @@ export type Database = {
         Update: {
           created_at?: string
           department_id?: string | null
+          deputy_id?: string | null
           email?: string | null
           employee_no?: string | null
           extension?: string | null
@@ -283,6 +286,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "eip_org_chart"
             referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "app_user_deputy_id_fkey"
+            columns: ["deputy_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_user_deputy_id_fkey"
+            columns: ["deputy_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "app_user_tenant_id_fkey"
