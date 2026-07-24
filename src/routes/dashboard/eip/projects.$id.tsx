@@ -479,7 +479,7 @@ function MilestonesSection({ projectId, tenantId, milestones, canEdit, highlight
             {milestones.map((m) => {
               const overdue = m.due_date && m.due_date < today && m.status !== "done";
               return (
-                <div key={m.id} className="flex items-center gap-2 relative">
+                <div key={m.id} id={`ms-${m.id}`} className={`flex items-center gap-2 relative rounded-md transition-shadow ${flashId === m.id ? "ring-2 ring-primary ring-offset-1" : ""}`}>
                   <button
                     type="button"
                     disabled={!canEdit}
