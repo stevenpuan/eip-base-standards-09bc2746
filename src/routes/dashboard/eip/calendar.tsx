@@ -25,6 +25,9 @@ type CalEvent = {
   date: string;
   href?: string;
   taskId?: string;
+  meetingId?: string;
+  milestoneId?: string;
+  projectId?: string;
   endDate?: string;
   personal?: PersonalEvent;
   readOnly?: boolean;
