@@ -264,7 +264,7 @@ function ProjectDetailPage() {
 
       {/* D. 里程碑 */}
       <Section icon={Flag} title="里程碑">
-        <MilestonesSection projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canEdit} />
+        <MilestonesSection projectId={id} tenantId={project.tenant_id} milestones={milestones} canEdit={canEdit} highlightId={highlightMilestoneId} />
       </Section>
 
       {/* E. 任務 */}
