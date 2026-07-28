@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,7 +30,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/dashboard/eip/announcements")({ component: AnnouncementsPage });
+export const Route = createFileRoute("/dashboard/eip/announcements")({ component: () => (
+    <RequirePerm module="eip_announcements">
+      <AnnouncementsPage />
+    </RequirePerm>
+  ) });
 
 type Announcement = Database["public"]["Tables"]["announcement"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];

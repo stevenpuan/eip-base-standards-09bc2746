@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -15,7 +16,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/issue-reports")({ component: Page });
+export const Route = createFileRoute("/dashboard/issue-reports")({ component: () => (
+    <RequirePerm module="issue_reports">
+      <Page />
+    </RequirePerm>
+  ) });
 
 const SEVERITY: Record<string, string> = { low: "低", normal: "一般", high: "高", critical: "嚴重" };
 const STATUS: Record<string, string> = { open: "待處理", processing: "處理中", resolved: "已解決", closed: "已關閉" };

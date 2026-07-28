@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { supabase } from "@/lib/supabase";
@@ -22,7 +23,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Trash2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/assistant-intent")({ component: Page });
+export const Route = createFileRoute("/dashboard/assistant-intent")({ component: () => (
+    <RequirePerm module="assistant_intent">
+      <Page />
+    </RequirePerm>
+  ) });
 
 const MODULE_KEY = "assistant_intent";
 const TOOL_HINTS = [

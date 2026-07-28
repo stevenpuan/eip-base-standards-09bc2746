@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -37,7 +38,11 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/eip/documents")({
-  component: DocumentsPage,
+  component: () => (
+    <RequirePerm module="eip_documents">
+      <DocumentsPage />
+    </RequirePerm>
+  ),
 });
 
 type DocFolder = {

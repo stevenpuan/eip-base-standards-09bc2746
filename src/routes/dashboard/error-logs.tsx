@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -6,7 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/dashboard/error-logs")({ component: Page });
+export const Route = createFileRoute("/dashboard/error-logs")({ component: () => (
+    <RequirePerm module="error_logs">
+      <Page />
+    </RequirePerm>
+  ) });
 
 function Page() {
   const { data: rows = [], isLoading } = useQuery({

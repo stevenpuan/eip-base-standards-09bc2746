@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -32,7 +33,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/dashboard/org")({ component: Page });
+export const Route = createFileRoute("/dashboard/org")({ component: () => (
+    <RequirePerm module="org">
+      <Page />
+    </RequirePerm>
+  ) });
 
 interface Dept {
   id: string;
