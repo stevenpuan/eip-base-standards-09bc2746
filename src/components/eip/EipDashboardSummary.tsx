@@ -22,11 +22,12 @@ export function EipDashboardSummary() {
     enabled: !!user?.id,
     queryKey: ["dashboard", "eip-appuser", user?.id],
     queryFn: async (): Promise<AppUserLite | null> => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("app_user")
         .select("id,role,department_id,tenant_id")
         .eq("id", user!.id)
         .maybeSingle();
+      if (error) throw error;
       return (data as AppUserLite) ?? null;
     },
   });
@@ -39,7 +40,8 @@ export function EipDashboardSummary() {
   const statusesQ = useQuery({
     queryKey: ["eip", "task_status"],
     queryFn: async () => {
-      const { data } = await supabase.from("task_status").select("*").order("sort_order");
+      const { data, error } = await supabase.from("task_status").select("*").order("sort_order");
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -73,7 +75,9 @@ export function EipDashboardSummary() {
       } else {
         q = q.or(`owner_id.eq.${appUser!.id},created_by.eq.${appUser!.id}`);
       }
-      const { data } = await q;
+      const { data, error } = await q;
+      // 原本 error 被丟掉，失敗時首頁會顯示一排 0，看起來像「今天沒事」
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -81,13 +85,14 @@ export function EipDashboardSummary() {
   const annQ = useQuery({
     queryKey: ["dashboard", "eip-announcements"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("announcement")
         .select("id,title,is_pinned,published_at,created_at")
         .not("published_at", "is", null)
         .order("is_pinned", { ascending: false })
         .order("published_at", { ascending: false })
         .limit(5);
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -96,10 +101,11 @@ export function EipDashboardSummary() {
     enabled: managerLevel,
     queryKey: ["dashboard", "eip-projects"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("project")
         .select("id,name,status")
         .eq("status", "active");
+      if (error) throw error;
       return data ?? [];
     },
   });

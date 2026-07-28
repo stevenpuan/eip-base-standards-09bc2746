@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ListChecks, Clock, ExternalLink } from "lucide-react";
+import { ListChecks, Clock, ExternalLink, X, Link2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   fetchRoutineToday,
   setRoutineItem,
+  removeRoutineItem,
   taipeiToday,
   ROUTINE_SOURCE_LABEL,
+  ROUTINE_LINK_SHAPE,
   type RoutineRow,
 } from "@/lib/eip-routine";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,6 +95,37 @@ export function TodayRoutineCard() {
     }
   };
 
+  /**
+   * 從今天的日誌移除這一項。
+   * 只影響今天這一筆，不會動到個人例行範本 —— 對話框裡要講清楚，
+   * 否則使用者會以為自己把範本刪掉了。
+   */
+  const remove = async (r: RoutineRow) => {
+    const k = keyOf(r);
+    if (busy) return;
+    const isTemplate = r.source === "personal_routine" || r.source === "recurring";
+    const msg = isTemplate
+      ? `把「${r.text}」從今天的日誌移除？\n\n只影響今天這一筆，範本不會被刪除，明天還是會帶進來。要永久移除請到「個人例行」頁停用或刪除範本。`
+      : `把「${r.text}」從今天的日誌移除？`;
+    if (!window.confirm(msg)) return;
+    setBusy(k);
+    setRows((prev) => (prev ?? []).filter((x) => keyOf(x) !== k));
+    try {
+      await removeRoutineItem({
+        date,
+        section: r.section,
+        source: r.source,
+        refId: r.ref_id,
+        text: r.text,
+      });
+    } catch (e) {
+      toast.error(`移除失敗：${e instanceof Error ? e.message : String(e)}`);
+      await reload();
+    } finally {
+      setBusy(null);
+    }
+  };
+
   /** 執行內容：輸入時只更新本地，失焦或停止輸入 1 秒後才寫 DB */
   const saveNote = async (r: RoutineRow, note: string) => {
     const k = keyOf(r);
@@ -114,6 +147,41 @@ export function TodayRoutineCard() {
     } finally {
       setSavingNote((s) => {
         const n = new Set(s);
+        n.delete(k);
+        return n;
+      });
+    }
+  };
+
+  /**
+   * 相關檔案連結（訪談定案第 5 條：NAS 或其他檔案可掛連結）。
+   * 與勾選、執行內容共用同一支 eip_set_routine_item，不另開寫入路徑。
+   */
+  const saveLink = async (r: RoutineRow, raw: string) => {
+    const k = keyOf(r);
+    const link = raw.trim();
+    if ((r.link ?? "") === link) return;
+    if (link && !ROUTINE_LINK_SHAPE.test(link)) {
+      toast.error("連結格式不對：請用 http(s)://、file:// 或 \\伺服器\分享資料夾");
+      return;
+    }
+    setSavingNote((s2) => new Set(s2).add(k));
+    try {
+      await setRoutineItem({
+        date,
+        section: r.section,
+        link,
+        source: r.source,
+        refId: r.ref_id,
+        text: r.text,
+      });
+      patchLocal(k, { link: link || null });
+    } catch (e) {
+      toast.error(`連結儲存失敗：${e instanceof Error ? e.message : String(e)}`);
+      await reload();
+    } finally {
+      setSavingNote((s2) => {
+        const n = new Set(s2);
         n.delete(k);
         return n;
       });
@@ -184,6 +252,8 @@ export function TodayRoutineCard() {
               savingNote={savingNote}
               onToggle={toggle}
               onSaveNote={saveNote}
+              onSaveLink={saveLink}
+              onRemove={remove}
             />
             <RoutineGroup
               label="下午"
@@ -193,6 +263,8 @@ export function TodayRoutineCard() {
               savingNote={savingNote}
               onToggle={toggle}
               onSaveNote={saveNote}
+              onSaveLink={saveLink}
+              onRemove={remove}
             />
             <p className="text-[11px] text-muted-foreground pt-0.5">
               勾選與執行內容都會直接存進今天的日誌，不需要再按儲存。
@@ -212,6 +284,8 @@ function RoutineGroup({
   savingNote,
   onToggle,
   onSaveNote,
+  onSaveLink,
+  onRemove,
 }: {
   label: string;
   Icon: typeof ListChecks;
@@ -220,6 +294,8 @@ function RoutineGroup({
   savingNote: Set<string>;
   onToggle: (r: RoutineRow) => void;
   onSaveNote: (r: RoutineRow, note: string) => void;
+  onSaveLink: (r: RoutineRow, link: string) => void;
+  onRemove: (r: RoutineRow) => void;
 }) {
   if (!rows.length) return null;
   return (
@@ -237,6 +313,8 @@ function RoutineGroup({
             saving={savingNote.has(keyOf(r))}
             onToggle={() => onToggle(r)}
             onSaveNote={(note) => onSaveNote(r, note)}
+            onSaveLink={(link) => onSaveLink(r, link)}
+            onRemove={() => onRemove(r)}
           />
         ))}
       </div>
@@ -250,12 +328,16 @@ function RoutineRowItem({
   saving,
   onToggle,
   onSaveNote,
+  onSaveLink,
+  onRemove,
 }: {
   row: RoutineRow;
   busy: boolean;
   saving: boolean;
   onToggle: () => void;
   onSaveNote: (note: string) => void;
+  onSaveLink: (link: string) => void;
+  onRemove: () => void;
 }) {
   const [text, setText] = useState(row.note ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -297,6 +379,9 @@ function RoutineRowItem({
   };
 
   const needContent = row.require_content && row.done && !text.trim();
+  const [linkOpen, setLinkOpen] = useState(!!row.link);
+  const [linkText, setLinkText] = useState(row.link ?? "");
+  const isUnc = (u: string) => u.startsWith("\\\\");
 
   return (
     <div
@@ -322,6 +407,15 @@ function RoutineRowItem({
             需填
           </span>
         )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onRemove}
+          title="從今天的日誌移除（不會刪掉範本）"
+          className="p-0.5 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 shrink-0 disabled:opacity-40"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* 執行內容直接在這裡填，不用跳工作日誌 */}
@@ -339,6 +433,67 @@ function RoutineRowItem({
         <span className="text-[10px] text-muted-foreground shrink-0 pt-1.5 w-8 text-right">
           {saving ? "存…" : ""}
         </span>
+      </div>
+
+      {/* 相關檔案連結：預設收起來，有連結或按了才展開，避免每一列都多一個輸入框 */}
+      <div className="ml-6 mt-1">
+        {!linkOpen ? (
+          <button
+            type="button"
+            onClick={() => setLinkOpen(true)}
+            className="text-[11px] text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+          >
+            <Link2 className="w-3 h-3" />
+            加連結
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            {row.link && isUnc(row.link) ? (
+              <span title="NAS 路徑，複製後貼到檔案總管" className="shrink-0">
+                <FolderOpen className="w-3 h-3 text-muted-foreground" />
+              </span>
+            ) : (
+              <Link2 className="w-3 h-3 text-muted-foreground shrink-0" />
+            )}
+            <input
+              value={linkText}
+              onChange={(e) => setLinkText(e.target.value)}
+              onBlur={() => onSaveLink(linkText)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onSaveLink(linkText);
+                }
+              }}
+              placeholder="\\\\NAS\\品保\\2026\\ 或 https://…"
+              className="flex-1 min-w-0 rounded-md bg-transparent px-1.5 py-0.5 text-[11px] font-mono outline-none border border-transparent hover:border-border/60 focus:border-border"
+            />
+            {row.link && !isUnc(row.link) && (
+              <a
+                href={row.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-primary hover:underline shrink-0"
+              >
+                開啟
+              </a>
+            )}
+            {row.link && isUnc(row.link) && (
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(row.link!)
+                    .then(() => toast.success("已複製路徑，貼到檔案總管即可開啟"))
+                    .catch(() => toast.info(row.link!));
+                }}
+                className="text-[11px] text-primary hover:underline shrink-0"
+              >
+                複製
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

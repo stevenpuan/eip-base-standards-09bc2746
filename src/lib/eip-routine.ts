@@ -9,10 +9,15 @@ export type RoutineRow = {
   text: string;
   done: boolean;
   note: string | null;
+  /** 相關檔案：NAS 路徑或網址（訪談定案第 5 條） */
+  link: string | null;
   source: string | null;
   ref_id: string | null;
   require_content: boolean;
 };
+
+/** 與 DB 端 eip_set_routine_item 的檢查同一條規則，前端先擋是為了給看得懂的訊息 */
+export const ROUTINE_LINK_SHAPE = /^(https?:\/\/|file:\/\/|\\\\)/;
 
 export type ToggleResult = {
   ok: boolean;
@@ -68,6 +73,8 @@ export async function setRoutineItem(args: {
   section: RoutineSection;
   done?: boolean;
   note?: string;
+  /** 傳 undefined = 不改；傳空字串 = 清空 */
+  link?: string;
   source?: string | null;
   refId?: string | null;
   text?: string | null;
@@ -81,6 +88,34 @@ export async function setRoutineItem(args: {
     p_text: args.refId ? null : (args.text ?? null),
     p_done: args.done ?? null,
     p_note: args.note ?? null,
+    p_link: args.link ?? null,
+  });
+  if (error) throw error;
+  return data as unknown as ToggleResult;
+}
+
+/**
+ * 把某一項從「今天這一筆日誌」移除。
+ *
+ * 注意語意：移除的是今天日誌裡的項目，**不是刪掉個人例行範本**。
+ * 範本要停用或刪除請到「個人例行」頁；明天照樣會帶進來，
+ * 按工作日誌的「同步今日任務」也會把它帶回來（與既有行為一致）。
+ *
+ * 今天還沒有日誌時直接回成功、不會建出一筆空日誌。
+ */
+export async function removeRoutineItem(args: {
+  date: string;
+  section: RoutineSection;
+  source?: string | null;
+  refId?: string | null;
+  text?: string | null;
+}): Promise<ToggleResult> {
+  const { data, error } = await supabase.rpc("eip_remove_routine_item", {
+    p_date: args.date,
+    p_section: args.section,
+    p_source: args.refId ? (args.source ?? "") : null,
+    p_ref_id: args.refId ?? null,
+    p_text: args.refId ? null : (args.text ?? null),
   });
   if (error) throw error;
   return data as unknown as ToggleResult;

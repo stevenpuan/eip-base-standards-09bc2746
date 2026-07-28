@@ -52,6 +52,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
 import { TaskChecklist } from "@/components/eip/TaskChecklist";
 import { EntityLinks } from "@/components/eip/EntityLinks";
+import { UrlLinks } from "@/components/eip/UrlLinks";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
@@ -474,6 +475,7 @@ function TasksPage() {
             projectMap={projectMap}
             sourceMap={sourceMap}
             deptMap={deptMap}
+            subtaskMap={subtaskMap}
             statuses={statusesQ.data ?? []}
             users={activeUsersQ.data ?? []}
             appUser={appUser}
@@ -1031,13 +1033,41 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
 /* ============ 列表視圖 ============ */
 type SortKey = "title" | "owner" | "status" | "priority" | "progress" | "due" | "project";
 
+/**
+ * 列表視圖的「子項」欄。
+ * 這裡刻意只顯示 n/m 與一條細進度條，不換算成百分比 ——
+ * 訪談定案第 2 條：勾選＝今天有做，例行不談百分比；
+ * 子項也是同一個語意（「不會說一項工作寫一大堆就完成 98%」）。
+ */
+function SubtaskCell({ sub }: { sub?: { total: number; done: number } }) {
+  if (!sub || sub.total === 0) {
+    return <div className="text-right pr-1 text-muted-foreground/50 text-xs">—</div>;
+  }
+  const pct = Math.round((sub.done / sub.total) * 100);
+  const allDone = sub.done >= sub.total;
+  return (
+    <div className="text-right pr-1" title={`子項 ${sub.done}/${sub.total}`}>
+      <div className={`tabular-nums text-xs ${allDone ? "text-muted-foreground" : "font-medium"}`}>
+        {sub.done}/{sub.total}
+      </div>
+      <div className="h-1 mt-0.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full ${allDone ? "bg-muted-foreground" : "bg-primary"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ListView({
-  tasks, statusMap, userMap, projectMap, sourceMap, deptMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
+  tasks, statusMap, userMap, projectMap, sourceMap, deptMap, subtaskMap, statuses, users, appUser, canManage, onChanged, onOpenDetail,
 }: {
   tasks: Task[];
   statusMap: Map<string, Status>; userMap: Map<string, AppUser>; projectMap: Map<string, Project>;
   sourceMap: Map<string, TaskSource>;
   deptMap: Map<string, Department>;
+  subtaskMap: Map<string, { total: number; done: number }>;
   statuses: Status[]; users: AppUser[];
   appUser: AppUser | null; canManage: boolean;
   onChanged: () => void;
@@ -1184,9 +1214,10 @@ function ListView({
 
   const canBulk = canManage;
 
+  // 多一欄「子項」（規格書 E 章：列表視圖再加「子項 n/m ＋進度條」）
   const cols = canBulk
-    ? "32px minmax(0,1fr) 96px 88px 84px 64px 112px 132px"
-    : "minmax(0,1fr) 96px 88px 84px 64px 112px 132px";
+    ? "32px minmax(0,1fr) 96px 88px 84px 64px 72px 112px 132px"
+    : "minmax(0,1fr) 96px 88px 84px 64px 72px 112px 132px";
   const arrow = (kk: SortKey) => (sortKey === kk ? (sortDir === "asc" ? " \u25B2" : " \u25BC") : "");
   const Hd = ({ label, kk }: { label: string; kk: SortKey }) => (
     <button type="button" onClick={() => toggleSort(kk)} className="flex items-center hover:text-foreground truncate">
@@ -1260,6 +1291,7 @@ function ListView({
               <Hd label="狀態" kk="status" />
               <Hd label="優先級" kk="priority" />
               <Hd label="進度" kk="progress" />
+              <div className="text-right pr-1" title="子項完成數（勾選＝今天有做，不是百分比）">子項</div>
               <Hd label="期限" kk="due" />
               <Hd label="專案" kk="project" />
             </div>
@@ -1298,6 +1330,7 @@ function ListView({
                     </Badge>
                   </div>
                   <div className="tabular-nums">{t.progress}%</div>
+                  <SubtaskCell sub={subtaskMap.get(t.id)} />
                   <div className="truncate tabular-nums">{t.due_date ? new Date(t.due_date).toLocaleDateString("zh-TW") : "—"}</div>
                   <div className="truncate text-muted-foreground">{t.project_id ? projectMap.get(t.project_id)?.name ?? "—" : "—"}</div>
                 </div>
@@ -1894,6 +1927,10 @@ export function EditTaskDialog({
           )}
 
           {task.id && <EntityLinks entityType="task" entityId={task.id} readOnly={readOnly} />}
+          {/* eip_link 是系統內實體關聯，NAS／網址是另一件事，走 eip_url_link */}
+          {task.id && (
+            <UrlLinks entityType="task" entityId={task.id} readOnly={readOnly} title="檔案／NAS 連結" />
+          )}
 
           {task.id && (
             <TaskChecklist
