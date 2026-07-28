@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
+import { TodayRoutineCard } from "@/components/eip/TodayRoutineCard";
+import { HandoverInboxCard } from "@/components/eip/HandoverInboxCard";
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -234,8 +236,14 @@ function MyTasksPage() {
     <div>
       <PageHeader
         title="我的工作"
-        description="個人聚合中心,顯示與我相關的所有任務(一般、專案、會議來源)。未結案的任務可編輯或刪除。"
+        description="單一入口。上面是今天要做的例行與待我接手的代辦，下面是與我相關的任務（一般／常態／專案／會議來源）。"
       />
+
+      {/* ① 個人例行＋② 常態工作：不是任務，所以獨立一塊，勾選直接寫進今天的日誌 */}
+      <TodayRoutineCard />
+
+      {/* ⑥ 代辦事項（離職／請假交接）：只提示與跳轉，處理動作留在交接待辦頁 */}
+      <HandoverInboxCard meId={appUser.id} />
 
       <Card className="mb-3">
         <CardContent className="p-3 flex flex-wrap items-center gap-3">
