@@ -18,14 +18,23 @@ const TYPE_META: Record<string, { label: string; Icon: typeof Bell; cls: string 
   mentioned:      { label: "提及",     Icon: Bell,          cls: "bg-primary/10 text-primary" },
   due_soon:       { label: "即將到期", Icon: CalendarClock, cls: "bg-accent/15 text-accent" },
   overdue:        { label: "逾期",     Icon: AlertTriangle, cls: "bg-destructive/10 text-destructive" },
-  review_needed:  { label: "待批示",   Icon: Stamp,         cls: "bg-accent/15 text-accent" },
+  review_needed:  { label: "待批示",   Icon: Stamp,         cls: "bg-accent/15 text-accent" }, // 2026-07-28 起不再產生，保留以顯示歷史通知
   announcement:   { label: "公告",     Icon: Megaphone,     cls: "bg-primary/10 text-primary" },
   quick_report:   { label: "回報",     Icon: FileText,      cls: "bg-primary/10 text-primary" },
   reassign_needed:    { label: "人員異動待處理", Icon: UserMinus, cls: "bg-accent/15 text-accent" },
   handover_created:   { label: "交接待辦",     Icon: UserMinus, cls: "bg-accent/15 text-accent" },
   handover_completed: { label: "交接完成",     Icon: UserCheck, cls: "bg-primary/10 text-primary" },
 };
-const meta = (t: string) => TYPE_META[t] ?? { label: t, Icon: Bell, cls: "bg-muted text-muted-foreground" };
+// handover_created / handover_completed 兩種型別同時被「離職交接」與「請假代辦」使用，
+// 因此標題要看 entity_type 才能正確顯示。
+const ENTITY_OVERRIDE: Record<string, Record<string, string>> = {
+  leave_handover: { handover_created: "請假代辦", handover_completed: "請假代辦完成" },
+};
+const meta = (t: string, entityType?: string) => {
+  const base = TYPE_META[t] ?? { label: t, Icon: Bell, cls: "bg-muted text-muted-foreground" };
+  const override = entityType ? ENTITY_OVERRIDE[entityType]?.[t] : undefined;
+  return override ? { ...base, label: override } : base;
+};
 
 function NotificationsPage() {
   const { user } = useAuth();
@@ -78,6 +87,7 @@ function NotificationsPage() {
     else if (n.entity_type === "quick_report") navigate({ to: "/dashboard/eip/quick-reports" });
     else if (n.entity_type === "work_log") navigate({ to: "/dashboard/eip/work-log" });
     else if (n.entity_type === "handover") navigate({ to: "/dashboard/eip/handover" });
+    else if (n.entity_type === "leave_handover") navigate({ to: "/dashboard/eip/quick-reports" });
     else void load();
   };
 
@@ -123,7 +133,7 @@ function NotificationsPage() {
       ) : (
         <ul className="space-y-2.5">
           {shown.map((n) => {
-            const m = meta(n.type);
+            const m = meta(n.type, n.entity_type);
             return (
               <li key={n.id}>
                 <button onClick={() => open(n)}

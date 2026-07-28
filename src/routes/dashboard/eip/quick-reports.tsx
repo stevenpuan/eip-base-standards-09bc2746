@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Inbox } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+// eip_quick_report 的 submitted_at / done_at / done_by / handover_note 尚未進
+// src/integrations/supabase/types.ts，故本頁改用 any 版 client（型別在本檔自行宣告）。
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
 import { useAllUsers } from "@/hooks/useUsers";
@@ -42,6 +44,11 @@ type Row = {
   leave_from: string | null;
   leave_to: string | null;
   detail: string | null;
+  submitted_at: string | null;
+  done_at: string | null;
+  done_by: string | null;
+  handover_note: string | null;
+  leave_type: string | null;
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -54,11 +61,13 @@ const TYPE_COLOR: Record<string, string> = {
   leave: "bg-blue-100 text-blue-700 border-blue-300",
   other: "bg-slate-100 text-slate-700 border-slate-300",
 };
+// 2026-07-28 起請假不做簽核，改為「代辦產生 → 代辦完成」兩段通知。
+// acknowledged 為舊制「主管已確認」留下的值，視同已完成。
 const STATUS_LABEL: Record<string, string> = {
   open: "待處理",
-  acknowledged: "已處理",
-  done: "已處理",
-  closed: "已處理",
+  acknowledged: "已完成",
+  done: "已完成",
+  closed: "已完成",
 };
 const DONE_STATUSES = new Set(["acknowledged", "done", "closed"]);
 
@@ -104,7 +113,6 @@ function QuickReportsPage() {
   const [keyword, setKeyword] = useState("");
   const [mineOnly, setMineOnly] = useState<boolean>(false);
 
-
   const listQ = useQuery({
     queryKey: ["eip", "quick-reports"],
     enabled: !!appUser && canView,
@@ -147,27 +155,31 @@ function QuickReportsPage() {
     });
   }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap, mineOnly, appUser]);
 
-
   if (authLoading) return <div className="text-muted-foreground">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" />;
 
-  const ack = async (id: string) => {
+  // 標記代辦完成。請假類會由 DB trigger 發出第二段「代辦完成」通知給請假者與部門主管。
+  const markDone = async (id: string) => {
+    if (!appUser?.id) return;
     const { error } = await supabase
       .from("eip_quick_report")
-      .update({ status: "acknowledged" })
+      .update({ status: "done", done_at: new Date().toISOString(), done_by: appUser.id })
       .eq("id", id);
     if (error) return toast.error(`更新失敗：${error.message}`);
-    toast.success("已標記為已處理");
+    toast.success("已標記完成");
     void listQ.refetch();
   };
 
   const hasFilter = typeFilter !== "all" || statusFilter !== "all" || dateFilter || keyword;
-  // 是否可執行「確認」動作（處理他人回報）：讀臨時回報編輯權
+  // 是否可標記完成（處理他人回報）：讀臨時回報編輯權
   const canAck = can("eip_quick_reports", "edit");
 
   return (
     <div className="space-y-4">
-      <PageHeader title="臨時回報" description="檢視遲到 / 請假 / 事件回報（同仁看自己的，主管看部門）。" />
+      <PageHeader
+        title="臨時回報"
+        description="檢視遲到 / 請假 / 事件回報（同仁看自己的，主管看部門）。請假不需簽核，送出後由代理人接手、處理完成後系統自動通知。"
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -179,7 +191,9 @@ function QuickReportsPage() {
         </Button>
 
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部類型</SelectItem>
             <SelectItem value="late">遲到</SelectItem>
@@ -188,7 +202,9 @@ function QuickReportsPage() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部狀態</SelectItem>
             <SelectItem value="open">待處理</SelectItem>
@@ -208,7 +224,16 @@ function QuickReportsPage() {
           className="w-56"
         />
         {hasFilter && (
-          <Button variant="ghost" size="sm" onClick={() => { setTypeFilter("all"); setStatusFilter("all"); setDateFilter(""); setKeyword(""); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setTypeFilter("all");
+              setStatusFilter("all");
+              setDateFilter("");
+              setKeyword("");
+            }}
+          >
             清除
           </Button>
         )}
@@ -253,18 +278,25 @@ function QuickReportsPage() {
                       {r.type === "late" && (
                         <div className="text-sm">
                           預計到達 {formatEta(r.eta)}
-                          {r.detail && <div className="text-muted-foreground text-xs mt-0.5">{r.detail}</div>}
+                          {r.detail && (
+                            <div className="text-muted-foreground text-xs mt-0.5">{r.detail}</div>
+                          )}
                         </div>
                       )}
                       {r.type === "leave" && (
                         <div className="text-sm">
                           {formatLeave(r.leave_from, r.leave_to)}
-                          {r.detail && <div className="text-muted-foreground text-xs mt-0.5">{r.detail}</div>}
+                          {r.detail && (
+                            <div className="text-muted-foreground text-xs mt-0.5">{r.detail}</div>
+                          )}
+                          {r.handover_note && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              接手備註：{r.handover_note}
+                            </div>
+                          )}
                         </div>
                       )}
-                      {r.type === "other" && (
-                        <div className="text-sm">{r.detail ?? "—"}</div>
-                      )}
+                      {r.type === "other" && <div className="text-sm">{r.detail ?? "—"}</div>}
                       {r.type !== "late" && r.type !== "leave" && r.type !== "other" && (
                         <div className="text-sm text-muted-foreground">{r.detail ?? "—"}</div>
                       )}
@@ -272,22 +304,43 @@ function QuickReportsPage() {
                     <TableCell className="text-sm whitespace-nowrap">
                       {r.report_date}
                       <div className="text-xs text-muted-foreground">
-                        {new Date(r.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
+                        送出{" "}
+                        {new Date(r.submitted_at ?? r.created_at).toLocaleString("zh-TW", {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className={isDone
-                          ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-                          : "bg-amber-100 text-amber-700 border-amber-300"}
+                        className={
+                          isDone
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                            : "bg-amber-100 text-amber-700 border-amber-300"
+                        }
                       >
                         {STATUS_LABEL[r.status] ?? r.status}
                       </Badge>
+                      {isDone && r.done_at && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {new Date(r.done_at).toLocaleString("zh-TW", {
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          {r.done_by && ` ・${nameMap.get(r.done_by) ?? ""}`}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {!isDone && canAck && (
-                        <Button size="sm" variant="outline" onClick={() => ack(r.id)}>確認</Button>
+                        <Button size="sm" variant="outline" onClick={() => void markDone(r.id)}>
+                          {r.type === "leave" ? "代辦完成" : "標記完成"}
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>
