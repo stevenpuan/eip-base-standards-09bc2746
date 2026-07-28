@@ -497,7 +497,8 @@ function QuickReportsPage() {
           <SelectContent>
             <SelectItem value="all">全部狀態</SelectItem>
             <SelectItem value="open">待處理</SelectItem>
-            <SelectItem value="done">已處理</SelectItem>
+            <SelectItem value="acknowledged">處理中</SelectItem>
+            <SelectItem value="done">已完成</SelectItem>
           </SelectContent>
         </Select>
         <Input
