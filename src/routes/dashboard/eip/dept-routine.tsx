@@ -65,7 +65,7 @@ function rateTone(v: number | null) {
 }
 
 function DeptRoutinePage() {
-  const { loading: authLoading, can } = useAuth();
+  const { loading: authLoading, permsLoaded, can } = useAuth();
   const { appUser } = useEipUser();
 
   // 這一頁是主管視角；後端 eip_dept_routine_summary 只允許
@@ -171,7 +171,7 @@ function DeptRoutinePage() {
     return { expected, done, submitted, rows: rows.length };
   }, [rows]);
 
-  if (authLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
+  if (authLoading || !permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" replace />;
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
 

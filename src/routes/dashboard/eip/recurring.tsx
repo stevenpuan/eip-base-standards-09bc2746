@@ -72,7 +72,7 @@ function summarize(r: Rule): string {
 function RecurringPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const { can } = useAuth();
+  const { can, permsLoaded } = useAuth();
   // 權限一律讀「角色權限設定」（常態工作模組），不寫死角色
   const allowed = can("eip_recurring", "view");
   const canCreate = can("eip_recurring", "create");
@@ -145,6 +145,8 @@ function RecurringPage() {
   };
 
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
+  // 權限還沒載入完就判斷 allowed 會把有權限的人踢走（重新整理／書籤必中）
+  if (!permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!allowed) return <Navigate to="/dashboard/eip/my-tasks" replace />;
 
   return (

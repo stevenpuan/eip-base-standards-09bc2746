@@ -87,7 +87,7 @@ function HandoverPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { appUser } = useEipUser();
-  const { can } = useAuth();
+  const { can, permsLoaded } = useAuth();
 
   // 權限一律讀角色權限設定，不寫死角色字串
   const allowed = can("eip_handover", "view");
@@ -156,6 +156,10 @@ function HandoverPage() {
         void navigate({ to: "/dashboard/eip/recurring" });
         break;
       case "meeting_action_item": {
+        if (meetingOfQ.isLoading) {
+          toast.info("會議資料還在載入，請稍候再按");
+          return;
+        }
         const mid = meetingOfQ.data?.get(r.entity_id);
         if (!mid) {
           toast.error("找不到該行動項所屬的會議");
@@ -196,6 +200,8 @@ function HandoverPage() {
   };
 
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
+  // 權限還沒載入完就判斷 allowed 會把有權限的人踢走（重新整理／書籤必中）
+  if (!permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!allowed) return <Navigate to="/dashboard/eip/my-tasks" replace />;
 
   return (

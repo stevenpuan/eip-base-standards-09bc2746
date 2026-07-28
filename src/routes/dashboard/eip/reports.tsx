@@ -68,7 +68,7 @@ function fmtDate(d: Date) {
 }
 
 function ReportsPage() {
-  const { roles, loading: authLoading, can } = useAuth();
+  const { roles, loading: authLoading, permsLoaded, can } = useAuth();
   const { appUser } = useEipUser();
   // 進頁與檢視權限一律讀「角色權限設定」（報表分析模組的檢視權），不寫死角色
   const isManager = can("eip_reports", "view");
@@ -356,7 +356,7 @@ function ReportsPage() {
     });
   };
 
-  if (authLoading) return <div className="text-muted-foreground">載入中…</div>;
+  if (authLoading || !permsLoaded) return <div className="text-muted-foreground">載入中…</div>;
   if (!isManager) return <Navigate to="/dashboard/eip/my-tasks" />;
 
   const loading = tasksQ.isLoading || statusesQ.isLoading;

@@ -82,7 +82,8 @@ export function EntityLinks({
   const isAdmin = can("users", "edit");
 
   const [rows, setRows] = useState<Row[]>([]);
-  const [titles, setTitles] = useState<Record<string, string>>({});
+  // string=標題、""=有資料但沒標題、null=查不到（無權檢視或已刪除）、undefined=還沒查
+  const [titles, setTitles] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -142,15 +143,21 @@ export function EntityLinks({
         if (!t) return;
         byType.set(o.otherType, [...(byType.get(o.otherType) ?? []), o.otherId]);
       });
-      const acc: Record<string, string> = {};
+      // null 是哨兵值＝「查過了但查不到」（沒權限或已刪除）。
+      // 一定要把查不到的 id 也填進來，否則 titles[key] 永遠是 undefined，
+      // 畫面會一直停在「載入中…」，跨部門連結幾乎必踩。
+      const acc: Record<string, string | null> = {};
       for (const [type, ids] of byType) {
         const t = targetOf(type)!;
         const res = await supabase.from(t.table).select(`id,${t.titleCol}`).in("id", ids);
         // 表名是動態的，typed client 的 select parser 解不出來，這裡明確轉成寬鬆型別
         const found = (res.data ?? []) as unknown as Record<string, unknown>[];
+        const hit = new Set<string>();
         found.forEach((d) => {
+          hit.add(String(d.id));
           acc[`${type}:${String(d.id)}`] = String(d[t.titleCol] ?? "");
         });
+        ids.forEach((id) => { if (!hit.has(id)) acc[`${type}:${id}`] = null; });
       }
       if (alive) setTitles(acc);
     })();
@@ -166,7 +173,12 @@ export function EntityLinks({
     if (!t) return;
     let alive = true;
     const timer = setTimeout(async () => {
-      let q = supabase.from(t.table).select(`id,${t.titleCol}`).limit(20);
+      // 有寫「最近 20 筆」就必須真的排序，否則使用者搜不到明明存在的項目
+      let q = supabase
+        .from(t.table)
+        .select(`id,${t.titleCol}`)
+        .order("created_at", { ascending: false })
+        .limit(20);
       const kw = keyword.trim().replace(/[,()\\%*"']/g, "");
       if (kw) q = q.ilike(t.titleCol, `%${kw}%`);
       const { data } = await q;
@@ -246,13 +258,15 @@ export function EntityLinks({
                 <span className="text-sm flex-1 min-w-0 truncate">
                   {title === undefined ? (
                     <span className="text-muted-foreground">載入中…</span>
+                  ) : title === null ? (
+                    <span className="text-muted-foreground">（無權檢視或已刪除）</span>
                   ) : title === "" ? (
                     <span className="text-muted-foreground">（無標題）</span>
                   ) : (
                     title
                   )}
                 </span>
-                <TargetLink type={otherType} id={otherId} known={title !== undefined} />
+                <TargetLink type={otherType} id={otherId} known={!!title} />
                 {!readOnly && canRemove(row) && (
                   <Button
                     size="sm"

@@ -167,7 +167,7 @@ const fmtSize = (n?: number | null) =>
 
 function AnomaliesPage() {
   const qc = useQueryClient();
-  const { loading: authLoading, can } = useAuth();
+  const { loading: authLoading, permsLoaded, can } = useAuth();
   const { appUser } = useEipUser();
 
   const canView = can("eip_anomaly", "view");
@@ -240,7 +240,7 @@ function AnomaliesPage() {
     void qc.invalidateQueries({ queryKey: ["eip", "anomaly-kpi"] });
   };
 
-  if (authLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
+  if (authLoading || !permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" replace />;
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
 
@@ -379,10 +379,12 @@ function AnomaliesPage() {
         <RaiseDialog
           canRaiseForOthers={canRaiseForOthers}
           onClose={() => setRaiseOpen(false)}
-          onCreated={() => {
+          onCreated={(selfReport) => {
             refresh();
             setRaiseOpen(false);
-            setTab("pending_fill");
+            // 自主填報在 DB 端直接是 filled（見 eip_fill_anomaly_defaults），
+            // 一律切到 pending_fill 會讓人在「待填報」找不到剛送出的那筆而重複填報。
+            setTab(selfReport ? "filled" : "pending_fill");
           }}
         />
       )}
@@ -508,6 +510,14 @@ function KpiCards({ canSeeKpi }: { canSeeKpi: boolean }) {
         </div>
         {kpiQ.isLoading ? (
           <div className="text-xs text-muted-foreground">載入中…</div>
+        ) : kpiQ.isError ? (
+          // 沒有這個分支的話 sum() 會把失敗算成 0，主管會誤判「本週沒有異常」
+          <div className="text-xs flex items-center gap-2">
+            <span className="text-destructive">彙整載入失敗，數字不可信</span>
+            <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => void kpiQ.refetch()}>
+              重試
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
             {cards.map((c) => (
@@ -532,7 +542,7 @@ function RaiseDialog({
 }: {
   canRaiseForOthers: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (selfReport: boolean) => void;
 }) {
   const { appUser } = useEipUser();
   // 選人一律用只含在職者的版本
@@ -587,7 +597,12 @@ function RaiseDialog({
     }
     setBusy(false);
     toast.success(selfReport ? "已送出自主填報" : "已開立缺失，已通知當事人");
-    onCreated();
+    // insert 的 returning 若被 SELECT 政策擋掉，newId 會是 undefined，附件就整批沒上傳。
+    // 這種情況一定要講出來，不能只跳成功 toast，否則使用者以為現場照片已經附上去了。
+    if (!newId && files.length) {
+      toast.warning(`缺失已開立，但 ${files.length} 個附件沒有上傳成功，請開啟詳情重新上傳`);
+    }
+    onCreated(selfReport);
   };
 
   return (
@@ -767,12 +782,17 @@ function Attachments({ anomalyId, canEdit }: { anomalyId: string; canEdit: boole
   const [list, setList] = useState<Att[]>([]);
   const [busy, setBusy] = useState(false);
 
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+
   const load = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("eip_anomaly_attachment")
       .select("*")
       .eq("anomaly_id", anomalyId)
       .order("created_at");
+    // 失敗時不能靜默顯示「尚無附件」——使用者會以為檔案不見了
+    if (error) { setLoadErr(error.message); return; }
+    setLoadErr(null);
     setList((data ?? []) as Att[]);
   };
   useEffect(() => {
@@ -795,15 +815,23 @@ function Attachments({ anomalyId, canEdit }: { anomalyId: string; canEdit: boole
       .from("anomaly")
       .createSignedUrl(a.storage_path, 60);
     if (error) return toast.error(error.message);
-    // 同分頁開啟：避免手機在 await 後攔截彈窗
-    if (data?.signedUrl) window.location.href = data.signedUrl;
+    if (!data?.signedUrl) return toast.error("無法取得檔案連結");
+    // 先試開新視窗；被行動瀏覽器攔掉（await 之後開窗常被視為非使用者手勢）
+    // 才退回同分頁導轉。原本直接改 location 會把整個 SPA 導走，
+    // 看完圖片按上一頁要重載，分頁與篩選全部歸零。
+    const w = window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    if (!w) window.location.href = data.signedUrl;
   };
 
   const remove = async (a: Att) => {
     if (!window.confirm(`刪除「${a.file_name}」？`)) return;
-    await supabase.storage.from("anomaly").remove([a.storage_path]);
+    // 順序很重要：先刪資料列、成功後才刪檔案。
+    // 反過來的話 RLS 擋住 delete 時檔案已經沒了、紀錄還在，
+    // 清單上留下一筆永遠打不開的附件。
     const { error } = await supabase.from("eip_anomaly_attachment").delete().eq("id", a.id);
     if (error) return toast.error(error.message);
+    const rm = await supabase.storage.from("anomaly").remove([a.storage_path]);
+    if (rm.error) toast.warning("紀錄已刪除，但實體檔案未刪成功（不影響使用）");
     void load();
   };
 
@@ -813,7 +841,14 @@ function Attachments({ anomalyId, canEdit }: { anomalyId: string; canEdit: boole
         <Paperclip className="w-3.5 h-3.5" />
         截圖 / 附件
       </div>
-      {list.length === 0 && <div className="text-xs text-muted-foreground">尚無附件</div>}
+      {loadErr ? (
+        <div className="text-xs flex items-center gap-2">
+          <span className="text-destructive">附件載入失敗：{loadErr}</span>
+          <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => void load()}>重試</Button>
+        </div>
+      ) : (
+        list.length === 0 && <div className="text-xs text-muted-foreground">尚無附件</div>
+      )}
       {list.map((a) => (
         <div key={a.id} className="flex items-center gap-2 text-sm">
           <button

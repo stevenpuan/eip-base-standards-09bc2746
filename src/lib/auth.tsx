@@ -26,6 +26,16 @@ export interface Profile {
 
 interface AuthContextValue {
   loading: boolean;
+  /**
+   * 權限（roles + role_module_permissions + role_page_permissions）是否已載入完成。
+   *
+   * 為什麼要跟 loading 分開：loading 只代表「拿到 session 了」，而權限是之後
+   * 兩段 round trip 才回來的。頁面若只看 loading，就會在 perms 還是 {} 的那一刻
+   * 判斷 can(...) === false，把有權限的人（含 admin）直接 <Navigate> 踢走 ——
+   * 從側邊欄點進去不會重現（那時 perms 已在記憶體裡），但重新整理／書籤／
+   * 從 LINE 推播開連結一定中。所有 guard 都要等這個旗標。
+   */
+  permsLoaded: boolean;
   session: Session | null;
   user: User | null;
   profile: Profile | null;
@@ -48,8 +58,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleNames, setRoleNames] = useState<string[]>([]);
   const [perms, setPerms] = useState<PermMap>({});
   const [pagePerms, setPagePerms] = useState<PageMap>({});
+  const [permsLoaded, setPermsLoaded] = useState(false);
 
   const loadUserData = async (uid: string) => {
+    try {
+      await loadUserDataInner(uid);
+    } finally {
+      // 不論成功或失敗都要放行，否則整個 app 會永遠停在「載入中…」。
+      // 失敗的情況下 perms 是空的，使用者會被導回我的任務 —— 這比白畫面好，
+      // 而且 loadUserData 內每一段查詢失敗都只影響對應的那一段。
+      setPermsLoaded(true);
+    }
+  };
+
+  const loadUserDataInner = async (uid: string) => {
     // 平行拉 profile + user_roles，減少 RTT
     const [{ data: prof }, { data: ur }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
@@ -133,6 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session ?? null);
       if (data.session?.user) {
         runLoad(data.session.user.id);
+      } else {
+        // 沒有 session 就沒有權限要等，直接放行讓路由把人導去登入頁，
+        // 否則 guard 會永遠停在「載入中…」。
+        setPermsLoaded(true);
       }
       setLoading(false);
     })();
@@ -148,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoleNames([]);
         setPerms({});
         setPagePerms({});
+        setPermsLoaded(false);
       }
     });
     return () => {
@@ -175,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ loading, session, user: session?.user ?? null, profile, roles, roleNames, isAdmin, can, refresh, signOut }}
+      value={{ loading, permsLoaded, session, user: session?.user ?? null, profile, roles, roleNames, isAdmin, can, refresh, signOut }}
     >
       {children}
     </AuthContext.Provider>

@@ -140,7 +140,7 @@ function parseDays(input: string): number[] {
 function PersonalRoutinePage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
-  const { can } = useAuth();
+  const { can, permsLoaded } = useAuth();
 
   // 權限一律讀角色權限設定，不寫死角色字串
   const allowed = can("eip_personal_routine", "view");
@@ -186,9 +186,12 @@ function PersonalRoutinePage() {
     refresh();
   };
 
+  const [removing, setRemoving] = useState(false);
   const remove = async () => {
-    if (!deleting) return;
+    if (!deleting || removing) return;   // 連點兩次會送兩次 delete，第二次 0 列也照跳「已刪除」
+    setRemoving(true);
     const { error } = await supabase.from("personal_routine").delete().eq("id", deleting.id);
+    setRemoving(false);
     if (error) {
       toast.error(error.message);
       return;
@@ -233,6 +236,8 @@ function PersonalRoutinePage() {
   };
 
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
+  // 權限還沒載入完就判斷 allowed 會把有權限的人踢走（重新整理／書籤必中）
+  if (!permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!allowed) return <Navigate to="/dashboard/eip/my-tasks" replace />;
 
   return (
@@ -400,7 +405,9 @@ function PersonalRoutinePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void remove()}>刪除</AlertDialogAction>
+            <AlertDialogAction onClick={() => void remove()} disabled={removing}>
+              {removing ? "刪除中…" : "刪除"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
