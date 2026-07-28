@@ -4,13 +4,35 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * 任務的來源。對應整合架構圖的 ②③④⑤ 四類 ——
+ * 使用者看到徽章要能立刻回答「這件事為什麼在我的清單上」，
+ * 所以四個標籤都用來源本身的名字，不用「一般／其他」這種說不出內容的字。
+ */
 export type TaskSource =
+  // ④ 會議決議的行動項指派給我
   | { type: "meeting"; label: string }
+  // ⑤ 專案底下的任務
   | { type: "project"; label: string }
-  // 常態工作：由 recurring_rule 每天自動生出來的任務。
-  // 兩軸分類裡它屬「例行」，跟一般任務（特殊工作）要分得開。
+  // ② 常態工作：由 recurring_rule 每天自動生出來的任務（兩軸分類裡屬「例行」）
   | { type: "recurring" }
+  // ③ 直接在任務看板建立／指派的任務（非常態、非專案、非會議來源）
   | { type: "normal" };
+
+/** 篩選器與分組標題共用的來源名稱，避免同一件事在不同地方叫不同名字 */
+export const TASK_SOURCE_LABEL: Record<TaskSource["type"], string> = {
+  recurring: "常態工作",
+  normal: "任務看板",
+  project: "專案任務",
+  meeting: "會議決議",
+};
+
+export const TASK_SOURCE_HINT: Record<TaskSource["type"], string> = {
+  recurring: "常態工作：依週期規則每天自動產生（例行軸）",
+  normal: "任務看板：有人直接在任務看板建立或指派給你的任務",
+  project: "專案任務：掛在某個專案底下的任務",
+  meeting: "會議決議：會議行動項指派給你而產生的任務",
+};
 
 export function TaskSourceBadge({ source, className = "" }: { source: TaskSource; className?: string }) {
   if (source.type === "meeting") {
@@ -42,15 +64,20 @@ export function TaskSourceBadge({ source, className = "" }: { source: TaskSource
       <Badge
         variant="secondary"
         className={`text-[10px] gap-0.5 bg-teal-100 text-teal-800 hover:bg-teal-100 ${className}`}
-        title="常態工作（例行）"
+        title={TASK_SOURCE_HINT.recurring}
       >
-        <Repeat className="w-2.5 h-2.5" /> 常態
+        <Repeat className="w-2.5 h-2.5" /> 常態工作
       </Badge>
     );
   }
+  // ③「一般」講不出是什麼，改成來源本身的名字
   return (
-    <Badge variant="secondary" className={`text-[10px] gap-0.5 bg-slate-100 text-slate-700 hover:bg-slate-100 ${className}`}>
-      <ListChecks className="w-2.5 h-2.5" /> 一般
+    <Badge
+      variant="secondary"
+      className={`text-[10px] gap-0.5 bg-slate-100 text-slate-700 hover:bg-slate-100 ${className}`}
+      title={TASK_SOURCE_HINT.normal}
+    >
+      <ListChecks className="w-2.5 h-2.5" /> 任務看板
     </Badge>
   );
 }
