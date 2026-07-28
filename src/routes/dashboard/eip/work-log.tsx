@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { toggleRoutineItem, type RoutineSection } from "@/lib/eip-routine";
 
 export const Route = createFileRoute("/dashboard/eip/work-log")({ component: WorkLogPage });
 
@@ -72,12 +73,12 @@ function WorkLogPage() {
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [appUser?.id, date, refreshKey]);
 
   const persist = async (patch: { status?: string; submitted_at?: string }, msg?: string) => {
-    if (!appUser?.id || !log) return;
+    if (!appUser?.id || !log) return undefined;
     // 送出前擋下「需填執行內容」且已勾選、卻沒寫說明的項目
     if (patch.status === "submitted") {
       const missing = [...log.morning, ...log.afternoon, ...log.special]
         .filter((x) => x.req && x.done && !(x.note ?? "").trim()).map((x) => x.text);
-      if (missing.length) { toast.error(`這些項目需填執行內容：${missing.join("、")}`); return; }
+      if (missing.length) { toast.error(`這些項目需填執行內容：${missing.join("、")}`); return undefined; }
     }
     setSaving(true);
     const body: any = {
@@ -89,10 +90,54 @@ function WorkLogPage() {
     if (log.id) res = await supabase.from("work_log").update(body).eq("id", log.id).select("*").maybeSingle();
     else res = await supabase.from("work_log").insert(body).select("*").maybeSingle();
     setSaving(false);
-    if (res.error) { toast.error(res.error.message); return; }
+    if (res.error) { toast.error(res.error.message); return undefined; }
     if (res.data) setLog((l) => (l ? { ...l, id: res.data.id, status: res.data.status } : l));
     setRefreshKey((k) => k + 1);
     if (msg) toast.success(msg);
+    return res.data?.id as string | undefined;
+  };
+
+  /**
+   * 勾選「今天有做」——立即寫進 DB。
+   *
+   * 原本勾選只改前端 state，要按「儲存草稿」才進 DB：使用者勾完直接關掉，
+   * 資料就沒了，部門例行彙總與績效也讀不到。現在走 eip_toggle_routine_item，
+   * 跟「我的工作區」共用同一份寫入實作（見 src/lib/eip-routine.ts）。
+   *
+   * 今天還沒有 DB 列時先 persist 一次建草稿 —— 不能直接叫 RPC，
+   * 因為畫面上可能有還沒存的手動新增項目，RPC 在 DB 裡找不到就會報錯。
+   */
+  const toggleDone = async (section: RoutineSection, idx: number) => {
+    if (!log) return;
+    const list = section === "morning" ? log.morning : section === "afternoon" ? log.afternoon : log.special;
+    const it = list[idx];
+    if (!it) return;
+    const next = !it.done;
+    const setDone = (v: boolean) =>
+      setLog((l) => {
+        if (!l) return l;
+        const patch = (xs: Item[]) => xs.map((x, j) => (j === idx ? { ...x, done: v } : x));
+        if (section === "morning") return { ...l, morning: patch(l.morning) };
+        if (section === "afternoon") return { ...l, afternoon: patch(l.afternoon) };
+        return { ...l, special: patch(l.special) };
+      });
+
+    setDone(next);
+    if (!log.id) {
+      // persist 會把整份（含這次勾選）寫進去，不需要再打 RPC
+      const newId = await persist({});
+      if (!newId) setDone(it.done);
+      return;
+    }
+    try {
+      await toggleRoutineItem({
+        date, section, done: next,
+        source: it.source, refId: it.ref_id, text: it.text,
+      });
+    } catch (e) {
+      setDone(it.done);
+      toast.error(`更新失敗：${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   const deleteLog = async (id?: string, d?: string) => {
@@ -133,7 +178,7 @@ function WorkLogPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="工作日誌" description="當天即可填寫，送出後仍可撤回修改。日誌不需主管簽核，由系統彙總進報表與績效。"
+      <PageHeader title="工作日誌" description="勾選「今天有做」會立即存檔；項目文字與執行內容要按儲存才會寫入。送出後仍可撤回修改，不需主管簽核。"
         actions={
           <div className="flex items-center gap-2">
             <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} className="h-9 rounded-md border bg-card px-2 text-sm" />
@@ -143,10 +188,10 @@ function WorkLogPage() {
         } />
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Section title="上午例行" Icon={ListChecks} tone="primary" items={log.morning} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, morning: v } : l))} />
-        <Section title="下午例行" Icon={Clock} tone="primary" items={log.afternoon} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, afternoon: v } : l))} />
+        <Section title="上午例行" Icon={ListChecks} tone="primary" items={log.morning} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, morning: v } : l))} onToggleDone={(i) => void toggleDone("morning", i)} />
+        <Section title="下午例行" Icon={Clock} tone="primary" items={log.afternoon} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, afternoon: v } : l))} onToggleDone={(i) => void toggleDone("afternoon", i)} />
         <div className="md:col-span-2">
-          <Section title="特殊（突發）工作" Icon={Zap} tone="accent" items={log.special} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, special: v } : l))} />
+          <Section title="特殊（突發）工作" Icon={Zap} tone="accent" items={log.special} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, special: v } : l))} onToggleDone={(i) => void toggleDone("special", i)} />
         </div>
       </div>
 
@@ -209,8 +254,11 @@ function Collapsible({ title, Icon, children, defaultOpen = false, tone, badge }
   );
 }
 
-function Section({ title, Icon, tone, items, editable, onChange }: {
-  title: string; Icon: typeof Zap; tone: "primary" | "accent"; items: Item[]; editable: boolean; onChange: (v: Item[]) => void;
+function Section({ title, Icon, tone, items, editable, onChange, onToggleDone }: {
+  title: string; Icon: typeof Zap; tone: "primary" | "accent"; items: Item[]; editable: boolean;
+  onChange: (v: Item[]) => void;
+  /** 勾選走 DB 的唯一寫入實作（立即存），不經 onChange 的批次儲存 */
+  onToggleDone: (index: number) => void;
 }) {
   const [text, setText] = useState("");
   const add = () => { const t = text.trim(); if (!t) return; onChange([...items, { text: t, done: false, note: "" }]); setText(""); };
@@ -229,7 +277,8 @@ function Section({ title, Icon, tone, items, editable, onChange }: {
           <li key={i} className="group rounded-lg hover:bg-muted/40 px-1.5 py-1">
             <div className="flex items-center gap-2 text-sm">
               <button type="button" disabled={!editable}
-                onClick={() => setItem(i, { done: !it.done })}
+                title={it.done ? "取消勾選（立即儲存）" : "勾選＝今天有做（立即儲存）"}
+                onClick={() => onToggleDone(i)}
                 className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${it.done ? "bg-primary border-primary text-primary-foreground" : "bg-card"}`}>
                 {it.done && <Check className="w-3 h-3" />}
               </button>
