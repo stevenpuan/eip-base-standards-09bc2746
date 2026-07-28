@@ -201,6 +201,11 @@ function AnomaliesPage() {
   const canManageRow = (r: Anomaly) =>
     isAdmin || (!!r.department_id && !!supervisedQ.data?.has(r.department_id));
 
+  // 能不能替別人開立缺失。一般同仁只會看到「填報異常」入口，
+  // 不會看到選當事人的欄位 —— 之前的做法是大家都看到「開立缺失」，
+  // 選了別人才被 RLS 擋下來，那是把授權錯誤當成 UI。
+  const canRaiseForOthers = isAdmin || (supervisedQ.data?.size ?? 0) > 0;
+
   // RLS 已限定可見範圍（本人／開立者／部門主管／管理者），前端不再過濾人
   const listQ = useQuery({
     queryKey: ["eip", "anomalies", tab],
@@ -280,7 +285,7 @@ function AnomaliesPage() {
         {canCreate && (
           <Button size="sm" onClick={() => setRaiseOpen(true)}>
             <Plus className="w-4 h-4 mr-1" />
-            開立缺失
+            {canRaiseForOthers ? "開立缺失" : "填報異常"}
           </Button>
         )}
       </div>
@@ -372,6 +377,7 @@ function AnomaliesPage() {
 
       {raiseOpen && (
         <RaiseDialog
+          canRaiseForOthers={canRaiseForOthers}
           onClose={() => setRaiseOpen(false)}
           onCreated={() => {
             refresh();
@@ -519,13 +525,22 @@ function KpiCards({ canSeeKpi }: { canSeeKpi: boolean }) {
 
 /* ---------- 開立缺失（主管） ---------- */
 
-function RaiseDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function RaiseDialog({
+  canRaiseForOthers,
+  onClose,
+  onCreated,
+}: {
+  canRaiseForOthers: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const { appUser } = useEipUser();
   // 選人一律用只含在職者的版本
   const usersQ = useActiveUsers();
 
   const [subjectId, setSubjectId] = useState("");
-  const [selfReport, setSelfReport] = useState(false);
+  // 不能替別人開立的人，一律鎖成自主填報，也不顯示切換
+  const [selfReport, setSelfReport] = useState(!canRaiseForOthers);
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
   const [severity, setSeverity] = useState("normal");
@@ -588,14 +603,16 @@ function RaiseDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (
         </DialogHeader>
 
         <div className="space-y-3">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={selfReport}
-              onChange={(e) => setSelfReport(e.target.checked)}
-            />
-            這是我自己要主動填報的異常
-          </label>
+          {canRaiseForOthers && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={selfReport}
+                onChange={(e) => setSelfReport(e.target.checked)}
+              />
+              這是我自己要主動填報的異常
+            </label>
+          )}
 
           {!selfReport && (
             <div className="space-y-1.5">

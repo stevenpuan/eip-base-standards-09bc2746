@@ -1093,10 +1093,21 @@ function ListView({
     const ids = Array.from(selected);
     if (!ids.length) return;
     setBulkDeleting(true);
-    const { data, error } = await supabase.from("task").delete().in("id", ids).select("id");
+    // 軟刪除 guard 是 BEFORE DELETE ... RETURN NULL，所以 DELETE 的 ROW_COUNT 一律是 0，
+    // 原本的 .delete().select("id") 會拿到空陣列 → 明明刪掉了卻報「沒有可刪除的任務」。
+    // 改走 eip_soft_delete RPC，它會明確回 { ok, deleted_at }（稽核 M9）。
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        const { data, error } = await supabaseAny.rpc("eip_soft_delete", {
+          p_module: "eip_tasks",
+          p_id: id,
+        });
+        if (error) return false;
+        return (data as { ok?: boolean } | null)?.ok === true;
+      }),
+    );
     setBulkDeleting(false);
-    if (error) { toast.error("刪除失敗，請重試"); return; }
-    const deleted = data?.length ?? 0;
+    const deleted = results.filter(Boolean).length;
     const skipped = ids.length - deleted;
     if (deleted === 0) {
       toast.error("沒有可刪除的任務（僅本人 / 本部門主管 / 管理者可刪）");
