@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 // eip_url_link 尚未進 src/integrations/supabase/types.ts，這裡用寬鬆型別的 client
 import { supabase } from "@/lib/supabase";
+import { useEipUser } from "@/lib/eip-user";
+import { isLocalPath, validateExternalUrl, copyPath } from "@/lib/eip-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,9 +20,6 @@ type Row = {
   created_at: string;
 };
 
-/** DB 端也有同一條 check constraint（eip_url_link_url_shape），前端先擋是為了給人看得懂的訊息 */
-const URL_SHAPE = /^(https?:\/\/|file:\/\/|\\\\)/;
-const isUnc = (u: string) => u.startsWith("\\\\");
 
 /**
  * 通用外部連結（NAS 路徑或網址）。
@@ -50,6 +49,7 @@ export function UrlLinks({
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const { appUser } = useEipUser();
 
   const q = useQuery({
     enabled: !!entityId,
@@ -68,18 +68,24 @@ export function UrlLinks({
 
   const rows = q.data ?? [];
 
+  // RLS 的 DELETE 條件是「建立者或 company_admin」。這裡用同一條判斷決定要不要顯示
+  // 垃圾桶，畫面上的按鈕才不會跟實際權限打架。注意用 app_user.role 而不是
+  // useAuth().isAdmin（那是 roles.code = 'admin'，跟 current_role_name() 不是同一個來源）
+  const canRemove = (r: Row) =>
+    r.created_by === appUser?.id || appUser?.role === "company_admin";
+
   const add = async () => {
+    if (busy) return; // 按 Enter 連送兩次會真的插入兩筆（INSERT 不受 RLS 靜默問題影響）
     const u = url.trim();
-    if (!u) return toast.error("請輸入連結");
-    if (!URL_SHAPE.test(u)) {
-      return toast.error("連結格式不對：請用 http(s)://、file:// 或 \\\\伺服器\\分享資料夾");
-    }
+    const bad = validateExternalUrl(u);
+    if (bad) return toast.error(bad);
     setBusy(true);
     const { error } = await supabase
       .from("eip_url_link")
       .insert({ entity_type: entityType, entity_id: entityId, label: label.trim() || null, url: u });
     setBusy(false);
     if (error) return toast.error(`新增失敗：${error.message}`);
+    toast.success("已新增連結");
     setLabel("");
     setUrl("");
     setAdding(false);
@@ -89,21 +95,17 @@ export function UrlLinks({
   const remove = async (r: Row) => {
     if (!window.confirm(`移除連結「${r.label || r.url}」？`)) return;
     setRemoving(r.id);
-    const { error } = await supabase.from("eip_url_link").delete().eq("id", r.id);
+    // 一定要 .select("id") 看筆數：DELETE 被 RLS 擋掉時 PostgREST 回 0 筆 + error 為 null，
+    // 只看 error 會變成「按了完全沒反應也沒訊息」，使用者只會一直重按
+    const { data, error } = await supabase
+      .from("eip_url_link").delete().eq("id", r.id).select("id");
     setRemoving(null);
     if (error) return toast.error(`移除失敗：${error.message}`);
+    if (!data?.length) return toast.error("移除失敗：只有建立這筆連結的人或管理者可以移除");
     void q.refetch();
   };
 
-  const copy = async (u: string) => {
-    try {
-      await navigator.clipboard.writeText(u);
-      toast.success("已複製路徑，貼到檔案總管即可開啟");
-    } catch {
-      // 沒有 clipboard 權限（http 或舊瀏覽器）時至少把路徑顯示出來讓人手動複製
-      toast.info(u);
-    }
-  };
+  const copy = (u: string) => void copyPath(u, toast.success, toast.info);
 
   return (
     <div className="mt-2 border-t pt-3">
@@ -139,18 +141,18 @@ export function UrlLinks({
         <div className="space-y-1">
           {rows.map((r) => (
             <div key={r.id} className="flex items-center gap-2 rounded-md border px-2 py-1.5">
-              {isUnc(r.url) ? (
+              {isLocalPath(r.url) ? (
                 <>
                   <FolderOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <button
                     type="button"
-                    onClick={() => void copy(r.url)}
+                    onClick={() => copy(r.url)}
                     className="text-sm flex-1 min-w-0 truncate text-left hover:underline"
                     title={`${r.url}（點擊複製路徑）`}
                   >
                     {r.label || r.url}
                   </button>
-                  <span className="text-[10px] text-muted-foreground shrink-0">NAS</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">本機路徑</span>
                 </>
               ) : (
                 <>
@@ -166,7 +168,7 @@ export function UrlLinks({
                   </a>
                 </>
               )}
-              {!readOnly && (
+              {!readOnly && canRemove(r) && (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -191,7 +193,7 @@ export function UrlLinks({
             className="h-8 text-sm"
           />
           <Input
-            placeholder="\\\\NAS\\品保\\2026\\ 或 https://…"
+            placeholder="\\NAS\品保\2026\ 或 https://…"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => {

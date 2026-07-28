@@ -248,7 +248,7 @@ function MyTasksPage() {
       {/* ① 個人例行＋② 常態工作：不是任務，所以獨立一塊，勾選直接寫進今天的日誌 */}
       <TodayRoutineCard />
 
-      {/* ⑥ 代辦事項（離職／請假交接）：只提示與跳轉，處理動作留在交接待辦頁 */}
+      {/* ⑥ 代理事項：離職交接只提示與跳轉；請假代辦就地勾完成；同時是請假申請入口 */}
       <HandoverInboxCard meId={appUser.id} />
 
       <Card className="mb-3">
