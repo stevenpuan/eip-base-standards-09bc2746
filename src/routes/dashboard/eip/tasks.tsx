@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2, UserMinus } from "lucide-react";
+import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2, UserMinus, UserPen } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -127,6 +127,10 @@ function TasksPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   // 只顯示因人員停用而待重新指派的任務（來源：eip_handover_item）
   const [onlyReassign, setOnlyReassign] = useState(false);
+  // 只顯示我建立的（含指派給別人的），解決「建立者找不到自己建的任務」
+  const [onlyMine, setOnlyMine] = useState(false);
+  // 已完成任務的載入範圍（天）。null = 全部，效能考量預設 30 天。
+  const [doneWindowDays, setDoneWindowDays] = useState<number | null>(30);
   const [dueFrom, setDueFrom] = useState("");
   const [dueTo, setDueTo] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -144,12 +148,26 @@ function TasksPage() {
     },
   });
 
+  // 效能：已完成的任務會無限累積，看板預設只載「未完成全部 + 近 N 天已完成」。
+  // 未完成的量是穩定的，會爆的只有已完成。要看更早的用「完成範圍」切換。
+  // （已軟刪除的資料由 RLS 在資料庫層擋掉，前端不需再過濾）
   const tasksQ = useQuery({
-    queryKey: ["eip", "tasks-full"],
+    queryKey: ["eip", "tasks-full", doneWindowDays],
     queryFn: async () => {
+      const cols =
+        "id,tenant_id,title,description,type_id,project_id,parent_task_id,department_id,owner_id,priority,status_id,progress,due_date,created_by,completed_at,created_at,updated_at,board_position,start_date,recurring_rule_id,occurrence_date,visibility_scope";
+      if (doneWindowDays === null) {
+        const { data, error } = await supabase
+          .from("task").select(cols)
+          .order("board_position", { ascending: true })
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return data as Task[];
+      }
+      const since = new Date(Date.now() - doneWindowDays * 864e5).toISOString();
       const { data, error } = await supabase
-        .from("task")
-        .select("id,tenant_id,title,description,type_id,project_id,parent_task_id,department_id,owner_id,priority,status_id,progress,due_date,created_by,completed_at,created_at,updated_at,board_position,start_date,recurring_rule_id,occurrence_date,visibility_scope")
+        .from("task").select(cols)
+        .or(`completed_at.is.null,completed_at.gte.${since}`)
         .order("board_position", { ascending: true })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -264,6 +282,7 @@ function TasksPage() {
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
       if (filterStatus !== "all" && t.status_id !== filterStatus) return false;
       if (onlyReassign && !reassignQ.data?.has(t.id)) return false;
+      if (onlyMine && t.created_by !== appUser?.id) return false;
       if (dueFrom && (!t.due_date || t.due_date < dueFrom)) return false;
       if (dueTo && (!t.due_date || t.due_date > dueTo)) return false;
       if (kw) {
@@ -272,7 +291,7 @@ function TasksPage() {
       }
       return true;
     });
-  }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword, onlyReassign, reassignQ.data]);
+  }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword, onlyReassign, reassignQ.data, onlyMine, appUser?.id]);
 
   const sourceMap = useTaskSources(filteredTasks);
 
@@ -392,6 +411,8 @@ function TasksPage() {
         projects={projectsQ.data ?? []}
         onlyReassign={onlyReassign} setOnlyReassign={setOnlyReassign}
         reassignCount={reassignQ.data?.size ?? 0}
+        onlyMine={onlyMine} setOnlyMine={setOnlyMine}
+        doneWindowDays={doneWindowDays} setDoneWindowDays={setDoneWindowDays}
       />
 
       <Tabs defaultValue="board">
@@ -524,6 +545,8 @@ function SharedFilters(props: {
   dueTo: string; setDueTo: (v: string) => void;
   statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
   onlyReassign: boolean; setOnlyReassign: (v: boolean) => void; reassignCount: number;
+  onlyMine: boolean; setOnlyMine: (v: boolean) => void;
+  doneWindowDays: number | null; setDoneWindowDays: (v: number | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const activeCount = [
@@ -535,7 +558,35 @@ function SharedFilters(props: {
     !!props.dueFrom,
     !!props.dueTo,
     props.onlyReassign,
+    props.onlyMine,
   ].filter(Boolean).length;
+
+  const mineToggle = (
+    <Button
+      type="button"
+      variant={props.onlyMine ? "default" : "outline"}
+      className="h-9 justify-start"
+      onClick={() => props.setOnlyMine(!props.onlyMine)}
+      title="只顯示我建立的任務，包含指派給別人的"
+    >
+      <UserPen className="w-4 h-4 mr-1.5" />
+      我建立的
+    </Button>
+  );
+
+  // 已完成任務的載入範圍。預設 30 天，避免看板隨時間無限膨脹。
+  const doneWindowSelect = (
+    <MiniSelect
+      value={props.doneWindowDays === null ? "all" : String(props.doneWindowDays)}
+      onChange={(v) => props.setDoneWindowDays(v === "all" ? null : Number(v))}
+      options={[
+        { value: "30", label: "完成：近 30 天" },
+        { value: "90", label: "完成：近 90 天" },
+        { value: "365", label: "完成：近一年" },
+        { value: "all", label: "完成：全部（較慢）" },
+      ]}
+    />
+  );
 
   // 沒有任何待重新指派的任務時就不顯示這個切換，避免佔位
   const reassignToggle = props.reassignCount > 0 || props.onlyReassign ? (
@@ -571,6 +622,8 @@ function SharedFilters(props: {
         <span className="text-xs text-muted-foreground text-center">至</span>
         <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
       </div>
+      {doneWindowSelect}
+      {mineToggle}
       {reassignToggle}
     </div>
   );
@@ -618,6 +671,8 @@ function SharedFilters(props: {
             <span className="text-xs text-muted-foreground shrink-0">至</span>
             <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
           </div>
+          {doneWindowSelect}
+          {mineToggle}
           {reassignToggle}
         </div>
       </CardContent>
@@ -659,6 +714,15 @@ function BoardView({
 }) {
 
   const [dragId, setDragId] = useState<string | null>(null);
+  // 完成欄預設收合。日常工作不需要看到一整個月完成的東西，
+  // 收合後不渲染卡片，欄位再長也不影響畫面與效能。
+  const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
+  const toggleDone = (id: string) =>
+    setExpandedDone((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
 
   const colTasks = (statusId: string) =>
     tasks.filter((t) => t.status_id === statusId)
@@ -687,6 +751,7 @@ function BoardView({
       style={{ gridTemplateColumns: `repeat(${statuses.length}, minmax(280px, 1fr))` }}>
       {statuses.map((s, idx) => {
         const list = colTasks(s.id);
+        const collapsed = !!s.is_done_state && !expandedDone.has(s.id) && list.length > 0;
         return (
           <div key={s.id}
             className="flex flex-col gap-5 min-h-[440px]"
@@ -699,9 +764,21 @@ function BoardView({
                   {String(list.length).padStart(2, "0")}
                 </span>
               </h2>
+              {!!s.is_done_state && list.length > 0 && (
+                <button type="button" onClick={() => toggleDone(s.id)}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline shrink-0 pb-1">
+                  {collapsed ? "展開" : "收合"}
+                </button>
+              )}
             </div>
             <div className="space-y-4 max-h-[calc(100vh-320px)] overflow-y-auto pr-1 -mr-1">
-              {list.map((t) => (
+              {collapsed && (
+                <button type="button" onClick={() => toggleDone(s.id)}
+                  className="w-full rounded-xl border border-dashed py-6 text-sm text-muted-foreground hover:bg-muted/40 transition-colors">
+                  已完成 {list.length} 件・點此展開
+                </button>
+              )}
+              {!collapsed && list.map((t) => (
                 <div key={t.id}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleColumnDrop(s.id, t.id); }}>

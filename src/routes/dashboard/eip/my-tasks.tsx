@@ -5,10 +5,13 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+// eip_deleted_items / eip_restore_deleted / eip_purge_deleted 尚未進 types.ts
+import { supabase as supabaseAny } from "@/lib/supabase";
 import { useActiveUsers } from "@/hooks/useUsers";
 import { PRIORITY_COLOR, PRIORITY_LABEL } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
@@ -21,6 +24,16 @@ type Task = Database["public"]["Tables"]["task"]["Row"];
 type Status = Database["public"]["Tables"]["task_status"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
 type SourceFilter = "all" | "normal" | "project" | "meeting";
+
+type DeletedItem = {
+  module_key: string;
+  label: string;
+  item_id: string;
+  title: string | null;
+  deleted_at: string;
+  deleted_by_name: string | null;
+  can_purge: boolean;
+};
 
 function MyTasksPage() {
   const { appUser } = useEipUser();
@@ -51,6 +64,35 @@ function MyTasksPage() {
         .order("due_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as Task[];
+    },
+  });
+
+  // 我建立但指派給別人的任務。建立者在交接機制裡是有責任的角色
+  // （離職轉派、交接待辦都通知建立者），因此需要一個看得到自己建了什麼的入口。
+  const createdQ = useQuery({
+    enabled: !!appUser?.id,
+    queryKey: ["eip", "my-created", appUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("task")
+        .select("*")
+        .eq("created_by", appUser!.id)
+        .neq("owner_id", appUser!.id) // 自己指派給自己的已經在「我負責」了
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Task[];
+    },
+  });
+
+  // 我建立且已被刪除的（回收區）。走 SECURITY DEFINER 的 RPC，
+  // 因為 RLS 已在資料庫層把軟刪除的資料隱形了。
+  const deletedQ = useQuery({
+    enabled: !!appUser?.id,
+    queryKey: ["eip", "my-deleted-tasks", appUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny.rpc("eip_deleted_items", { p_module: "eip_tasks" });
+      if (error) throw error;
+      return (data ?? []) as DeletedItem[];
     },
   });
 
@@ -104,7 +146,10 @@ function MyTasksPage() {
     const seen = new Set<string>();
     const out: Task[] = [];
     [...(ownedQ.data ?? []), ...(collabQ.data ?? [])].forEach((t) => {
-      if (!seen.has(t.id)) { seen.add(t.id); out.push(t); }
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        out.push(t);
+      }
     });
     return out;
   }, [ownedQ.data, collabQ.data]);
@@ -113,7 +158,7 @@ function MyTasksPage() {
 
   const sortedStatuses = useMemo(
     () => [...(statusesQ.data ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
-    [statusesQ.data]
+    [statusesQ.data],
   );
 
   const applyFilters = (list: Task[]) =>
@@ -134,6 +179,31 @@ function MyTasksPage() {
 
   const owned = applyFilters(ownedQ.data ?? []);
   const collab = applyFilters(collabQ.data ?? []);
+  const created = applyFilters(createdQ.data ?? []);
+  const deletedRows = deletedQ.data ?? [];
+
+  const restore = async (id: string) => {
+    const { error } = await supabaseAny.rpc("eip_restore_deleted", {
+      p_module: "eip_tasks",
+      p_id: id,
+    });
+    if (error) return toast.error(`還原失敗：${error.message}`);
+    toast.success("已還原");
+    void deletedQ.refetch();
+    void createdQ.refetch();
+    refetch();
+  };
+  const purge = async (id: string, title: string | null) => {
+    if (!window.confirm(`永久刪除「${title ?? "此任務"}」？\n連同它的變更歷程一起清除，無法復原。`))
+      return;
+    const { error } = await supabaseAny.rpc("eip_purge_deleted", {
+      p_module: "eip_tasks",
+      p_id: id,
+    });
+    if (error) return toast.error(`永久刪除失敗：${error.message}`);
+    toast.success("已永久刪除");
+    void deletedQ.refetch();
+  };
 
   const refetch = () => {
     qc.invalidateQueries({ queryKey: ["eip", "my-owned", appUser.id] });
@@ -141,20 +211,28 @@ function MyTasksPage() {
   };
 
   // 本人負責且尚未結案(狀態非完成)才可刪除
-  const canDelete = (t: Task) => t.owner_id === appUser.id && !statusMap.get(t.status_id)?.is_done_state;
+  const canDelete = (t: Task) =>
+    t.owner_id === appUser.id && !statusMap.get(t.status_id)?.is_done_state;
   const handleDelete = async (t: Task) => {
-    if (!window.confirm(`確定刪除任務「${t.title}」？子任務與協作紀錄會一併移除，此動作無法復原。`)) return;
+    if (!window.confirm(`確定刪除任務「${t.title}」？子任務與協作紀錄會一併移除，此動作無法復原。`))
+      return;
     setDeleting(t.id);
     const { error } = await supabase.from("task").delete().eq("id", t.id);
     setDeleting(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("已刪除任務");
     refetch();
   };
 
   return (
     <div>
-      <PageHeader title="我的工作" description="個人聚合中心,顯示與我相關的所有任務(一般、專案、會議來源)。未結案的任務可編輯或刪除。" />
+      <PageHeader
+        title="我的工作"
+        description="個人聚合中心,顯示與我相關的所有任務(一般、專案、會議來源)。未結案的任務可編輯或刪除。"
+      />
 
       <Card className="mb-3">
         <CardContent className="p-3 flex flex-wrap items-center gap-3">
@@ -162,10 +240,18 @@ function MyTasksPage() {
             <span className="text-xs text-muted-foreground">來源</span>
             <Tabs value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
               <TabsList className="h-8">
-                <TabsTrigger value="all" className="text-xs">全部</TabsTrigger>
-                <TabsTrigger value="normal" className="text-xs">一般</TabsTrigger>
-                <TabsTrigger value="project" className="text-xs">專案</TabsTrigger>
-                <TabsTrigger value="meeting" className="text-xs">會議</TabsTrigger>
+                <TabsTrigger value="all" className="text-xs">
+                  全部
+                </TabsTrigger>
+                <TabsTrigger value="normal" className="text-xs">
+                  一般
+                </TabsTrigger>
+                <TabsTrigger value="project" className="text-xs">
+                  專案
+                </TabsTrigger>
+                <TabsTrigger value="meeting" className="text-xs">
+                  會議
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -179,7 +265,9 @@ function MyTasksPage() {
               <option value="all">全部狀態</option>
               <option value="open">未完成</option>
               {sortedStatuses.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
           </div>
@@ -187,9 +275,15 @@ function MyTasksPage() {
             <span className="text-xs text-muted-foreground">分組</span>
             <Tabs value={groupBy} onValueChange={(v) => setGroupBy(v as typeof groupBy)}>
               <TabsList className="h-8">
-                <TabsTrigger value="none" className="text-xs">無</TabsTrigger>
-                <TabsTrigger value="source" className="text-xs">依來源</TabsTrigger>
-                <TabsTrigger value="project" className="text-xs">依專案</TabsTrigger>
+                <TabsTrigger value="none" className="text-xs">
+                  無
+                </TabsTrigger>
+                <TabsTrigger value="source" className="text-xs">
+                  依來源
+                </TabsTrigger>
+                <TabsTrigger value="project" className="text-xs">
+                  依專案
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -200,12 +294,92 @@ function MyTasksPage() {
         <TabsList>
           <TabsTrigger value="owned">我負責 ({owned.length})</TabsTrigger>
           <TabsTrigger value="collab">我協作 ({collab.length})</TabsTrigger>
+          <TabsTrigger value="created">我建立的 ({created.length})</TabsTrigger>
+          {deletedRows.length > 0 && (
+            <TabsTrigger value="deleted">已刪除 ({deletedRows.length})</TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="owned" className="mt-3">
-          <Grouped tasks={owned} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
+          <Grouped
+            tasks={owned}
+            sourceMap={sourceMap}
+            statusMap={statusMap}
+            sortedStatuses={sortedStatuses}
+            groupBy={groupBy}
+            onOpen={setEditTask}
+            canDelete={canDelete}
+            onDelete={handleDelete}
+            deleting={deleting}
+          />
         </TabsContent>
         <TabsContent value="collab" className="mt-3">
-          <Grouped tasks={collab} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} groupBy={groupBy} onOpen={setEditTask} canDelete={canDelete} onDelete={handleDelete} deleting={deleting} />
+          <Grouped
+            tasks={collab}
+            sourceMap={sourceMap}
+            statusMap={statusMap}
+            sortedStatuses={sortedStatuses}
+            groupBy={groupBy}
+            onOpen={setEditTask}
+            canDelete={canDelete}
+            onDelete={handleDelete}
+            deleting={deleting}
+          />
+        </TabsContent>
+        <TabsContent value="created" className="mt-3">
+          {created.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-1 py-6">
+              沒有「我建立但指派給別人」的任務。自己指派給自己的會顯示在「我負責」。
+            </p>
+          ) : (
+            <Grouped
+              tasks={created}
+              sourceMap={sourceMap}
+              statusMap={statusMap}
+              sortedStatuses={sortedStatuses}
+              groupBy={groupBy}
+              onOpen={setEditTask}
+              canDelete={canDelete}
+              onDelete={handleDelete}
+              deleting={deleting}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="deleted" className="mt-3">
+          <div className="rounded-2xl border bg-card overflow-hidden">
+            <p className="text-xs text-muted-foreground px-4 py-2.5 border-b bg-muted/30">
+              被刪除的任務不會真的消失，變更歷程都保留著。是否要永久清除，由建立者決定。
+            </p>
+            {deletedRows.map((d) => (
+              <div
+                key={d.item_id}
+                className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 text-sm"
+              >
+                <span className="flex-1 min-w-0 truncate">{d.title ?? "（無標題）"}</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(d.deleted_at).toLocaleString("zh-TW", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {d.deleted_by_name && `・${d.deleted_by_name} 刪除`}
+                </span>
+                <Button size="sm" variant="outline" onClick={() => void restore(d.item_id)}>
+                  還原
+                </Button>
+                {d.can_purge && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => void purge(d.item_id, d.title)}
+                  >
+                    永久刪除
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -219,7 +393,10 @@ function MyTasksPage() {
           users={usersQ.data ?? []}
           departments={(deptsQ.data ?? []) as any}
           projects={(projectsQ.data ?? []) as any}
-          onSaved={() => { refetch(); setEditTask(null); }}
+          onSaved={() => {
+            refetch();
+            setEditTask(null);
+          }}
         />
       )}
     </div>
@@ -227,7 +404,15 @@ function MyTasksPage() {
 }
 
 function Grouped({
-  tasks, sourceMap, statusMap, sortedStatuses, groupBy, onOpen, canDelete, onDelete, deleting,
+  tasks,
+  sourceMap,
+  statusMap,
+  sortedStatuses,
+  groupBy,
+  onOpen,
+  canDelete,
+  onDelete,
+  deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
@@ -248,11 +433,26 @@ function Grouped({
   }, [tasks]);
 
   if (!sorted.length) {
-    return <Card><CardContent className="py-10 text-center text-muted-foreground">目前沒有任務</CardContent></Card>;
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">目前沒有任務</CardContent>
+      </Card>
+    );
   }
 
   if (groupBy === "none") {
-    return <TaskList tasks={sorted} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />;
+    return (
+      <TaskList
+        tasks={sorted}
+        sourceMap={sourceMap}
+        statusMap={statusMap}
+        sortedStatuses={sortedStatuses}
+        onOpen={onOpen}
+        canDelete={canDelete}
+        onDelete={onDelete}
+        deleting={deleting}
+      />
+    );
   }
 
   const groups = new Map<string, Task[]>();
@@ -275,8 +475,19 @@ function Grouped({
     <div className="space-y-4">
       {Array.from(groups.entries()).map(([key, list]) => (
         <div key={key} className="space-y-2">
-          <div className="text-sm font-semibold text-muted-foreground">{key} ({list.length})</div>
-          <TaskList tasks={list} sourceMap={sourceMap} statusMap={statusMap} sortedStatuses={sortedStatuses} onOpen={onOpen} canDelete={canDelete} onDelete={onDelete} deleting={deleting} />
+          <div className="text-sm font-semibold text-muted-foreground">
+            {key} ({list.length})
+          </div>
+          <TaskList
+            tasks={list}
+            sourceMap={sourceMap}
+            statusMap={statusMap}
+            sortedStatuses={sortedStatuses}
+            onOpen={onOpen}
+            canDelete={canDelete}
+            onDelete={onDelete}
+            deleting={deleting}
+          />
         </div>
       ))}
     </div>
@@ -284,7 +495,14 @@ function Grouped({
 }
 
 function TaskList({
-  tasks, sourceMap, statusMap, sortedStatuses, onOpen, canDelete, onDelete, deleting,
+  tasks,
+  sourceMap,
+  statusMap,
+  sortedStatuses,
+  onOpen,
+  canDelete,
+  onDelete,
+  deleting,
 }: {
   tasks: Task[];
   sourceMap: Map<string, TaskSource>;
@@ -308,7 +526,9 @@ function TaskList({
       {tasks.map((t) => {
         const status = statusMap.get(t.status_id);
         const overdue =
-          t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()) && t.progress < 100;
+          t.due_date &&
+          new Date(t.due_date) < new Date(new Date().toDateString()) &&
+          t.progress < 100;
         const src = sourceMap.get(t.id);
         const removable = canDelete(t);
         return (
@@ -338,9 +558,14 @@ function TaskList({
               </div>
               <div className="w-32 hidden md:block">
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${t.progress}%` }} />
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${t.progress}%` }}
+                  />
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-0.5 text-right">{t.progress}%</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5 text-right">
+                  {t.progress}%
+                </div>
               </div>
               <Badge className={`text-[10px] ${PRIORITY_COLOR[t.priority]}`} variant="secondary">
                 {PRIORITY_LABEL[t.priority]}
@@ -350,7 +575,10 @@ function TaskList({
                   type="button"
                   title="刪除任務"
                   disabled={deleting === t.id}
-                  onClick={(e) => { e.stopPropagation(); onDelete(t); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(t);
+                  }}
                   className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shrink-0 disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" />
