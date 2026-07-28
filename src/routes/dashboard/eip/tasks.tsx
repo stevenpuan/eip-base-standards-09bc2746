@@ -297,16 +297,34 @@ function TasksPage() {
 
   const sourceMap = useTaskSources(filteredTasks);
 
-  // 從 URL openTask=<id> 自動開啟對應任務詳情/編輯
+  // 從 URL openTask=<id> 自動開啟對應任務詳情/編輯。
+  // 看板預設只載「未完成 + 近 30 天完成」，所以清單裡找不到是常態
+  // （從交接待辦、相關連結、LINE 推播點進來的舊任務都落在視窗外）。
+  // 找不到就用 id 單筆補查一次，真的沒有才報錯 —— 原本是靜默 return，
+  // 使用者按了「前往處理」畫面完全沒反應。
   useEffect(() => {
     const id = search.openTask;
     if (!id) return;
+    if (tasksQ.isLoading) return;
+    let alive = true;
+    const clear = () => void navigate({ search: { openTask: undefined }, replace: true });
     const t = (tasksQ.data ?? []).find((x) => x.id === id);
     if (t) {
       setDetailTask(t);
-      void navigate({ search: { openTask: undefined }, replace: true });
+      clear();
+      return;
     }
-  }, [search.openTask, tasksQ.data, navigate]);
+    void (async () => {
+      const { data, error } = await supabase.from("task").select("*").eq("id", id).maybeSingle();
+      if (!alive) return;
+      if (error) toast.error(`開啟任務失敗：${formatErr(error)}`);
+      else if (data) setDetailTask(data as Task);
+      else toast.error("找不到該任務，或你沒有檢視權限");
+      clear();
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.openTask, tasksQ.data, tasksQ.isLoading]);
 
   const moveMutation = useMutation({
     mutationFn: async (vars: { taskId: string; toStatusId: string; newPosition: number }) => {
@@ -324,7 +342,9 @@ function TasksPage() {
       }
       const { error } = await supabase.from("task").update(patch).eq("id", vars.taskId);
       if (error) throw error;
-      await supabase.from("task_update").insert({
+      // 狀態已經改成功了，歷程寫不進去不該讓整個動作看起來失敗，
+      // 但也不能完全不講 —— 否則「執行歷程」缺一筆而且沒人知道。
+      const { error: le } = await supabase.from("task_update").insert({
         task_id: vars.taskId,
         tenant_id: appUser.tenant_id,
         user_id: appUser.id,
@@ -332,6 +352,7 @@ function TasksPage() {
         progress: status?.is_done_state ? 100 : null,
         comment: null,
       });
+      if (le) toast.warning("狀態已更新，但執行歷程未寫入");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] }),
     onError: (e) => toast.error(`更新失敗：${formatErr(e)}`),
@@ -1032,6 +1053,7 @@ function ListView({
   const [bulkDue, setBulkDue] = useState("");
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const sorted = useMemo(() => {
     const list = [...tasks];
@@ -1062,6 +1084,17 @@ function ListView({
   // 篩選/排序後清單改變時回到第 1 頁
   useEffect(() => { setPage(1); }, [sorted.length, pageSize]);
 
+  // 勾選必須跟著篩選收斂：否則勾了 20 筆之後換部門篩選，工具列仍寫「已選 20 筆」，
+  // 按下批次刪除會刪掉畫面上根本看不到的任務（確認框只顯示筆數）。
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const alive = new Set(tasks.map((t) => t.id));
+      const next = new Set(Array.from(prev).filter((id) => alive.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [tasks]);
+
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(k); setSortDir("asc"); }
@@ -1077,15 +1110,33 @@ function ListView({
 
   const applyBulk = async () => {
     if (!selected.size) return toast.error("請先勾選任務");
+    if (bulkBusy) return;
     const patch: Database["public"]["Tables"]["task"]["Update"] = {};
     if (bulkStatus) patch.status_id = bulkStatus;
     if (bulkOwner) patch.owner_id = bulkOwner;
     if (bulkDue) patch.due_date = bulkDue;
     if (!Object.keys(patch).length) return toast.error("請選擇要套用的欄位");
+    // 批次改成「完成」類狀態時，必須跟單筆儲存與拖曳一致地補上 progress / completed_at，
+    // 否則卡片仍顯示逾期與 0%、永遠不會被「完成：近 30 天」視窗收掉，
+    // 績效儀表板的「期間完成」也算不到這些任務。
+    if (bulkStatus) {
+      if (statusMap.get(bulkStatus)?.is_done_state) {
+        patch.progress = 100;
+        patch.completed_at = new Date().toISOString();
+      } else {
+        patch.completed_at = null;
+      }
+    }
     const ids = Array.from(selected);
+    setBulkBusy(true);
     const { data, error } = await supabase.from("task").update(patch).in("id", ids).select("id");
+    setBulkBusy(false);
     if (error) return toast.error(error.message);
-    toast.success(`已更新 ${data?.length ?? 0} 筆`);
+    const n = data?.length ?? 0;
+    // 全部被 RLS 擋掉時 data 是空陣列而不是 error —— 這時候報成功會讓人以為是畫面沒刷新
+    if (n === 0) return toast.error("沒有任何任務被更新（可能是權限不足）");
+    if (n < ids.length) toast.warning(`已更新 ${n} 筆；${ids.length - n} 筆因權限未更新`);
+    else toast.success(`已更新 ${n} 筆`);
     setSelected(new Set()); setBulkStatus(""); setBulkOwner(""); setBulkDue("");
     onChanged();
   };
@@ -1103,17 +1154,26 @@ function ListView({
           p_module: "eip_tasks",
           p_id: id,
         });
-        if (error) return false;
-        return (data as { ok?: boolean } | null)?.ok === true;
+        // 「呼叫失敗」跟「後端明確拒絕」要分開報：前者是連線/函式問題，
+        // 全部歸類成「權限不足」會讓使用者跟 IT 都往錯的方向查。
+        if (error) return "failed" as const;
+        return (data as { ok?: boolean } | null)?.ok === true ? ("ok" as const) : ("denied" as const);
       }),
     );
     setBulkDeleting(false);
-    const deleted = results.filter(Boolean).length;
-    const skipped = ids.length - deleted;
-    if (deleted === 0) {
+    const deleted = results.filter((r) => r === "ok").length;
+    const denied = results.filter((r) => r === "denied").length;
+    const failed = results.filter((r) => r === "failed").length;
+    if (deleted === 0 && failed > 0) {
+      toast.error(`刪除失敗 ${failed} 筆（連線或伺服器錯誤，請重試）`);
+    } else if (deleted === 0) {
       toast.error("沒有可刪除的任務（僅本人 / 本部門主管 / 管理者可刪）");
-    } else if (skipped > 0) {
-      toast.warning(`已刪除 ${deleted} 筆；${skipped} 筆因權限未刪（非本人/本部門）`);
+    } else if (denied > 0 || failed > 0) {
+      toast.warning(
+        `已刪除 ${deleted} 筆` +
+          (denied > 0 ? `；${denied} 筆因權限未刪（非本人/本部門）` : "") +
+          (failed > 0 ? `；${failed} 筆呼叫失敗，請重試` : ""),
+      );
     } else {
       toast.success(`已刪除 ${deleted} 筆任務`);
     }
@@ -1154,7 +1214,9 @@ function ListView({
               </SelectContent>
             </Select>
             <Input type="date" value={bulkDue} onChange={(e) => setBulkDue(e.target.value)} className="h-9 w-40" placeholder="改期限" />
-            <Button size="sm" onClick={applyBulk}>套用</Button>
+            <Button size="sm" onClick={applyBulk} disabled={bulkBusy}>
+              {bulkBusy ? "套用中…" : "套用"}
+            </Button>
             <Button
               size="sm"
               variant="destructive"
@@ -1172,7 +1234,8 @@ function ListView({
           <AlertDialogHeader>
             <AlertDialogTitle>確定刪除選取的 {selected.size} 筆任務？</AlertDialogTitle>
             <AlertDialogDescription>
-              此動作無法復原，任務的子項、協作者與狀態紀錄會一併刪除。
+              任務會移入回收區（不會立刻永久刪除），子項、協作者與狀態紀錄一併保留。
+              只有本人、本部門主管或管理者刪得掉，其餘會被跳過並回報筆數。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1302,7 +1365,10 @@ function CalendarView({ tasks, statusMap, userMap }: {
   const cells: { date: Date; tasks: Task[] }[] = [];
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    const ds = d.toISOString().slice(0, 10);
+    // 不能用 toISOString()：d 是「本地午夜」，在 UTC+8 轉 ISO 會退回前一天，
+    // 整個行事曆會把任務畫到「到期日的隔天」格子裡（7/31 到期跑到 8/1）。
+    // sv-SE 的 locale 格式就是 YYYY-MM-DD 且用本地時區。
+    const ds = d.toLocaleDateString("sv-SE");
     const inDay = tasks.filter((t) => t.due_date === ds);
     cells.push({ date: d, tasks: inDay });
   }
@@ -1408,9 +1474,13 @@ function CreateTaskDialog({
       }).select("*").single();
       if (error) throw error;
       const parentId = (created as Task).id;
+      // 這兩段是「附帶寫入」：失敗不該讓任務建立整個回滾（DB 沒有交易可用），
+      // 但也絕對不能照樣跳成功 toast —— 使用者會以為協作者/子步驟都進去了。
+      const partial: string[] = [];
       if (collaborators.length) {
-        await supabase.from("task_collaborator")
+        const { error: ce } = await supabase.from("task_collaborator")
           .insert(collaborators.map((uid) => ({ task_id: parentId, user_id: uid })));
+        if (ce) partial.push("協作者未加入");
       }
       const t = types.find((x) => x.id === typeId);
       const steps = Array.isArray(t?.default_steps) ? (t!.default_steps as unknown as string[]) : [];
@@ -1423,9 +1493,13 @@ function CreateTaskDialog({
           visibility_scope: v.payload.visibility_scope,
           created_by: appUser.id,
         }));
-        if (rows.length) await supabase.from("task").insert(rows);
+        if (rows.length) {
+          const { error: se } = await supabase.from("task").insert(rows);
+          if (se) partial.push("預設步驟未建立");
+        }
       }
-      toast.success("任務已建立");
+      if (partial.length) toast.warning(`任務已建立，但${partial.join("、")}，請手動補上`);
+      else toast.success("任務已建立");
       onCreated(); onClose();
     } catch (e) {
       toast.error(`建立失敗：${formatErr(e)}`);
@@ -1563,6 +1637,7 @@ export function EditTaskDialog({
 
   const [notes, setNotes] = useState<TaskUpdateRow[]>([]);
   const [notesLoading, setNotesLoading] = useState(true);
+  const [notesErr, setNotesErr] = useState<string | null>(null);
   const [newNote, setNewNote] = useState("");
   const [postingNote, setPostingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -1599,6 +1674,7 @@ export function EditTaskDialog({
 
   const [timeline, setTimeline] = useState<TimelineRow[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
+  const [timelineErr, setTimelineErr] = useState<string | null>(null);
 
   const loadTimeline = async () => {
     setTimelineLoading(true);
@@ -1608,7 +1684,11 @@ export function EditTaskDialog({
       .eq("task_id", task.id)
       .order("at", { ascending: false });
     setTimelineLoading(false);
-    if (!error) setTimeline((data ?? []) as TimelineRow[]);
+    // 失敗時不能靜默留在空陣列 —— 畫面會顯示「尚無執行歷程」，
+    // 使用者以為紀錄不見了。改為記錯誤讓區塊顯示「載入失敗，重試」。
+    if (error) { setTimelineErr(formatErr(error)); return; }
+    setTimelineErr(null);
+    setTimeline((data ?? []) as TimelineRow[]);
   };
   useEffect(() => { void loadTimeline(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
 
@@ -1621,7 +1701,9 @@ export function EditTaskDialog({
       .not("comment", "is", null)
       .order("created_at", { ascending: true });
     setNotesLoading(false);
-    if (!error) setNotes((data ?? []) as TaskUpdateRow[]);
+    if (error) { setNotesErr(formatErr(error)); return; }
+    setNotesErr(null);
+    setNotes((data ?? []) as TaskUpdateRow[]);
   };
   useEffect(() => { void loadNotes(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
 
@@ -1657,12 +1739,20 @@ export function EditTaskDialog({
   // closing_summary 不在主清單的 select 欄位裡（typed client 不認識新欄位），
   // 開啟詳情時單獨補讀一次。
   const [closingSummary, setClosingSummary] = useState("");
+  // summaryLoaded：補讀完成前不准把 closing_summary 寫回 DB。
+  // 否則在補讀回來之前按儲存，會用初值 "" 把主管寫過的結案摘要整段清掉，
+  // 而且畫面上不會有任何提示（欄位還沒 render）。
+  const [summaryLoaded, setSummaryLoaded] = useState(false);
   useEffect(() => {
     let alive = true;
+    setSummaryLoaded(false);
     void (async () => {
-      const { data } = await supabaseAny
+      const { data, error } = await supabaseAny
         .from("task").select("closing_summary").eq("id", task.id).maybeSingle();
-      if (alive && data) setClosingSummary((data as { closing_summary: string | null }).closing_summary ?? "");
+      if (!alive) return;
+      if (error) { setSummaryLoaded(false); return; }
+      setClosingSummary((data as { closing_summary: string | null } | null)?.closing_summary ?? "");
+      setSummaryLoaded(true);
     })();
     return () => { alive = false; };
   }, [task.id]);
@@ -1701,9 +1791,11 @@ export function EditTaskDialog({
     }
     // closing_summary 還沒進 types.ts，走 any 版 client 才不會被型別擋掉。
     // 從已完成退回進行中時摘要保留，不無聲清掉使用者寫過的內容。
+    // summaryLoaded 為 false（還在補讀或補讀失敗）時，整個欄位不進 patch，
+    // 寧可這次不存摘要，也不要用空值蓋掉既有內容。
     const { error } = await supabaseAny
       .from("task")
-      .update({ ...patch, closing_summary: closingSummary.trim() || null })
+      .update(summaryLoaded ? { ...patch, closing_summary: closingSummary.trim() || null } : patch)
       .eq("id", task.id);
     setBusy(false);
     if (error) { setErr(error.message); return; }
@@ -1820,6 +1912,12 @@ export function EditTaskDialog({
             <div className="text-sm font-medium mb-2">補充說明</div>
             {notesLoading ? (
               <div className="text-xs text-muted-foreground">載入中…</div>
+            ) : notesErr ? (
+              <div className="text-xs">
+                <span className="text-destructive">補充說明載入失敗：{notesErr}</span>
+                <Button size="sm" variant="ghost" className="h-6 ml-1 text-xs"
+                  onClick={() => void loadNotes()}>重試</Button>
+              </div>
             ) : notes.length === 0 ? (
               <div className="text-xs text-muted-foreground">尚無補充說明</div>
             ) : (
@@ -1881,6 +1979,12 @@ export function EditTaskDialog({
               <div className="text-sm font-medium mb-2">執行歷程</div>
               {timelineLoading ? (
                 <div className="text-xs text-muted-foreground">載入中…</div>
+              ) : timelineErr ? (
+                <div className="text-xs">
+                  <span className="text-destructive">執行歷程載入失敗：{timelineErr}</span>
+                  <Button size="sm" variant="ghost" className="h-6 ml-1 text-xs"
+                    onClick={() => void loadTimeline()}>重試</Button>
+                </div>
               ) : timeline.length === 0 ? (
                 <div className="text-xs text-muted-foreground">尚無執行歷程</div>
               ) : (

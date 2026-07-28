@@ -50,15 +50,15 @@ type PerfRow = {
   department_id: string | null;
   department_name: string | null;
   tasks_done: number;
-  tasks_overdue: number;
-  tasks_open: number;
+  tasks_overdue_now: number;
+  tasks_open_now: number;
   routine_expected: number;
   routine_done: number;
   routine_rate: number | string | null;
   worklog_submitted: number;
   worklog_draft: number;
   meeting_actions_done: number;
-  meeting_actions_open: number;
+  meeting_actions_open_now: number;
   anomalies_raised: number;
   anomalies_closed: number;
   anomalies_unfilled: number;
@@ -69,7 +69,7 @@ type DeptRow = {
   department_name: string | null;
   headcount: number;
   tasks_done: number;
-  tasks_overdue: number;
+  tasks_overdue_now: number;
   routine_rate: number | string | null;
   worklog_submit_rate: number | string | null;
   anomalies_raised: number;
@@ -97,7 +97,7 @@ const pct = (v: number | string | null) => (v == null ? "—" : `${Number(v).toF
 /* ---------- 主頁面 ---------- */
 
 function PerformancePage() {
-  const { loading: authLoading, can } = useAuth();
+  const { loading: authLoading, permsLoaded, can } = useAuth();
   const { appUser } = useEipUser();
 
   const canView = can("eip_performance", "view");
@@ -159,7 +159,7 @@ function PerformancePage() {
         .map((d) => ({
           name: d.department_name ?? "未分部門",
           done: Number(d.tasks_done ?? 0),
-          overdue: Number(d.tasks_overdue ?? 0),
+          overdue: Number(d.tasks_overdue_now ?? 0),
         }))
         .filter((d) => d.done > 0 || d.overdue > 0)
         .sort((a, b) => b.done + b.overdue - (a.done + a.overdue)),
@@ -170,7 +170,7 @@ function PerformancePage() {
     const t = { done: 0, overdue: 0, sub: 0, draft: 0, unfilled: 0 };
     rows.forEach((r) => {
       t.done += Number(r.tasks_done ?? 0);
-      t.overdue += Number(r.tasks_overdue ?? 0);
+      t.overdue += Number(r.tasks_overdue_now ?? 0);
       t.sub += Number(r.worklog_submitted ?? 0);
       t.draft += Number(r.worklog_draft ?? 0);
       t.unfilled += Number(r.anomalies_unfilled ?? 0);
@@ -181,7 +181,7 @@ function PerformancePage() {
   const submitRate =
     totals.sub + totals.draft === 0 ? null : (totals.sub * 100) / (totals.sub + totals.draft);
 
-  if (authLoading) return <div className="text-muted-foreground py-8">載入中…</div>;
+  if (authLoading || !permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" replace />;
   if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
 
@@ -227,7 +227,15 @@ function PerformancePage() {
           {from} ～ {to}
         </span>
         <div className="flex-1" />
-        <Button size="sm" variant="outline" onClick={() => void perfQ.refetch()}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            // 部門彙總是另一支 query，只 refetch perfQ 會讓上下兩塊數字互相矛盾
+            void perfQ.refetch();
+            if (canSeeDept) void deptQ.refetch();
+          }}
+        >
           重新整理
         </Button>
       </div>
@@ -301,7 +309,7 @@ function PerformancePage() {
                   <TableHead>部門</TableHead>
                   <TableHead className="text-right">人數</TableHead>
                   <TableHead className="text-right">完成</TableHead>
-                  <TableHead className="text-right">逾期</TableHead>
+                  <TableHead className="text-right">逾期（當下）</TableHead>
                   <TableHead className="text-right">例行達成率</TableHead>
                   <TableHead className="text-right">日誌送出率</TableHead>
                   <TableHead className="text-right">異常</TableHead>
@@ -315,9 +323,9 @@ function PerformancePage() {
                     <TableCell className="text-right">{d.headcount}</TableCell>
                     <TableCell className="text-right">{d.tasks_done}</TableCell>
                     <TableCell
-                      className={`text-right ${Number(d.tasks_overdue) > 0 ? "text-destructive font-medium" : ""}`}
+                      className={`text-right ${Number(d.tasks_overdue_now) > 0 ? "text-destructive font-medium" : ""}`}
                     >
-                      {d.tasks_overdue}
+                      {d.tasks_overdue_now}
                     </TableCell>
                     <TableCell className="text-right">{pct(d.routine_rate)}</TableCell>
                     <TableCell className="text-right">{pct(d.worklog_submit_rate)}</TableCell>
@@ -361,8 +369,8 @@ function PerformancePage() {
                   <TableHead>姓名</TableHead>
                   <TableHead>部門</TableHead>
                   <TableHead className="text-right">完成</TableHead>
-                  <TableHead className="text-right">逾期</TableHead>
-                  <TableHead className="text-right">未完成</TableHead>
+                  <TableHead className="text-right">逾期（當下）</TableHead>
+                  <TableHead className="text-right">未完成（當下）</TableHead>
                   <TableHead className="text-right">例行</TableHead>
                   <TableHead className="text-right">日誌</TableHead>
                   <TableHead className="text-right">會議決議</TableHead>
@@ -378,11 +386,11 @@ function PerformancePage() {
                     </TableCell>
                     <TableCell className="text-right">{r.tasks_done}</TableCell>
                     <TableCell
-                      className={`text-right ${r.tasks_overdue > 0 ? "text-destructive font-medium" : ""}`}
+                      className={`text-right ${r.tasks_overdue_now > 0 ? "text-destructive font-medium" : ""}`}
                     >
-                      {r.tasks_overdue}
+                      {r.tasks_overdue_now}
                     </TableCell>
-                    <TableCell className="text-right">{r.tasks_open}</TableCell>
+                    <TableCell className="text-right">{r.tasks_open_now}</TableCell>
                     <TableCell className="text-right text-sm">
                       {r.routine_expected === 0 ? (
                         <span className="text-muted-foreground">無範本</span>
@@ -405,9 +413,9 @@ function PerformancePage() {
                     </TableCell>
                     <TableCell className="text-right text-sm">
                       {r.meeting_actions_done}
-                      {r.meeting_actions_open > 0 && (
+                      {r.meeting_actions_open_now > 0 && (
                         <span className="text-muted-foreground ml-1">
-                          （未結 {r.meeting_actions_open}）
+                          （當下未結 {r.meeting_actions_open_now}）
                         </span>
                       )}
                     </TableCell>
@@ -436,6 +444,10 @@ function PerformancePage() {
       <p className="text-xs text-muted-foreground">
         例行達成率的分母是「當期到期的個人例行範本項數」——
         還沒建立例行範本的同仁會顯示「無範本」而不是 0%，避免分母灌水。
+      </p>
+      <p className="text-xs text-muted-foreground px-1">
+        標「當下」的欄位是即時狀態、和上面的日期區間無關（逾期／未完成／會議決議未結）；
+        其餘欄位才是區間內的統計。會議決議的「完成」是以會議日期落在區間界定歸屬。
       </p>
     </div>
   );

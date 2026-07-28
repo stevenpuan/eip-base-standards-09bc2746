@@ -101,7 +101,7 @@ function formatEta(eta: string | null) {
 }
 
 function QuickReportsPage() {
-  const { loading: authLoading, can } = useAuth();
+  const { loading: authLoading, permsLoaded, can } = useAuth();
   const { appUser } = useEipUser();
   // 進頁與清單顯示一律讀「角色權限設定」（臨時回報模組檢視權），不寫死角色。
   // 一般同仁有檢視權時，RLS 會只回傳「自己送出的」紀錄；主管則看部門/全公司。
@@ -155,7 +155,7 @@ function QuickReportsPage() {
     });
   }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap, mineOnly, appUser]);
 
-  if (authLoading) return <div className="text-muted-foreground">載入中…</div>;
+  if (authLoading || !permsLoaded) return <div className="text-muted-foreground">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" />;
 
   // 標記代辦完成。請假類會由 DB trigger 發出第二段「代辦完成」通知給請假者與部門主管。

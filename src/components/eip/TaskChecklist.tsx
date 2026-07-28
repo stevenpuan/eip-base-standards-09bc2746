@@ -44,6 +44,7 @@ export function TaskChecklist({
   const [newTitle, setNewTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [pending, setPending] = useState<Set<string>>(new Set());
 
   const load = async () => {
     const { data, error } = await supabase
@@ -54,10 +55,11 @@ export function TaskChecklist({
     if (error) {
       toast.error(`子項載入失敗：${error.message}`);
       setLoading(false);
-      return;
+      return false;   // 呼叫端要知道「重讀失敗」，否則樂觀值會留在畫面上不被更正
     }
     setItems((data ?? []) as ChecklistItem[]);
     setLoading(false);
+    return true;
   };
 
   useEffect(() => {
@@ -79,6 +81,8 @@ export function TaskChecklist({
   };
 
   const toggle = async (it: ChecklistItem) => {
+    if (pending.has(it.id)) return;   // 連點會送出多筆 update，且多個 load() 亂序回來畫面會停在錯的狀態
+    setPending((p) => new Set(p).add(it.id));
     // 樂觀更新：勾選是最常用的動作，等 round-trip 會頓
     setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, is_done: !x.is_done } : x)));
     const { error } = await supabase
@@ -87,10 +91,15 @@ export function TaskChecklist({
       .eq("id", it.id);
     if (error) {
       toast.error(`更新失敗：${error.message}`);
-      await load();
+      // 重讀也失敗時要自己把樂觀值翻回來，不能留著假的勾選狀態
+      if (!(await load())) {
+        setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, is_done: it.is_done } : x)));
+      }
+      setPending((p) => { const n = new Set(p); n.delete(it.id); return n; });
       return;
     }
     await load();
+    setPending((p) => { const n = new Set(p); n.delete(it.id); return n; });
     onCountChange?.();
   };
 
@@ -169,7 +178,7 @@ export function TaskChecklist({
               )}
               <Checkbox
                 checked={it.is_done}
-                disabled={readOnly}
+                disabled={readOnly || pending.has(it.id)}
                 onCheckedChange={() => void toggle(it)}
               />
               <span
