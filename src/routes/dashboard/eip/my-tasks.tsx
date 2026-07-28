@@ -14,7 +14,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
+import {
+  TaskSourceBadge,
+  useTaskSources,
+  TASK_SOURCE_LABEL,
+  TASK_SOURCE_HINT,
+  type TaskSource,
+} from "@/components/eip/TaskSourceBadge";
 import { TodayRoutineCard } from "@/components/eip/TodayRoutineCard";
 import { HandoverInboxCard } from "@/components/eip/HandoverInboxCard";
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
@@ -236,7 +242,7 @@ function MyTasksPage() {
     <div>
       <PageHeader
         title="我的工作"
-        description="單一入口。上面是今天要做的例行與待我接手的代辦，下面是與我相關的任務（一般／常態／專案／會議來源）。"
+        description="單一入口。上面是今天要做的例行與待我接手的代辦，下面是與我相關的任務。來源分四類：常態工作（每日自動產生）、任務看板（有人直接指派）、會議決議、專案任務。"
       />
 
       {/* ① 個人例行＋② 常態工作：不是任務，所以獨立一塊，勾選直接寫進今天的日誌 */}
@@ -254,17 +260,18 @@ function MyTasksPage() {
                 <TabsTrigger value="all" className="text-xs">
                   全部
                 </TabsTrigger>
-                <TabsTrigger value="normal" className="text-xs">
-                  一般
+                {/* 順序照整合架構圖的 ②③④⑤，標籤用來源本身的名字 */}
+                <TabsTrigger value="recurring" className="text-xs" title={TASK_SOURCE_HINT.recurring}>
+                  {TASK_SOURCE_LABEL.recurring}
                 </TabsTrigger>
-                <TabsTrigger value="recurring" className="text-xs">
-                  常態
+                <TabsTrigger value="normal" className="text-xs" title={TASK_SOURCE_HINT.normal}>
+                  {TASK_SOURCE_LABEL.normal}
                 </TabsTrigger>
-                <TabsTrigger value="project" className="text-xs">
-                  專案
+                <TabsTrigger value="meeting" className="text-xs" title={TASK_SOURCE_HINT.meeting}>
+                  {TASK_SOURCE_LABEL.meeting}
                 </TabsTrigger>
-                <TabsTrigger value="meeting" className="text-xs">
-                  會議
+                <TabsTrigger value="project" className="text-xs" title={TASK_SOURCE_HINT.project}>
+                  {TASK_SOURCE_LABEL.project}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -480,15 +487,16 @@ function Grouped({
   const groups = new Map<string, Task[]>();
   sorted.forEach((t) => {
     const s = sourceMap.get(t.id);
-    let key = "一般任務";
+    // 分組標題也用同一組來源名稱，不要出現「一般任務」這種說不出內容的字
+    let key = TASK_SOURCE_LABEL.normal;
     if (groupBy === "source") {
-      if (s?.type === "meeting") key = `會議:${s.label}`;
-      else if (s?.type === "recurring") key = "常態工作（例行）";
-      else if (s?.type === "project") key = `專案:${s.label}`;
+      if (s?.type === "meeting") key = `${TASK_SOURCE_LABEL.meeting}：${s.label}`;
+      else if (s?.type === "recurring") key = `${TASK_SOURCE_LABEL.recurring}（例行）`;
+      else if (s?.type === "project") key = `${TASK_SOURCE_LABEL.project}：${s.label}`;
     } else {
       // groupBy === project
-      if (s?.type === "project") key = `專案:${s.label}`;
-      else if (s?.type === "meeting") key = `會議:${s.label}`;
+      if (s?.type === "project") key = `${TASK_SOURCE_LABEL.project}：${s.label}`;
+      else if (s?.type === "meeting") key = `${TASK_SOURCE_LABEL.meeting}：${s.label}`;
     }
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(t);
