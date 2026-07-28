@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -97,7 +98,11 @@ function canDeleteTask(task: Task, appUser: AppUser | null, can: CanFn, collabMa
 
 
 export const Route = createFileRoute("/dashboard/eip/tasks")({
-  component: TasksPage,
+  component: () => (
+    <RequirePerm module="eip_tasks">
+      <TasksPage />
+    </RequirePerm>
+  ),
   validateSearch: (s: Record<string, unknown>) => ({
     openTask: typeof s.openTask === "string" ? s.openTask : undefined,
   }),

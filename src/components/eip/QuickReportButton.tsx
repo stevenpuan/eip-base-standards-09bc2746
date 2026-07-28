@@ -32,8 +32,10 @@ const TYPE_COLOR: Record<string, string> = {
   leave: "bg-blue-100 text-blue-700 border-blue-300",
   other: "bg-slate-100 text-slate-700 border-slate-300",
 };
-const STATUS_LABEL: Record<string, string> = { open: "待處理", acknowledged: "已處理", done: "已處理", closed: "已處理" };
-const DONE_STATUSES = new Set(["acknowledged", "done", "closed"]);
+// acknowledged 不是完成：代辦全數完成才會由 DB trigger 推到 done，
+// 任一項被取消完成就退回 acknowledged。與臨時回報頁採同一套口徑。
+const STATUS_LABEL: Record<string, string> = { open: "待處理", acknowledged: "處理中", done: "已完成", closed: "已完成" };
+const DONE_STATUSES = new Set(["done", "closed"]);
 
 export function QuickReportButton() {
   const { appUser } = useEipUser();

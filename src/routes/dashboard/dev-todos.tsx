@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -14,7 +15,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/dev-todos")({ component: Page });
+export const Route = createFileRoute("/dashboard/dev-todos")({ component: () => (
+    <RequirePerm module="dev_todos">
+      <Page />
+    </RequirePerm>
+  ) });
 
 function Page() {
   const { can, user } = useAuth();

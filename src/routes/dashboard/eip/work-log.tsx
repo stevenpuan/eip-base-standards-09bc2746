@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useEffect, useState, type ReactNode } from "react";
 import { Plus, X, Check, Send, ListChecks, Clock, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud, ChevronDown, History } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -11,7 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { toggleRoutineItem, type RoutineSection } from "@/lib/eip-routine";
 
-export const Route = createFileRoute("/dashboard/eip/work-log")({ component: WorkLogPage });
+export const Route = createFileRoute("/dashboard/eip/work-log")({ component: () => (
+    <RequirePerm module="eip_work_log">
+      <WorkLogPage />
+    </RequirePerm>
+  ) });
 
 type Item = {
   text: string; done: boolean; note?: string;

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -16,7 +17,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/eip/calendar")({ component: CalendarPage });
+export const Route = createFileRoute("/dashboard/eip/calendar")({ component: () => (
+    <RequirePerm module="eip_calendar">
+      <CalendarPage />
+    </RequirePerm>
+  ) });
 
 type EventType = "task" | "meeting" | "milestone" | "personal" | "leave";
 

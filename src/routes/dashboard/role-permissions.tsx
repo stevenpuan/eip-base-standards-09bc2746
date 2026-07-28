@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -12,7 +13,11 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/role-permissions")({ component: RolePermPage });
+export const Route = createFileRoute("/dashboard/role-permissions")({ component: () => (
+    <RequirePerm module="role_permissions">
+      <RolePermPage />
+    </RequirePerm>
+  ) });
 
 const ACTIONS: [string, string][] = [
   ["can_view", "檢視"],

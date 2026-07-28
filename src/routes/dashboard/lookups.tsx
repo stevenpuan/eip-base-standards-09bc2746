@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -14,7 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/lookups")({ component: Page });
+export const Route = createFileRoute("/dashboard/lookups")({ component: () => (
+    <RequirePerm module="lookups">
+      <Page />
+    </RequirePerm>
+  ) });
 
 interface Lookup { id: string; category: string; code: string; label: string; sort_order: number; is_active: boolean; }
 

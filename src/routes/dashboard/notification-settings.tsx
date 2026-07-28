@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { BellRing, Plus, Trash2, X } from "lucide-react";
@@ -8,7 +9,11 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/notification-settings")({ component: Page });
+export const Route = createFileRoute("/dashboard/notification-settings")({ component: () => (
+    <RequirePerm module="eip_notification_settings">
+      <Page />
+    </RequirePerm>
+  ) });
 
 interface Setting {
   id: string;

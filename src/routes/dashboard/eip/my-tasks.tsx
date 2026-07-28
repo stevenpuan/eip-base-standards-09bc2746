@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
@@ -26,7 +27,11 @@ import { HandoverInboxCard } from "@/components/eip/HandoverInboxCard";
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 import type { Database } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/dashboard/eip/my-tasks")({ component: MyTasksPage });
+export const Route = createFileRoute("/dashboard/eip/my-tasks")({ component: () => (
+    <RequirePerm module="eip_my_tasks">
+      <MyTasksPage />
+    </RequirePerm>
+  ) });
 
 type Task = Database["public"]["Tables"]["task"]["Row"];
 type Status = Database["public"]["Tables"]["task_status"]["Row"];

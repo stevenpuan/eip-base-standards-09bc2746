@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -10,7 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/system-config")({ component: Page });
+export const Route = createFileRoute("/dashboard/system-config")({ component: () => (
+    <RequirePerm module="system_config">
+      <Page />
+    </RequirePerm>
+  ) });
 
 interface Config { id: string; key: string; value: string | null; group_name: string | null; description: string | null; }
 

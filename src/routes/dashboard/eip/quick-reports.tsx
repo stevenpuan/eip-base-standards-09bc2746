@@ -96,14 +96,17 @@ const TYPE_COLOR: Record<string, string> = {
   other: "bg-slate-100 text-slate-700 border-slate-300",
 };
 // 2026-07-28 起請假不做簽核，改為「代辦產生 → 代辦完成」兩段通知。
-// acknowledged 為舊制「主管已確認」留下的值，視同已完成。
+//
+// acknowledged **不是完成**：DB trigger 在「代辦全部完成」時把單子推到 done，
+// 只要任一項被取消完成就會退回 acknowledged。把它當成已完成會讓畫面說謊
+// （明明還有代辦沒做完，列表卻顯示已處理），所以一律歸到「處理中／未完成」。
 const STATUS_LABEL: Record<string, string> = {
   open: "待處理",
-  acknowledged: "已完成",
+  acknowledged: "處理中",
   done: "已完成",
   closed: "已完成",
 };
-const DONE_STATUSES = new Set(["acknowledged", "done", "closed"]);
+const DONE_STATUSES = new Set(["done", "closed"]);
 
 function formatDateTimeZh(iso: string) {
   const d = new Date(iso);
@@ -494,7 +497,8 @@ function QuickReportsPage() {
           <SelectContent>
             <SelectItem value="all">全部狀態</SelectItem>
             <SelectItem value="open">待處理</SelectItem>
-            <SelectItem value="done">已處理</SelectItem>
+            <SelectItem value="acknowledged">處理中</SelectItem>
+            <SelectItem value="done">已完成</SelectItem>
           </SelectContent>
         </Select>
         <Input

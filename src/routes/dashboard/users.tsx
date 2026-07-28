@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -22,7 +23,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/users")({ component: UsersPage });
+export const Route = createFileRoute("/dashboard/users")({ component: () => (
+    <RequirePerm module="users">
+      <UsersPage />
+    </RequirePerm>
+  ) });
 
 interface CreatedAccount { email: string; password: string }
 

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -14,7 +15,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/menu-management")({ component: Page });
+export const Route = createFileRoute("/dashboard/menu-management")({ component: () => (
+    <RequirePerm module="menu_management">
+      <Page />
+    </RequirePerm>
+  ) });
 
 interface MenuRow {
   id: string;

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePerm } from "@/components/RequirePerm";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,11 @@ import { Plus, Send, MessageSquare, Loader2, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/eip/assistant")({
-  component: AssistantPage,
+  component: () => (
+    <RequirePerm module="eip_assistant">
+      <AssistantPage />
+    </RequirePerm>
+  ),
 });
 
 type Conversation = {
