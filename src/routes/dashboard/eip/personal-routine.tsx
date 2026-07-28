@@ -376,7 +376,6 @@ function PersonalRoutinePage() {
       {dialogOpen && (
         <RoutineDialog
           routine={editing}
-          userId={appUser.id}
           nextSortOrder={rows.length}
           onClose={() => {
             setDialogOpen(false);
@@ -432,13 +431,11 @@ function EmptyState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () 
 
 function RoutineDialog({
   routine,
-  userId,
   nextSortOrder,
   onClose,
   onSaved,
 }: {
   routine: PersonalRoutine | null;
-  userId: string;
   nextSortOrder: number;
   onClose: () => void;
   onSaved: () => void;

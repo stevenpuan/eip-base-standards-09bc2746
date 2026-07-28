@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud, Lock, Unlock, ChevronDown, History, Users } from "lucide-react";
+import { Plus, X, Check, Send, Stamp, ListChecks, Clock, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud, Lock, Unlock, ChevronDown, History, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
@@ -13,23 +13,35 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/eip/work-log")({ component: WorkLogPage });
 
-type Item = { text: string; done: boolean; note?: string };
+type Item = {
+  text: string; done: boolean; note?: string;
+  /** 來源（由 eip_worklog_seed 帶入）：personal_routine / recurring / task / meeting_action */
+  source?: string;
+  /** 來源紀錄 id，與 source 合起來當去重鍵 */
+  ref_id?: string;
+  link?: string;
+  /** 是否要求填寫執行內容（來自個人例行範本 require_content） */
+  req?: boolean;
+};
+const SOURCE_LABEL: Record<string, string> = {
+  personal_routine: "個人例行", recurring: "常態工作", task: "任務", meeting_action: "會議決議",
+};
+/** 去重鍵：有來源用 source+ref_id，手動新增的項目退回比對文字 */
+const itemKey = (x: Item) => (x.source && x.ref_id ? `${x.source}:${x.ref_id}` : `text:${(x.text ?? "").trim()}`);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const arr = (v: unknown): Item[] => (Array.isArray(v) ? (v as Item[]) : []);
 
-interface Log { id?: string; log_date: string; routine: Item[]; special: Item[]; status: string; locked: boolean; locked_by?: string | null; locked_at?: string | null; }
+interface Log { id?: string; log_date: string; morning: Item[]; afternoon: Item[]; special: Item[]; status: string; locked: boolean; locked_by?: string | null; locked_at?: string | null; }
 
-// 建立某天的預設內容：當日常態(週期)任務→例行；今天完成的一次性任務→特殊（含任務說明）
-async function buildSeed(uid: string, date: string) {
-  const nextDate = new Date(new Date(date).getTime() + 864e5).toISOString().slice(0, 10);
-  const { data: rec } = await supabase.from("task").select("title,description,progress")
-    .eq("owner_id", uid).not("recurring_rule_id", "is", null).eq("occurrence_date", date);
-  const { data: done } = await supabase.from("task").select("title,description")
-    .eq("owner_id", uid).is("recurring_rule_id", null).gte("completed_at", `${date}T00:00:00+08:00`).lt("completed_at", `${nextDate}T00:00:00+08:00`);
-  return {
-    routine: (rec ?? []).map((t: any) => ({ text: t.title as string, done: (t.progress ?? 0) >= 100, note: (t.description ?? "") as string })),
-    special: (done ?? []).map((t: any) => ({ text: t.title as string, done: true, note: (t.description ?? "") as string })),
-  };
+// 建立某天的預設內容：一律走 DB 的 eip_worklog_seed，避免前後端各寫一套規則。
+//   上午例行 = 個人例行範本(morning/allday) + 當日常態工作
+//   下午例行 = 個人例行範本(afternoon)
+//   特殊     = 我負責/協作且未完成的任務 + 今日完成的任務 + 未結案會議決議
+async function fetchSeed(uid: string, date: string): Promise<{ morning: Item[]; afternoon: Item[]; special: Item[] }> {
+  const { data, error } = await supabase.rpc("eip_worklog_seed", { p_user_id: uid, p_date: date });
+  if (error) { toast.error(`帶入失敗：${error.message}`); return { morning: [], afternoon: [], special: [] }; }
+  const d = (data ?? {}) as Record<string, unknown>;
+  return { morning: arr(d.morning), afternoon: arr(d.afternoon), special: arr(d.special) };
 }
 
 function WorkLogPage() {
@@ -57,11 +69,12 @@ function WorkLogPage() {
     setLoading(true);
     const { data } = await supabase.from("work_log").select("*").eq("user_id", appUser.id).eq("log_date", date).maybeSingle();
     if (data) {
-      const routine = [...arr(data.routine_morning), ...arr(data.routine_afternoon)];
-      setLog({ id: data.id, log_date: date, routine, special: arr(data.special_items), status: data.status, locked: !!data.locked, locked_by: data.locked_by, locked_at: data.locked_at });
+      // 舊資料（改造前）全部塞在 routine_morning、routine_afternoon 為空；
+      // 照原欄位讀進來顯示結果與改造前一致，不需要資料遷移。
+      setLog({ id: data.id, log_date: date, morning: arr(data.routine_morning), afternoon: arr(data.routine_afternoon), special: arr(data.special_items), status: data.status, locked: !!data.locked, locked_by: data.locked_by, locked_at: data.locked_at });
     } else {
-      const seed = await buildSeed(appUser.id, date);
-      setLog({ log_date: date, routine: seed.routine, special: seed.special, status: "draft", locked: false });
+      const seed = await fetchSeed(appUser.id, date);
+      setLog({ log_date: date, morning: seed.morning, afternoon: seed.afternoon, special: seed.special, status: "draft", locked: false });
     }
     setLoading(false);
   };
@@ -69,10 +82,16 @@ function WorkLogPage() {
 
   const persist = async (patch: { status?: string; submitted_at?: string }, msg?: string) => {
     if (!appUser?.id || !log) return;
+    // 送出前擋下「需填執行內容」且已勾選、卻沒寫說明的項目
+    if (patch.status === "submitted") {
+      const missing = [...log.morning, ...log.afternoon, ...log.special]
+        .filter((x) => x.req && x.done && !(x.note ?? "").trim()).map((x) => x.text);
+      if (missing.length) { toast.error(`這些項目需填執行內容：${missing.join("、")}`); return; }
+    }
     setSaving(true);
     const body: any = {
       user_id: appUser.id, department_id: appUser.department_id, log_date: date,
-      routine_morning: log.routine, routine_afternoon: [], special_items: log.special,
+      routine_morning: log.morning, routine_afternoon: log.afternoon, special_items: log.special,
       status: log.status, ...patch, updated_at: new Date().toISOString(),
     };
     let res;
@@ -100,14 +119,19 @@ function WorkLogPage() {
 
   const syncToday = async () => {
     if (!appUser?.id || !log) return;
-    const seed = await buildSeed(appUser.id, date);
-    const rSet = new Set(log.routine.map((x) => x.text));
-    const sSet = new Set(log.special.map((x) => x.text));
-    const addR = seed.routine.filter((x) => !rSet.has(x.text));
-    const addS = seed.special.filter((x) => !sSet.has(x.text));
-    if (!addR.length && !addS.length) { toast.info("沒有可帶入的新任務"); return; }
-    setLog((l) => (l ? { ...l, routine: [...l.routine, ...addR], special: [...l.special, ...addS] } : l));
-    toast.success(`已帶入 ${addR.length + addS.length} 筆，記得按儲存或送出`);
+    const seed = await fetchSeed(appUser.id, date);
+    // 跨三區一起比對，避免例行項目換了時段後在兩區各出現一次
+    const seen = new Set([...log.morning, ...log.afternoon, ...log.special].map(itemKey));
+    const take = (list: Item[]) => {
+      const out: Item[] = [];
+      list.forEach((x) => { const k = itemKey(x); if (!seen.has(k)) { seen.add(k); out.push(x); } });
+      return out;
+    };
+    const addM = take(seed.morning), addA = take(seed.afternoon), addS = take(seed.special);
+    const n = addM.length + addA.length + addS.length;
+    if (!n) { toast.info("沒有可帶入的新項目"); return; }
+    setLog((l) => (l ? { ...l, morning: [...l.morning, ...addM], afternoon: [...l.afternoon, ...addA], special: [...l.special, ...addS] } : l));
+    toast.success(`已帶入 ${n} 筆，記得按儲存或送出`);
   };
 
   if (loading || !log) {
@@ -128,8 +152,11 @@ function WorkLogPage() {
         } />
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Section title="例行工作" Icon={ListChecks} tone="primary" items={log.routine} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, routine: v } : l))} />
-        <Section title="特殊（突發）工作" Icon={Zap} tone="accent" items={log.special} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, special: v } : l))} />
+        <Section title="上午例行" Icon={ListChecks} tone="primary" items={log.morning} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, morning: v } : l))} />
+        <Section title="下午例行" Icon={Clock} tone="primary" items={log.afternoon} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, afternoon: v } : l))} />
+        <div className="md:col-span-2">
+          <Section title="特殊（突發）工作" Icon={Zap} tone="accent" items={log.special} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, special: v } : l))} />
+        </div>
       </div>
 
       {editable ? (
@@ -264,12 +291,16 @@ function Section({ title, Icon, tone, items, editable, onChange }: {
               ) : (
                 <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
               )}
+              {it.source && SOURCE_LABEL[it.source] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{SOURCE_LABEL[it.source]}</span>
+              )}
+              {it.req && <span className="text-[10px] px-1 text-amber-600 shrink-0" title="需填執行內容">需填</span>}
               {editable && (
                 <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"><X className="w-3.5 h-3.5" /></button>
               )}
             </div>
             {editable ? (
-              <textarea value={it.note ?? ""} rows={1} placeholder="說明（選填）…"
+              <textarea value={it.note ?? ""} rows={1} placeholder={it.req ? "執行內容（送出前必填）…" : "說明（選填）…"}
                 onChange={(e) => setItem(i, { note: e.target.value })}
                 className="mt-1 ml-6 block w-[calc(100%-1.75rem)] resize-y rounded-md bg-transparent px-1 py-0.5 text-xs text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
             ) : (
