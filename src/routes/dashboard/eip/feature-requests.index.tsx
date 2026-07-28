@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useAllUsers } from "@/hooks/useUsers";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -101,14 +102,8 @@ function FeatureRequestsPage() {
     },
   });
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "users-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的提交紀錄姓名
+  const usersQ = useAllUsers();
   const userMap = useMemo(
     () => new Map((usersQ.data ?? []).map((u) => [u.id, u])),
     [usersQ.data],

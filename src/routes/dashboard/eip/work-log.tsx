@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus, X, Check, Send, Stamp, ListChecks, Zap, Inbox, Search, RefreshCw, Trash2, Paperclip, Download, UploadCloud, Lock, Unlock, ChevronDown, History, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
+import { useAllUsers } from "@/hooks/useUsers";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,15 +44,13 @@ function WorkLogPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [names, setNames] = useState<Record<string, { name: string; job_title?: string | null }>>({});
-
-  useEffect(() => {
-    void supabase.from("app_user").select("id,name,job_title").then((r: any) => {
-      const m: Record<string, { name: string; job_title?: string | null }> = {};
-      (r.data ?? []).forEach((u: any) => (m[u.id] = { name: u.name, job_title: u.job_title }));
-      setNames(m);
-    });
-  }, []);
+  // 顯示對照用：刻意含已停用者，否則離職同仁的歷史日誌與批示會顯示不出姓名
+  const allUsersQ = useAllUsers();
+  const names = useMemo(() => {
+    const m: Record<string, { name: string; job_title?: string | null }> = {};
+    (allUsersQ.data ?? []).forEach((u) => (m[u.id] = { name: u.name ?? "", job_title: u.job_title }));
+    return m;
+  }, [allUsersQ.data]);
 
   const load = async () => {
     if (!appUser?.id) return;

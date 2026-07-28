@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -102,14 +103,10 @@ function MeetingsPage() {
     },
   });
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "users-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的歷史姓名
+  const usersQ = useAllUsers();
+  // 選人用：只在職（與會者、行動項負責人與篩選）
+  const activeUsersQ = useActiveUsers();
 
   const projectsQ = useQuery({
     queryKey: ["eip", "projects"],
@@ -302,7 +299,7 @@ function MeetingsPage() {
           </div>
         </TabsContent>
         <TabsContent value="actions">
-          <ActionItemsTracker meetings={meetingsQ.data ?? []} users={usersQ.data ?? []} userMap={userMap} />
+          <ActionItemsTracker meetings={meetingsQ.data ?? []} users={activeUsersQ.data ?? []} userMap={userMap} />
         </TabsContent>
       </Tabs>
 
@@ -311,7 +308,7 @@ function MeetingsPage() {
           open={openCreate}
           onClose={() => setOpenCreate(false)}
           appUser={appUser}
-          users={usersQ.data ?? []}
+          users={activeUsersQ.data ?? []}
           projects={projectsQ.data ?? []}
           departments={deptsQ.data ?? []}
           onCreated={() => {

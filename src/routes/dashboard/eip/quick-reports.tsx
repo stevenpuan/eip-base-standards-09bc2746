@@ -6,6 +6,7 @@ import { Inbox } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
+import { useAllUsers } from "@/hooks/useUsers";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -117,13 +118,8 @@ function QuickReportsPage() {
     },
   });
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "app_user", "lite"],
-    queryFn: async () => {
-      const { data } = await supabase.from("app_user").select("id,name");
-      return (data ?? []) as { id: string; name: string | null }[];
-    },
-  });
+  // 顯示對照用：含已停用者，否則離職同仁過去的臨時回報會顯示不出姓名
+  const usersQ = useAllUsers();
   const nameMap = useMemo(() => {
     const m = new Map<string, string>();
     (usersQ.data ?? []).forEach((u) => m.set(u.id, u.name ?? u.id));

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,13 +97,10 @@ function ReportsPage() {
     },
   });
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "app_user", "lite"],
-    queryFn: async () => {
-      const { data } = await supabase.from("app_user").select("id,name,department_id");
-      return (data ?? []) as { id: string; name: string | null; department_id: string | null }[];
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的歷史姓名
+  const usersQ = useAllUsers();
+  // 統計分母用：只算在職人數，否則公告已讀率會被停用帳號稀釋
+  const activeUsersQ = useActiveUsers();
 
   const tasksQ = useQuery({
     queryKey: ["eip", "reports", "tasks", fromStr, toStr, deptId],
@@ -172,10 +170,11 @@ function ReportsPage() {
       ]);
       const readMap = new Map<string, number>();
       (reads ?? []).forEach((r) => readMap.set(r.announcement_id, (readMap.get(r.announcement_id) ?? 0) + 1));
-      // 對象數估算：若無 target 則以全公司 app_user 數為對象;有 target 以使用者數+各部門人數估算
-      const allUsers = (usersQ.data ?? []).length || 1;
+      // 對象數估算：若無 target 則以全公司在職人數為對象;有 target 以使用者數+各部門在職人數估算
+      // 分母一律只算在職者,已停用(離職)帳號不列入,否則已讀率會被稀釋
+      const allUsers = (activeUsersQ.data ?? []).length || 1;
       const deptCount = new Map<string, number>();
-      (usersQ.data ?? []).forEach((u) => {
+      (activeUsersQ.data ?? []).forEach((u) => {
         if (u.department_id) deptCount.set(u.department_id, (deptCount.get(u.department_id) ?? 0) + 1);
       });
       const targetMap = new Map<string, number>();
@@ -191,7 +190,7 @@ function ReportsPage() {
         return { id: a.id, title: a.title, rate: total ? Math.round((r / total) * 100) : 0 };
       });
     },
-    enabled: !!usersQ.data,
+    enabled: !!activeUsersQ.data,
   });
 
   const statusMap = useMemo(() => {

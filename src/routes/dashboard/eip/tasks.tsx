@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/co
 
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID, PRIORITY_COLOR, PRIORITY_LABEL } from "@/lib/eip-constants";
 import { exportToExcel } from "@/lib/eip-export";
@@ -175,14 +176,10 @@ function TasksPage() {
 
 
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "users"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 顯示對照用：含已停用者，否則離職同仁的歷史任務會看不到負責人姓名
+  const usersQ = useAllUsers();
+  // 選人用：只在職，避免誤指派給已離職同仁
+  const activeUsersQ = useActiveUsers();
 
   const deptsQ = useQuery({
     queryKey: ["eip", "departments"],
@@ -322,13 +319,13 @@ function TasksPage() {
     });
   };
 
-  const anyLoadError = [statusesQ, tasksQ, subtasksQ, collabQ, usersQ, deptsQ, projectsQ, typesQ].some((q) => q && (q as any).isError);
+  const anyLoadError = [statusesQ, tasksQ, subtasksQ, collabQ, usersQ, activeUsersQ, deptsQ, projectsQ, typesQ].some((q) => q && (q as any).isError);
   if (anyLoadError) {
     return (
       <div className="py-16 text-center space-y-3">
         <p className="text-sm text-muted-foreground">載入任務資料時發生錯誤，請稍後再試。</p>
         <button
-          onClick={() => { statusesQ.refetch(); tasksQ.refetch(); subtasksQ.refetch(); collabQ.refetch(); usersQ.refetch(); deptsQ.refetch(); projectsQ.refetch(); typesQ.refetch(); }}
+          onClick={() => { statusesQ.refetch(); tasksQ.refetch(); subtasksQ.refetch(); collabQ.refetch(); usersQ.refetch(); activeUsersQ.refetch(); deptsQ.refetch(); projectsQ.refetch(); typesQ.refetch(); }}
           className="px-4 py-2 rounded-md border text-sm hover:bg-accent"
         >
           重新載入
@@ -371,7 +368,7 @@ function TasksPage() {
         dueFrom={dueFrom} setDueFrom={setDueFrom}
         dueTo={dueTo} setDueTo={setDueTo}
         statuses={statusesQ.data ?? []}
-        users={usersQ.data ?? []}
+        users={activeUsersQ.data ?? []}
         departments={deptsQ.data ?? []}
         projects={projectsQ.data ?? []}
       />
@@ -413,7 +410,7 @@ function TasksPage() {
             sourceMap={sourceMap}
             deptMap={deptMap}
             statuses={statusesQ.data ?? []}
-            users={usersQ.data ?? []}
+            users={activeUsersQ.data ?? []}
             appUser={appUser}
             canManage={can("eip_tasks", "edit") || can("eip_tasks", "delete")}
             onChanged={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
@@ -432,7 +429,7 @@ function TasksPage() {
           onClose={() => setCreateOpen(false)}
           appUser={appUser}
           statuses={statusesQ.data ?? []}
-          users={usersQ.data ?? []}
+          users={activeUsersQ.data ?? []}
           departments={deptsQ.data ?? []}
           projects={projectsQ.data ?? []}
           types={typesQ.data ?? []}
@@ -447,7 +444,7 @@ function TasksPage() {
           readOnly={!canEditTask(detailTask, appUser, can, collabMap)}
           onClose={() => setDetailTask(null)}
           statuses={statusesQ.data ?? []}
-          users={usersQ.data ?? []}
+          users={activeUsersQ.data ?? []}
           departments={deptsQ.data ?? []}
           projects={projectsQ.data ?? []}
           onSaved={() => {

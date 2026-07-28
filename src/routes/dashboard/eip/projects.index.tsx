@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -91,14 +92,10 @@ function ProjectsPage() {
       return (data ?? []) as Project[];
     },
   });
-  const usersQ = useQuery({
-    queryKey: ["eip", "users-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的歷史姓名
+  const usersQ = useAllUsers();
+  // 選人用：只在職（專案負責人建立／編輯）
+  const activeUsersQ = useActiveUsers();
   const tasksQ = useQuery({
     queryKey: ["eip", "all-project-tasks"],
     queryFn: async () => {
@@ -252,14 +249,14 @@ function ProjectsPage() {
 
       {openCreate && appUser && (
         <CreateProjectDialog
-          open={openCreate} onClose={() => setOpenCreate(false)} appUser={appUser} users={usersQ.data ?? []}
+          open={openCreate} onClose={() => setOpenCreate(false)} appUser={appUser} users={activeUsersQ.data ?? []}
           departments={deptsQ.data ?? []}
           onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "projects-full"] })}
         />
       )}
       {editProject && appUser && (
         <EditProjectDialog
-          project={editProject} users={usersQ.data ?? []} departments={deptsQ.data ?? []}
+          project={editProject} users={activeUsersQ.data ?? []} departments={deptsQ.data ?? []}
           onClose={() => setEditProject(null)}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["eip", "projects-full"] }); setEditProject(null); }}
         />

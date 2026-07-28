@@ -10,6 +10,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -181,13 +182,10 @@ function DocumentsPage() {
   });
 
   // 成員 / 部門(編輯用)
-  const usersQ = useQuery({
-    queryKey: ["app_user_options"],
-    queryFn: async () => {
-      const { data } = await supabase.from("app_user").select("id,name,email").order("name");
-      return (data ?? []) as Array<{ id: string; name: string | null; email: string | null }>;
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的歷史姓名
+  const usersQ = useAllUsers();
+  // 選人用：只在職（文件負責人 Select）
+  const activeUsersQ = useActiveUsers();
   const deptQ = useQuery({
     queryKey: ["department_options"],
     queryFn: async () => {
@@ -414,7 +412,7 @@ function DocumentsPage() {
           mode={editingDoc === "new" ? "new" : "edit"}
           doc={editingDoc === "new" ? null : editingDoc}
           folders={foldersQ.data ?? []}
-          users={usersQ.data ?? []}
+          users={activeUsersQ.data ?? []}
           departments={deptQ.data ?? []}
           defaultFolderId={selectedFolderId}
           tenantId={appUser?.tenant_id ?? DEFAULT_TENANT_ID}

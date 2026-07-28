@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { exportToExcel } from "@/lib/eip-export";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,14 +82,10 @@ function AnnouncementsPage() {
     },
   });
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "users-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的歷史姓名（建立者、未讀名單）
+  const usersQ = useAllUsers();
+  // 選人用：只在職（指定人員 chip、audience_type="all" 的對象展開）
+  const activeUsersQ = useActiveUsers();
 
   const deptsQ = useQuery({
     queryKey: ["eip", "departments"],
@@ -139,7 +136,7 @@ function AnnouncementsPage() {
             key={a.id}
             announcement={a}
             appUser={appUser ?? null}
-            users={usersQ.data ?? []}
+            users={activeUsersQ.data ?? []}
             userMap={userMap}
             expanded={expandedIds.has(a.id)}
             onToggle={() => toggleExpand(a.id)}
@@ -170,7 +167,7 @@ function AnnouncementsPage() {
         <AnnouncementFormDialog
           mode="create"
           open={openCreate} onClose={() => setOpenCreate(false)} appUser={appUser}
-          users={usersQ.data ?? []} departments={deptsQ.data ?? []}
+          users={activeUsersQ.data ?? []} departments={deptsQ.data ?? []}
           onSaved={refetchList}
         />
       )}
@@ -179,7 +176,7 @@ function AnnouncementsPage() {
           mode="edit"
           announcement={editing}
           open={!!editing} onClose={() => setEditing(null)} appUser={appUser}
-          users={usersQ.data ?? []} departments={deptsQ.data ?? []}
+          users={activeUsersQ.data ?? []} departments={deptsQ.data ?? []}
           onSaved={refetchList}
         />
       )}

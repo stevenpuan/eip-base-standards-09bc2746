@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,14 +84,8 @@ function ProjectDetailPage() {
       return data as Project;
     },
   });
-  const usersQ = useQuery({
-    queryKey: ["eip", "users-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的歷史姓名（選人用的清單在 TasksSection 內另取）
+  const usersQ = useAllUsers();
   const tasksQ = useQuery({
     queryKey: ["eip", "project-tasks", id],
     queryFn: async () => {
@@ -525,6 +520,8 @@ function TasksSection({
   userMap: Map<string, AppUser>; doneStatusIds: Set<string>; canEdit: boolean; appUser: AppUser | null;
 }) {
   const qc = useQueryClient();
+  // 選人用：只在職，避免把專案任務指派給已離職同仁
+  const activeUsersQ = useActiveUsers();
   const [adding, setAdding] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.id, s])), [statuses]);
@@ -588,7 +585,7 @@ function TasksSection({
       )}
       {adding && appUser && (
         <NewTaskDialog
-          projectId={projectId} tenantId={tenantId} statuses={statuses} users={Array.from(userMap.values())}
+          projectId={projectId} tenantId={tenantId} statuses={statuses} users={activeUsersQ.data ?? []}
           appUser={appUser}
           onClose={() => setAdding(false)}
           onCreated={() => { setAdding(false); qc.invalidateQueries({ queryKey: ["eip", "project-tasks", projectId] }); }}
@@ -601,7 +598,7 @@ function TasksSection({
           readOnly={!canEdit && editTask.owner_id !== appUser?.id}
           onClose={() => setEditTask(null)}
           statuses={statuses as any}
-          users={Array.from(userMap.values())}
+          users={activeUsersQ.data ?? []}
           departments={(deptsQ.data ?? []) as any}
           projects={(allProjectsQ.data ?? []) as any}
           onSaved={() => {

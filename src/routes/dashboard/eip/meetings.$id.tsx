@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, Plus, ChevronUp, ChevronDown, X, ExternalLink, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/lib/auth";
 
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -84,14 +85,10 @@ function MeetingDetailPage() {
     },
   });
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "users-min"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 顯示對照用：含已停用者，保留離職同仁的歷史姓名
+  const usersQ = useAllUsers();
+  // 選人用：只在職（新增出席者、行動項負責人）
+  const activeUsersQ = useActiveUsers();
 
   const projectsQ = useQuery({
     queryKey: ["eip", "projects"],
@@ -160,7 +157,7 @@ function MeetingDetailPage() {
 
       <AttendeesSection
         meetingId={meeting.id}
-        users={usersQ.data ?? []}
+        users={activeUsersQ.data ?? []}
         userMap={userMap}
         canEdit={canEdit}
       />
@@ -168,7 +165,7 @@ function MeetingDetailPage() {
       <AgendaSection
         meetingId={meeting.id}
         tenantId={meeting.tenant_id}
-        users={usersQ.data ?? []}
+        users={activeUsersQ.data ?? []}
         userMap={userMap}
         canEdit={canEdit}
       />
@@ -176,7 +173,7 @@ function MeetingDetailPage() {
       <ActionItemsSection
         meeting={meeting}
         appUser={appUser}
-        users={usersQ.data ?? []}
+        users={activeUsersQ.data ?? []}
         userMap={userMap}
         canEdit={canEdit}
       />

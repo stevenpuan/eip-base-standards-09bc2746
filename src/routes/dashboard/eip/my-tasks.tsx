@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
+import { useActiveUsers } from "@/hooks/useUsers";
 import { PRIORITY_COLOR, PRIORITY_LABEL } from "@/lib/eip-constants";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,14 +75,8 @@ function MyTasksPage() {
     },
   });
 
-  const usersQ = useQuery({
-    queryKey: ["eip", "users"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("app_user").select("*");
-      if (error) throw error;
-      return (data ?? []) as AppUser[];
-    },
-  });
+  // 選人用：只在職（傳給任務編輯對話框的負責人下拉）
+  const usersQ = useActiveUsers();
   const deptsQ = useQuery({
     queryKey: ["eip", "departments"],
     queryFn: async () => {
