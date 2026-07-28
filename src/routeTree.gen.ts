@@ -39,6 +39,7 @@ import { Route as DashboardEipReportsRouteImport } from './routes/dashboard/eip/
 import { Route as DashboardEipRecurringRouteImport } from './routes/dashboard/eip/recurring'
 import { Route as DashboardEipQuickReportsRouteImport } from './routes/dashboard/eip/quick-reports'
 import { Route as DashboardEipProjectsRouteImport } from './routes/dashboard/eip/projects'
+import { Route as DashboardEipPersonalRoutineRouteImport } from './routes/dashboard/eip/personal-routine'
 import { Route as DashboardEipMyTasksRouteImport } from './routes/dashboard/eip/my-tasks'
 import { Route as DashboardEipMembersRouteImport } from './routes/dashboard/eip/members'
 import { Route as DashboardEipMeetingsRouteImport } from './routes/dashboard/eip/meetings'
@@ -212,6 +213,12 @@ const DashboardEipProjectsRoute = DashboardEipProjectsRouteImport.update({
   path: '/projects',
   getParentRoute: () => DashboardEipRoute,
 } as any)
+const DashboardEipPersonalRoutineRoute =
+  DashboardEipPersonalRoutineRouteImport.update({
+    id: '/personal-routine',
+    path: '/personal-routine',
+    getParentRoute: () => DashboardEipRoute,
+  } as any)
 const DashboardEipMyTasksRoute = DashboardEipMyTasksRouteImport.update({
   id: '/my-tasks',
   path: '/my-tasks',
@@ -339,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/eip/feature-requests': typeof DashboardEipFeatureRequestsRouteWithChildren
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRouteWithChildren
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
+  '/dashboard/eip/personal-routine': typeof DashboardEipPersonalRoutineRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
   '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
@@ -385,6 +393,7 @@ export interface FileRoutesByTo {
   '/dashboard/eip/changelog': typeof DashboardEipChangelogRoute
   '/dashboard/eip/documents': typeof DashboardEipDocumentsRoute
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
+  '/dashboard/eip/personal-routine': typeof DashboardEipPersonalRoutineRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
   '/dashboard/eip/recurring': typeof DashboardEipRecurringRoute
@@ -434,6 +443,7 @@ export interface FileRoutesById {
   '/dashboard/eip/feature-requests': typeof DashboardEipFeatureRequestsRouteWithChildren
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRouteWithChildren
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
+  '/dashboard/eip/personal-routine': typeof DashboardEipPersonalRoutineRoute
   '/dashboard/eip/my-tasks': typeof DashboardEipMyTasksRoute
   '/dashboard/eip/projects': typeof DashboardEipProjectsRouteWithChildren
   '/dashboard/eip/quick-reports': typeof DashboardEipQuickReportsRoute
@@ -485,6 +495,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/feature-requests'
     | '/dashboard/eip/meetings'
     | '/dashboard/eip/members'
+    | '/dashboard/eip/personal-routine'
     | '/dashboard/eip/my-tasks'
     | '/dashboard/eip/projects'
     | '/dashboard/eip/quick-reports'
@@ -531,6 +542,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/changelog'
     | '/dashboard/eip/documents'
     | '/dashboard/eip/members'
+    | '/dashboard/eip/personal-routine'
     | '/dashboard/eip/my-tasks'
     | '/dashboard/eip/quick-reports'
     | '/dashboard/eip/recurring'
@@ -579,6 +591,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/feature-requests'
     | '/dashboard/eip/meetings'
     | '/dashboard/eip/members'
+    | '/dashboard/eip/personal-routine'
     | '/dashboard/eip/my-tasks'
     | '/dashboard/eip/projects'
     | '/dashboard/eip/quick-reports'
@@ -814,6 +827,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEipProjectsRouteImport
       parentRoute: typeof DashboardEipRoute
     }
+    '/dashboard/eip/personal-routine': {
+      id: '/dashboard/eip/personal-routine'
+      path: '/personal-routine'
+      fullPath: '/dashboard/eip/personal-routine'
+      preLoaderRoute: typeof DashboardEipPersonalRoutineRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
     '/dashboard/eip/my-tasks': {
       id: '/dashboard/eip/my-tasks'
       path: '/my-tasks'
@@ -1006,6 +1026,7 @@ interface DashboardEipRouteChildren {
   DashboardEipFeatureRequestsRoute: typeof DashboardEipFeatureRequestsRouteWithChildren
   DashboardEipMeetingsRoute: typeof DashboardEipMeetingsRouteWithChildren
   DashboardEipMembersRoute: typeof DashboardEipMembersRoute
+  DashboardEipPersonalRoutineRoute: typeof DashboardEipPersonalRoutineRoute
   DashboardEipMyTasksRoute: typeof DashboardEipMyTasksRoute
   DashboardEipProjectsRoute: typeof DashboardEipProjectsRouteWithChildren
   DashboardEipQuickReportsRoute: typeof DashboardEipQuickReportsRoute
@@ -1025,6 +1046,7 @@ const DashboardEipRouteChildren: DashboardEipRouteChildren = {
     DashboardEipFeatureRequestsRouteWithChildren,
   DashboardEipMeetingsRoute: DashboardEipMeetingsRouteWithChildren,
   DashboardEipMembersRoute: DashboardEipMembersRoute,
+  DashboardEipPersonalRoutineRoute: DashboardEipPersonalRoutineRoute,
   DashboardEipMyTasksRoute: DashboardEipMyTasksRoute,
   DashboardEipProjectsRoute: DashboardEipProjectsRouteWithChildren,
   DashboardEipQuickReportsRoute: DashboardEipQuickReportsRoute,
