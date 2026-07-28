@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LeaveRequestDialog } from "@/components/eip/LeaveRequestDialog";
 
 // 本地日期 YYYY-MM-DD（台北）
 const todayStr = () => {
@@ -46,37 +47,18 @@ export function QuickReportButton() {
   const [lateEnd, setLateEnd] = useState("");
   const [lateDetail, setLateDetail] = useState("");
 
-  // 請假：假別 / 日期區間 / 時間區間
-  const [leaveType, setLeaveType] = useState("");
-  const [leaveFromDate, setLeaveFromDate] = useState("");
-  const [leaveToDate, setLeaveToDate] = useState("");
-  const [leaveFromTime, setLeaveFromTime] = useState("");
-  const [leaveToTime, setLeaveToTime] = useState("");
-  const [leaveDetail, setLeaveDetail] = useState("");
-  const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string }[]>([]);
+  // 請假走 LeaveRequestDialog（區間＋代理人＋代辦清單），這裡不再自己收欄位
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   // 事件
   const [otherDetail, setOtherDetail] = useState("");
 
   const reset = () => {
     setLateStart(""); setLateEnd(""); setLateDetail("");
-    setLeaveType(""); setLeaveFromDate(""); setLeaveToDate("");
-    setLeaveFromTime(""); setLeaveToTime(""); setLeaveDetail("");
     setOtherDetail("");
   };
 
   const tenantId = appUser?.tenant_id ?? DEFAULT_TENANT_ID;
-
-  useEffect(() => {
-    if (!open) return;
-    void supabase
-      .from("leave_type")
-      .select("code,name")
-      .eq("is_active", true)
-      .order("sort_order")
-      .then((res: any) => setLeaveTypes(res.data ?? []));
-  }, [open]);
-
 
   const submitLate = async () => {
     if (!appUser) return;
@@ -100,29 +82,6 @@ export function QuickReportButton() {
     setBusy(false);
     if (error) return toast.error(`送出失敗：${error.message}`);
     toast.success("遲到回報已送出");
-    reset();
-    setOpen(false);
-  };
-
-  const submitLeave = async () => {
-    if (!appUser) return;
-    if (!leaveType) { toast.error("請選擇假別"); return; }
-    if (!leaveFromDate || !leaveToDate) { toast.error("請選擇請假日期（起訖）"); return; }
-    if (leaveToDate < leaveFromDate) { toast.error("迄日不可早於起日"); return; }
-    setBusy(true);
-    const { error } = await supabase.from("eip_quick_report").insert({
-      tenant_id: tenantId,
-      submitter_id: appUser.id,
-      type: "leave",
-      leave_type: leaveType,
-      report_date: leaveFromDate,
-      leave_from: ts(leaveFromDate, leaveFromTime || "00:00"),
-      leave_to: ts(leaveToDate, leaveToTime || "23:59"),
-      detail: leaveDetail.trim() || null,
-    });
-    setBusy(false);
-    if (error) return toast.error(`送出失敗：${error.message}`);
-    toast.success("請假回報已送出");
     reset();
     setOpen(false);
   };
@@ -195,54 +154,26 @@ export function QuickReportButton() {
               </DialogFooter>
             </TabsContent>
 
-            {/* 請假 */}
+            {/* 請假：定案第 13、15 條 —— 移除假別與事由（EZ9 已有正式假單），
+                改用「請假申請＋代辦事項清單」單一表單，主入口在我的工作區 */}
             <TabsContent value="leave" className="space-y-3 pt-2">
-              <div>
-                <Label>假別</Label>
-                <select
-                  value={leaveType}
-                  onChange={(e) => setLeaveType(e.target.value)}
-                  className="h-9 w-full rounded-md border bg-card px-2 text-sm"
-                >
-                  <option value="">選擇假別…</option>
-                  {leaveTypes.map((t) => (
-                    <option key={t.code} value={t.code}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label>請假日期</Label>
-                <div className="grid grid-cols-2 gap-3 mt-1">
-                  <div>
-                    <span className="text-xs text-muted-foreground">起</span>
-                    <Input type="date" value={leaveFromDate} onChange={(e) => setLeaveFromDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">迄</span>
-                    <Input type="date" value={leaveToDate} onChange={(e) => setLeaveToDate(e.target.value)} />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Label>請假時間 <span className="text-xs text-muted-foreground">（選填，半天／時段假可填）</span></Label>
-                <div className="grid grid-cols-2 gap-3 mt-1">
-                  <div>
-                    <span className="text-xs text-muted-foreground">起</span>
-                    <Input type="time" value={leaveFromTime} onChange={(e) => setLeaveFromTime(e.target.value)} />
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">迄</span>
-                    <Input type="time" value={leaveToTime} onChange={(e) => setLeaveToTime(e.target.value)} />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Label>事由</Label>
-                <Textarea rows={3} value={leaveDetail} onChange={(e) => setLeaveDetail(e.target.value)} placeholder="(選填)" />
+              <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-2">
+                <p className="font-medium">請假改成「區間 ＋ 代理人 ＋ 代辦清單」一次填完</p>
+                <p className="text-xs text-muted-foreground">
+                  假別與事由請走 EZ9 正式假單，EIP 只處理請假期間的工作交接。
+                  送出後不需主管核准，系統會直接通知單位主管與代理人。
+                </p>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
-                <Button disabled={busy} onClick={submitLeave}>送出</Button>
+                <Button
+                  onClick={() => {
+                    setOpen(false);
+                    setLeaveOpen(true);
+                  }}
+                >
+                  填寫請假與代辦
+                </Button>
               </DialogFooter>
             </TabsContent>
 
@@ -267,6 +198,9 @@ export function QuickReportButton() {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* 請假的實際表單。放在這裡而不是 Dialog 內，避免兩個 Dialog 疊在一起 */}
+      <LeaveRequestDialog open={leaveOpen} onClose={() => setLeaveOpen(false)} />
     </>
   );
 }

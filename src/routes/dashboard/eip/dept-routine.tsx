@@ -84,6 +84,8 @@ function DeptRoutinePage() {
   // 這一頁是主管視角；後端 eip_dept_routine_summary 只允許
   // company_admin / dept_manager（fail-closed），前端用 edit 權當入口旗標
   const canView = can("eip_dept_routine", "view");
+  // 催填會發通知給同仁，是寫入動作，不能跟「看得到這頁」共用同一個旗標
+  const canNudge = can("eip_dept_routine", "edit");
 
   const [days, setDays] = useState("14");
   const [deptFilter, setDeptFilter] = useState("all");
@@ -91,7 +93,8 @@ function DeptRoutinePage() {
   const [pickedDate, setPickedDate] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const from = dayStr(Number(days));
+  // 兩端都含，減 1 才真的是「近 N 天」（原本近 7 天實際取 8 天）
+  const from = dayStr(Number(days) - 1);
   const to = dayStr(0);
 
   const listQ = useQuery({
@@ -200,8 +203,15 @@ function DeptRoutinePage() {
     return Array.from(s).sort((a, b) => b.localeCompare(a));
   }, [listQ.data, to]);
 
+  // 預設不要落在今天：今天的日誌還沒到期，主管一打開就看到「全部門未提交」
+  // 並且催填鈕可按，等於鼓勵去催一份晚上才要交的日誌。
+  // 有昨天（或更早）的資料就選最近那一天，真的只有今天才退回今天。
+  const defaultPendingDate = useMemo(
+    () => dateOptions.find((d) => d < to) ?? to,
+    [dateOptions, to],
+  );
   // 切換區間後舊的選日可能已不在範圍內，用推導而不是 useEffect 修正，避免多一次 render
-  const pendingDate = dateOptions.includes(pickedDate) ? pickedDate : to;
+  const pendingDate = dateOptions.includes(pickedDate) ? pickedDate : defaultPendingDate;
 
   const pending = useMemo(() => {
     return rows
@@ -234,14 +244,22 @@ function DeptRoutinePage() {
       if (error) throw error;
       return Number(data ?? 0);
     },
-    onSuccess: (n) => {
+    onSuccess: (n, ids) => {
       if (n > 0) {
-        toast.success(`已通知 ${n} 人`);
+        if (n < ids.length) {
+          // 差額可能是「已經催過（同日去重）」或「不在管轄範圍（後端靜默跳過）」，
+          // 不講清楚主管會不知道要不要換方式跟進
+          toast.warning(
+            `已通知 ${n} 人；另 ${ids.length - n} 人未發出（${pendingDate} 已催過，或不在你的管轄範圍）`,
+          );
+        } else {
+          toast.success(`已通知 ${n} 人（${pendingDate}）`);
+        }
         setSelected(new Set());
         return;
       }
       // 後端會靜默跳過非管轄範圍與重複催填，回 0 不是成功，保留勾選讓主管能調整後再試
-      toast.warning("沒有發出通知（可能不在你的管轄範圍，或今天已經催過）");
+      toast.warning(`沒有發出通知（可能不在你的管轄範圍，或 ${pendingDate} 已經催過）`);
     },
     onError: (e: unknown) => {
       toast.error(e instanceof Error ? e.message : "催填失敗");
@@ -484,10 +502,14 @@ function DeptRoutinePage() {
             <Button
               size="sm"
               onClick={handleNudge}
-              disabled={selectedIds.length === 0 || nudgeM.isPending}
+              disabled={!canNudge || selectedIds.length === 0 || nudgeM.isPending}
             >
               <BellRing className="w-4 h-4" />
-              {nudgeM.isPending ? "催填中…" : `催填選取的 ${selectedIds.length} 人`}
+              {nudgeM.isPending
+                ? "催填中…"
+                : !canNudge
+                  ? "沒有催填權限"
+                  : `催填選取的 ${selectedIds.length} 人`}
             </Button>
           </div>
 

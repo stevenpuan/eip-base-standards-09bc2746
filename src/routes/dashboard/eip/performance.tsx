@@ -116,7 +116,7 @@ function PerformancePage() {
   const [days, setDays] = useState("30");
   const [deptFilter, setDeptFilter] = useState("all");
 
-  const from = dayStr(Number(days));
+  const from = dayStr(Number(days) - 1); // 兩端都含，減 1 才真的是「近 N 天」
   const to = dayStr(0);
 
   const perfQ = useQuery({
@@ -162,9 +162,16 @@ function PerformancePage() {
 
   // 圖只畫「件數」這一種量度，不把百分比混進同一個 y 軸。
   // 比率放在下方部門表格裡，避免雙軸。
+  // 部門篩選要一起作用在圖與部門表，否則上方數字磚是「品保部」、
+  // 中間圖與下方表卻是全公司，截圖出去很容易被當成品保的數字
+  const deptRows = useMemo(() => {
+    const all = deptQ.data ?? [];
+    return deptFilter === "all" ? all : all.filter((d) => d.department_id === deptFilter);
+  }, [deptQ.data, deptFilter]);
+
   const chartData = useMemo(
     () =>
-      (deptQ.data ?? [])
+      deptRows
         .map((d) => ({
           name: d.department_name ?? "未分部門",
           done: Number(d.tasks_done ?? 0),
@@ -172,8 +179,12 @@ function PerformancePage() {
         }))
         .filter((d) => d.done > 0 || d.overdue > 0)
         .sort((a, b) => b.done + b.overdue - (a.done + a.overdue)),
-    [deptQ.data],
+    [deptRows],
   );
+
+  // 圖會隱去「完成 0、逾期 0」的部門（畫出來只是空白條），但下方表格照列。
+  // 差幾個部門要講出來，否則主管會以為那些部門沒資料 —— 而那可能正是要注意的部門。
+  const hiddenInChart = deptRows.length - chartData.length;
 
   const totals = useMemo(() => {
     const t = { done: 0, overdue: 0, sub: 0, draft: 0, ontime: 0, unfilled: 0 };
@@ -252,8 +263,24 @@ function PerformancePage() {
         </Button>
       </div>
 
-      {/* 單一數字用數字磚，不用圖 */}
+      {/* 單一數字用數字磚，不用圖。
+          載入中／載入失敗一律顯示「—」而不是 0 ——
+          底下明細那張卡會寫「載入失敗」，但主管往上一看只會讀到
+          「本期沒有逾期、沒有未填報異常」，那是最糟的誤判 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {perfQ.isLoading || perfQ.isError ? (
+          <>
+            {["任務完成", "任務逾期", "日誌送出率", "日誌準時率", "異常未填報"].map((label) => (
+              <StatTile
+                key={label}
+                label={label}
+                value="—"
+                hint={perfQ.isError ? "載入失敗" : "載入中…"}
+              />
+            ))}
+          </>
+        ) : (
+          <>
         <StatTile label="任務完成" value={totals.done} />
         <StatTile label="任務逾期" value={totals.overdue} tone={totals.overdue > 0 ? "bad" : ""} />
         <StatTile
@@ -271,6 +298,8 @@ function PerformancePage() {
           value={totals.unfilled}
           tone={totals.unfilled > 0 ? "bad" : ""}
         />
+          </>
+        )}
       </div>
 
       {/* 依部門：只比件數，一個 y 軸 */}
@@ -312,12 +341,17 @@ function PerformancePage() {
                 </BarChart>
               </ResponsiveContainer>
             )}
+            {hiddenInChart > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                圖中已隱去 {hiddenInChart} 個沒有任務完成或逾期紀錄的部門；下方表格仍會列出。
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* 部門彙總表：比率放這裡，不跟件數擠同一個座標軸 */}
-      {canSeeDept && (deptQ.data ?? []).length > 0 && (
+      {canSeeDept && deptRows.length > 0 && (
         <Card>
           <CardContent className="p-0 overflow-x-auto">
             <Table>
@@ -336,7 +370,7 @@ function PerformancePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(deptQ.data ?? []).map((d) => (
+                {deptRows.map((d) => (
                   <TableRow key={d.department_id ?? "none"}>
                     <TableCell className="font-medium">{d.department_name ?? "未分部門"}</TableCell>
                     <TableCell className="text-right">{d.headcount}</TableCell>

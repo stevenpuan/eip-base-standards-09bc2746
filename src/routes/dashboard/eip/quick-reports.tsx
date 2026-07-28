@@ -2,7 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, ExternalLink, Inbox, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Inbox, Plus, Trash2, FolderOpen } from "lucide-react";
 // eip_quick_report 的 submitted_at / done_at / done_by / handover_note / deputy_id 與
 // eip_leave_handover_item 整張表都尚未進 src/integrations/supabase/types.ts，
 // 故本頁改用 any 版 client（型別在本檔自行宣告）。
@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
 import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
+import { isLocalPath, validateExternalUrl, copyPath } from "@/lib/eip-url";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -83,9 +84,6 @@ type LeaveHandoverItem = {
 const FOLLOW_DEPUTY = "__follow_deputy__";
 const NO_DEPUTY = "__none__";
 
-// DB 對 url 有 check constraint，前端先擋掉不合格式的輸入，
-// 否則使用者會直接吃到一段看不懂的 SQL 錯誤訊息
-const URL_PATTERN = /^(https?:\/\/|file:\/\/|\\\\)/;
 
 const TYPE_LABEL: Record<string, string> = {
   late: "遲到",
@@ -162,7 +160,7 @@ function formatStampZh(iso: string) {
 
 function QuickReportsPage() {
   const qc = useQueryClient();
-  const { loading: authLoading, permsLoaded, can, isAdmin } = useAuth();
+  const { loading: authLoading, permsLoaded, can } = useAuth();
   const { appUser } = useEipUser();
   // 進頁與清單顯示一律讀「角色權限設定」（臨時回報模組檢視權），不寫死角色。
   // 一般同仁有檢視權時，RLS 會只回傳「自己送出的」紀錄；主管則看部門/全公司。
@@ -242,6 +240,7 @@ function QuickReportsPage() {
   const [deputyBusy, setDeputyBusy] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<LeaveHandoverItem | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   const markBusy = (id: string, on: boolean) =>
     setItemBusy((prev) => {
@@ -266,11 +265,21 @@ function QuickReportsPage() {
     void qc.invalidateQueries({ queryKey: ["eip", "quick-reports"] });
   };
 
-  /** 勾／取消勾完成。status 由 trigger 決定，前端只寫 done_at。 */
+  /**
+   * 勾／取消勾完成。status 由 trigger 決定，前端只寫 done_at。
+   * 回滾只還原「這一筆」—— 原本是整批快照覆寫，兩個項目同時在飛時
+   * 失敗的那筆會把成功的那筆一起打回去。
+   */
+  const rollbackItem = (item: LeaveHandoverItem) =>
+    qc.setQueryData<LeaveHandoverItem[]>(itemsKey, (cur) =>
+      (cur ?? []).map((x) =>
+        x.id === item.id ? { ...x, done_at: item.done_at, done_by: item.done_by } : x,
+      ),
+    );
+
   const toggleItemDone = async (item: LeaveHandoverItem) => {
     if (itemBusy.has(item.id)) return;
     markBusy(item.id, true);
-    const prev = qc.getQueryData<LeaveHandoverItem[]>(itemsKey);
     const nextDoneAt = item.done_at ? null : nowWithOffset();
     // 樂觀更新：勾選要立刻有反應，失敗再整批還原
     qc.setQueryData<LeaveHandoverItem[]>(itemsKey, (cur) =>
@@ -280,15 +289,24 @@ function QuickReportsPage() {
           : x,
       ),
     );
-    // done_by 由 trigger 蓋章，前端不送
-    const { error } = await supabase
-      .from("eip_leave_handover_item")
-      .update({ done_at: nextDoneAt })
-      .eq("id", item.id);
+    // done_by 由 trigger 蓋章，前端不送。
+    // 方向是用本地快取算的，所以要加樂觀鎖：只有「DB 端仍是我以為的狀態」才允許改，
+    // 否則別人剛勾完成、我這邊還是舊快取，一點就變成把它取消完成。
+    let q2 = supabase.from("eip_leave_handover_item").update({ done_at: nextDoneAt }).eq("id", item.id);
+    q2 = nextDoneAt ? q2.is("done_at", null) : q2.not("done_at", "is", null);
+    const { data, error } = await q2.select("id");
     markBusy(item.id, false);
     if (error) {
-      if (prev) qc.setQueryData(itemsKey, prev);
+      rollbackItem(item);
       toast.error(`更新失敗：${error.message}`);
+      return;
+    }
+    if (!data?.length) {
+      // 0 筆＝樂觀鎖沒過（別人先改了）或被 RLS 擋掉。PostgREST 這兩種都是 error=null，
+      // 只看 error 會變成「按了沒反應」。
+      rollbackItem(item);
+      toast.error("這一項已被他人更新，請重新整理後再試");
+      void itemsQ.refetch();
       return;
     }
     toast.success(nextDoneAt ? "已標記完成" : "已取消完成");
@@ -306,9 +324,9 @@ function QuickReportsPage() {
       return false;
     }
     const url = input.url?.trim() || null;
-    if (url && !URL_PATTERN.test(url)) {
-      toast.error("連結格式需為 http(s)://、file:// 或 \\\\server\\share");
-      return false;
+    if (url) {
+      const bad = validateExternalUrl(url);
+      if (bad) { toast.error(bad); return false; }
     }
     // sort_order 給 0，由 DB 自動接續在最後
     const { error } = await supabase.from("eip_leave_handover_item").insert({
@@ -330,10 +348,16 @@ function QuickReportsPage() {
   const deleteItem = async () => {
     if (!deleting || deleteBusy) return;
     setDeleteBusy(true);
-    const { error } = await supabase.from("eip_leave_handover_item").delete().eq("id", deleting.id);
+    // DELETE 被 RLS 擋掉時是 0 筆 + error 為 null，只看 error 會跳假成功
+    const { data, error } = await supabase
+      .from("eip_leave_handover_item").delete().eq("id", deleting.id).select("id");
     setDeleteBusy(false);
     if (error) {
       toast.error(`刪除失敗：${error.message}`);
+      return;
+    }
+    if (!data?.length) {
+      toast.error("刪除失敗：只有請假的當事人或管理者可以調整代辦清單");
       return;
     }
     setDeleting(null);
@@ -345,10 +369,11 @@ function QuickReportsPage() {
   const setDeputy = async (reportId: string, deputyId: string | null) => {
     if (deputyBusy.has(reportId)) return;
     setDeputyBusy((p) => new Set(p).add(reportId));
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("eip_quick_report")
       .update({ deputy_id: deputyId })
-      .eq("id", reportId);
+      .eq("id", reportId)
+      .select("id");
     setDeputyBusy((p) => {
       const next = new Set(p);
       next.delete(reportId);
@@ -356,6 +381,12 @@ function QuickReportsPage() {
     });
     if (error) {
       toast.error(`代理人更新失敗：${error.message}`);
+      return;
+    }
+    if (!data?.length) {
+      // 已結案（status='done'）的單 RLS 不給改；不看筆數會跳成功然後選單彈回原值
+      toast.error("代理人更新失敗：這張單已結案，或你沒有變更權限");
+      void qc.invalidateQueries({ queryKey: ["eip", "quick-reports"] });
       return;
     }
     toast.success(deputyId ? "已指定代理人" : "已清除代理人");
@@ -390,13 +421,39 @@ function QuickReportsPage() {
   // （全完成 → done 並發第二段通知；任一項取消完成 → 退回 acknowledged），前端不得插手。
   const markDone = async (id: string) => {
     if (!appUser?.id) return;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("eip_quick_report")
       .update({ status: "done", done_at: nowWithOffset(), done_by: appUser.id })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error) return toast.error(`更新失敗：${error.message}`);
+    if (!data?.length) {
+      // RLS 只讓「本人（且未結案）／管轄主管／管理者」改。顯示條件是模組編輯權，
+      // 兩者不同軸，所以一定要看筆數，不能跳假成功。
+      return toast.error("標記完成失敗：這筆不在你的權限範圍，或已經結案");
+    }
     toast.success("已標記完成");
     void listQ.refetch();
+  };
+
+  /**
+   * 請假結案。沒有未完成代辦時才允許（含完全沒有代辦事項的單）。
+   * 判斷與寫入都在 DB 的 eip_close_leave_handover —— 前端不自己改 status，
+   * 免得跟 rollup trigger 兩份實作打架。
+   */
+  const closeLeave = async (id: string, itemCount: number) => {
+    if (closingId) return;
+    const msg =
+      itemCount === 0
+        ? "這張請假單沒有代辦事項，確定直接結案？"
+        : "所有代辦事項都已完成，確定結案？";
+    if (!window.confirm(msg)) return;
+    setClosingId(id);
+    const { error } = await supabase.rpc("eip_close_leave_handover", { p_report_id: id });
+    setClosingId(null);
+    if (error) return toast.error(`結案失敗：${error.message}`);
+    toast.success("已結案");
+    refreshAll();
   };
 
   const hasFilter = typeFilter !== "all" || statusFilter !== "all" || dateFilter || keyword;
@@ -527,7 +584,11 @@ function QuickReportsPage() {
                 const items = itemsByReport.get(r.id) ?? [];
                 const doneCount = items.filter((i) => i.done_at).length;
                 // 新增／刪除代辦：限請假本人或管理者（與 RLS 一致，避免按了才被擋）
-                const canManageItems = isLeave && (appUser?.id === r.submitter_id || isAdmin);
+                // RLS 的 INSERT/DELETE 條件是「請假人本人或 company_admin」。
+                // 這裡必須用 app_user.role，不能用 useAuth().isAdmin（那是 roles.code='admin'，
+                // 跟 current_role_name() 不是同一個來源，兩邊會不一致）
+                const canManageItems =
+                  isLeave && (appUser?.id === r.submitter_id || appUser?.role === "company_admin");
                 const isOpen = expanded.has(r.id);
                 return (
                   <Fragment key={r.id}>
@@ -628,7 +689,26 @@ function QuickReportsPage() {
                               代辦事項
                             </Button>
                           )}
-                          {/* 請假不再手動標記完成：完成度由代辦項目的 trigger 回寫 status */}
+                          {/* 請假沒有未完成代辦時要能結案 —— 包含「完全沒有代辦事項」的單，
+                              否則 rollup trigger 不會被觸發，那張單會永遠停在待處理。
+                              這不是主管審核，當事人／代理人／主管都可以按。 */}
+                          {isLeave && !isDone && !itemsQ.isLoading && !itemsQ.isError &&
+                            doneCount === items.length && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8"
+                                disabled={closingId === r.id}
+                                onClick={() => void closeLeave(r.id, items.length)}
+                              >
+                                {closingId === r.id
+                                  ? "結案中…"
+                                  : items.length === 0
+                                    ? "無須交接，結案"
+                                    : "確認結案"}
+                              </Button>
+                            )}
+                          {/* 遲到／事件才手動標記完成；請假的完成度由代辦 trigger 回寫 status */}
                           {!isLeave && !isDone && canAck && (
                             <Button size="sm" variant="outline" onClick={() => void markDone(r.id)}>
                               標記完成
@@ -851,17 +931,30 @@ function LeaveHandoverPanel({
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                     <span>指派：{nameOf(it.assignee_id)}</span>
-                    {it.url && (
-                      <a
-                        href={it.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-primary hover:underline break-all"
-                      >
-                        開啟連結
-                        <ExternalLink className="w-3 h-3 ml-0.5" />
-                      </a>
-                    )}
+                    {it.url &&
+                      (isLocalPath(it.url) ? (
+                        // NAS／file:// 不能當 <a href> 開：瀏覽器會把 \ 正規化成 /，
+                        // 變成 protocol-relative 連到 https://server/share 的錯誤頁
+                        <button
+                          type="button"
+                          onClick={() => void copyPath(it.url!, toast.success, toast.info)}
+                          title={`${it.url}（點擊複製路徑）`}
+                          className="inline-flex items-center text-primary hover:underline break-all"
+                        >
+                          複製路徑
+                          <FolderOpen className="w-3 h-3 ml-0.5" />
+                        </button>
+                      ) : (
+                        <a
+                          href={it.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-primary hover:underline break-all"
+                        >
+                          開啟連結
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </a>
+                      ))}
                     {it.done_at && (
                       <span>
                         完成 {formatStampZh(it.done_at)}

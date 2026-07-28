@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ListChecks, Clock, ExternalLink, X, Link2, FolderOpen } from "lucide-react";
@@ -13,6 +14,7 @@ import {
   ROUTINE_LINK_SHAPE,
   type RoutineRow,
 } from "@/lib/eip-routine";
+import { isLocalPath, copyPath } from "@/lib/eip-url";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -34,7 +36,10 @@ const keyOf = (r: RoutineRow) => `${r.section}:${r.source ?? ""}:${r.ref_id ?? r
 export function TodayRoutineCard() {
   const date = taipeiToday();
   const [rows, setRows] = useState<RoutineRow[] | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  // 一定要 per-row 鎖：單一全域 busy 會讓「早上一次勾 5 項」的第 2～5 次點擊
+  // 直接 return 掉，畫面沒有任何反應，使用者以為卡住又重點一輪
+  const [busy, setBusy] = useState<Set<string>>(new Set());
+  const qc = useQueryClient();
   const [savingNote, setSavingNote] = useState<Set<string>>(new Set());
 
   const q = useQuery({
@@ -71,10 +76,18 @@ export function TodayRoutineCard() {
     }
   };
 
+  const lock = (k: string) => setBusy((p) => new Set(p).add(k));
+  const unlock = (k: string) =>
+    setBusy((p) => {
+      const n = new Set(p);
+      n.delete(k);
+      return n;
+    });
+
   const toggle = async (r: RoutineRow) => {
     const k = keyOf(r);
-    if (busy) return;
-    setBusy(k);
+    if (busy.has(k)) return;
+    lock(k);
     const next = !r.done;
     patchLocal(k, { done: next });
     try {
@@ -91,7 +104,10 @@ export function TodayRoutineCard() {
       toast.error(`更新失敗：${e instanceof Error ? e.message : String(e)}`);
       await reload();
     } finally {
-      setBusy(null);
+      unlock(k);
+      // 寫入後一定要讓 query cache 跟上：預設 refetchOnWindowFocus 為 true，
+      // 切走再切回來若 refetch 早於寫入落地，回來的舊快照會把樂觀狀態蓋回去
+      void qc.invalidateQueries({ queryKey: ["eip", "routine-today", date] });
     }
   };
 
@@ -102,13 +118,13 @@ export function TodayRoutineCard() {
    */
   const remove = async (r: RoutineRow) => {
     const k = keyOf(r);
-    if (busy) return;
+    if (busy.has(k)) return;
     const isTemplate = r.source === "personal_routine" || r.source === "recurring";
     const msg = isTemplate
       ? `把「${r.text}」從今天的日誌移除？\n\n只影響今天這一筆，範本不會被刪除，明天還是會帶進來。要永久移除請到「個人例行」頁停用或刪除範本。`
       : `把「${r.text}」從今天的日誌移除？`;
     if (!window.confirm(msg)) return;
-    setBusy(k);
+    lock(k);
     setRows((prev) => (prev ?? []).filter((x) => keyOf(x) !== k));
     try {
       await removeRoutineItem({
@@ -122,7 +138,8 @@ export function TodayRoutineCard() {
       toast.error(`移除失敗：${e instanceof Error ? e.message : String(e)}`);
       await reload();
     } finally {
-      setBusy(null);
+      unlock(k);
+      void qc.invalidateQueries({ queryKey: ["eip", "routine-today", date] });
     }
   };
 
@@ -141,9 +158,13 @@ export function TodayRoutineCard() {
         text: r.text,
       });
       patchLocal(k, { note });
+      void qc.invalidateQueries({ queryKey: ["eip", "routine-today", date] });
     } catch (e) {
-      toast.error(`執行內容儲存失敗：${e instanceof Error ? e.message : String(e)}`);
-      await reload();
+      // 這裡刻意不 reload：reload 會用 server 舊值蓋掉使用者剛打的字，
+      // 等於一個網路錯誤就把他寫的執行內容清空。留在畫面上讓他能再存一次。
+      toast.error(
+        `執行內容儲存失敗：${e instanceof Error ? e.message : String(e)}（內容還在，請再試一次）`,
+      );
     } finally {
       setSavingNote((s) => {
         const n = new Set(s);
@@ -162,7 +183,7 @@ export function TodayRoutineCard() {
     const link = raw.trim();
     if ((r.link ?? "") === link) return;
     if (link && !ROUTINE_LINK_SHAPE.test(link)) {
-      toast.error("連結格式不對：請用 http(s)://、file:// 或 \\伺服器\分享資料夾");
+      toast.error("連結格式不對：請用 http(s)://、file:// 或 \\\\伺服器\\分享資料夾");
       return;
     }
     setSavingNote((s2) => new Set(s2).add(k));
@@ -176,9 +197,9 @@ export function TodayRoutineCard() {
         text: r.text,
       });
       patchLocal(k, { link: link || null });
+      void qc.invalidateQueries({ queryKey: ["eip", "routine-today", date] });
     } catch (e) {
-      toast.error(`連結儲存失敗：${e instanceof Error ? e.message : String(e)}`);
-      await reload();
+      toast.error(`連結儲存失敗：${e instanceof Error ? e.message : String(e)}（內容還在，請再試一次）`);
     } finally {
       setSavingNote((s2) => {
         const n = new Set(s2);
@@ -290,7 +311,7 @@ function RoutineGroup({
   label: string;
   Icon: typeof ListChecks;
   rows: RoutineRow[];
-  busy: string | null;
+  busy: Set<string>;
   savingNote: Set<string>;
   onToggle: (r: RoutineRow) => void;
   onSaveNote: (r: RoutineRow, note: string) => void;
@@ -309,7 +330,7 @@ function RoutineGroup({
           <RoutineRowItem
             key={keyOf(r)}
             row={r}
-            busy={busy === keyOf(r)}
+            busy={busy.has(keyOf(r))}
             saving={savingNote.has(keyOf(r))}
             onToggle={() => onToggle(r)}
             onSaveNote={(note) => onSaveNote(r, note)}
@@ -352,9 +373,12 @@ function RoutineRowItem({
     }
   }, [row.note]);
 
+  // unmount 前把還沒觸發的 debounce 送出去。原本只 clearTimeout，
+  // 打完字 1 秒內關分頁／切頁（切視窗時 Chrome 不會對 textarea 發 blur）就整段丟掉
+  const flushRef = useRef<() => void>(() => {});
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current);
+      flushRef.current();
     },
     [],
   );
@@ -377,11 +401,21 @@ function RoutineRowItem({
       onSaveNote(latest.current);
     }
   };
+  // 讓 unmount 的 cleanup 拿到最新的 flush（cleanup 的閉包會抓到舊的）
+  flushRef.current = flush;
 
   const needContent = row.require_content && row.done && !text.trim();
   const [linkOpen, setLinkOpen] = useState(!!row.link);
   const [linkText, setLinkText] = useState(row.link ?? "");
-  const isUnc = (u: string) => u.startsWith("\\\\");
+
+  // server 端的連結變了（別處改過或重新載入）就跟上，但不要打斷正在輸入的內容
+  const linkDirty = useRef(false);
+  useEffect(() => {
+    if (!linkDirty.current) {
+      setLinkText(row.link ?? "");
+      if (row.link) setLinkOpen(true);
+    }
+  }, [row.link]);
 
   return (
     <div
@@ -448,7 +482,7 @@ function RoutineRowItem({
           </button>
         ) : (
           <div className="flex items-center gap-1.5">
-            {row.link && isUnc(row.link) ? (
+            {row.link && isLocalPath(row.link) ? (
               <span title="NAS 路徑，複製後貼到檔案總管" className="shrink-0">
                 <FolderOpen className="w-3 h-3 text-muted-foreground" />
               </span>
@@ -457,18 +491,26 @@ function RoutineRowItem({
             )}
             <input
               value={linkText}
-              onChange={(e) => setLinkText(e.target.value)}
-              onBlur={() => onSaveLink(linkText)}
+              onChange={(e) => {
+                linkDirty.current = true;
+                setLinkText(e.target.value);
+              }}
+              onBlur={() => {
+                if (!linkDirty.current) return; // 沒改過就不要再送一次
+                linkDirty.current = false;
+                onSaveLink(linkText);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
+                  linkDirty.current = false;
                   onSaveLink(linkText);
                 }
               }}
-              placeholder="\\\\NAS\\品保\\2026\\ 或 https://…"
+              placeholder="\\NAS\品保\2026\ 或 https://…"
               className="flex-1 min-w-0 rounded-md bg-transparent px-1.5 py-0.5 text-[11px] font-mono outline-none border border-transparent hover:border-border/60 focus:border-border"
             />
-            {row.link && !isUnc(row.link) && (
+            {row.link && !isLocalPath(row.link) && (
               <a
                 href={row.link}
                 target="_blank"
@@ -478,15 +520,10 @@ function RoutineRowItem({
                 開啟
               </a>
             )}
-            {row.link && isUnc(row.link) && (
+            {row.link && isLocalPath(row.link) && (
               <button
                 type="button"
-                onClick={() => {
-                  void navigator.clipboard
-                    .writeText(row.link!)
-                    .then(() => toast.success("已複製路徑，貼到檔案總管即可開啟"))
-                    .catch(() => toast.info(row.link!));
-                }}
+                onClick={() => void copyPath(row.link!, toast.success, toast.info)}
                 className="text-[11px] text-primary hover:underline shrink-0"
               >
                 複製
