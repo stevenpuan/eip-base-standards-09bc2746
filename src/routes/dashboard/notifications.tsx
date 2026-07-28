@@ -9,7 +9,8 @@ export const Route = createFileRoute("/dashboard/notifications")({ component: No
 
 type Notif = {
   id: string; message: string; type: string; entity_type: string;
-  entity_id: string; is_read: boolean; created_at: string;
+  /** 可為 null＝純訊息通知（例如催填日誌） */
+  entity_id: string | null; is_read: boolean; created_at: string;
 };
 
 const TYPE_META: Record<string, { label: string; Icon: typeof Bell; cls: string }> = {
@@ -80,14 +81,18 @@ function NotificationsPage() {
   };
   const open = async (n: Notif) => {
     if (!n.is_read) await supabase.from("notification").update({ is_read: true }).eq("id", n.id);
-    if (n.entity_type === "task") navigate({ to: "/dashboard/eip/tasks", search: { openTask: n.entity_id } });
-    else if (n.entity_type === "meeting") navigate({ to: "/dashboard/eip/meetings/$id", params: { id: n.entity_id } });
+    // entity_id 可為 null（純訊息通知），需要 id 的路由要先確認有值
+    if (n.entity_type === "task" && n.entity_id) navigate({ to: "/dashboard/eip/tasks", search: { openTask: n.entity_id } });
+    else if (n.entity_type === "task") navigate({ to: "/dashboard/eip/tasks", search: { openTask: undefined } });
+    else if (n.entity_type === "meeting" && n.entity_id) navigate({ to: "/dashboard/eip/meetings/$id", params: { id: n.entity_id } });
+    else if (n.entity_type === "meeting") navigate({ to: "/dashboard/eip/meetings" });
     else if (n.entity_type === "announcement") navigate({ to: "/dashboard/eip/announcements" });
     else if (n.entity_type === "project") navigate({ to: "/dashboard/eip/projects" });
     else if (n.entity_type === "quick_report") navigate({ to: "/dashboard/eip/quick-reports" });
     else if (n.entity_type === "work_log") navigate({ to: "/dashboard/eip/work-log" });
     else if (n.entity_type === "handover") navigate({ to: "/dashboard/eip/handover" });
     else if (n.entity_type === "leave_handover") navigate({ to: "/dashboard/eip/quick-reports" });
+    else if (n.entity_type === "anomaly") navigate({ to: "/dashboard/eip/anomalies" });
     else void load();
   };
 

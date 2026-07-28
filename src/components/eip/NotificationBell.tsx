@@ -12,7 +12,8 @@ type Notif = {
   message: string;
   type: string;
   entity_type: string;
-  entity_id: string;
+  /** 可為 null＝純訊息通知（例如催填日誌），不要拿它去導頁 */
+  entity_id: string | null;
   is_read: boolean;
   created_at: string;
 };
@@ -55,13 +56,19 @@ export function NotificationBell() {
       await supabase.from("notification").update({ is_read: true }).eq("id", n.id);
     }
     setOpen(false);
-    if (n.entity_type === "task") navigate({ to: "/dashboard/eip/tasks", search: { openTask: n.entity_id } });
-    else if (n.entity_type === "meeting") navigate({ to: "/dashboard/eip/meetings/$id", params: { id: n.entity_id } });
+    // 需要 id 才能導的兩種，entity_id 為 null（純訊息）就只跳到列表頁，不要傳 null 進路由
+    if (n.entity_type === "task" && n.entity_id) navigate({ to: "/dashboard/eip/tasks", search: { openTask: n.entity_id } });
+    else if (n.entity_type === "task") navigate({ to: "/dashboard/eip/tasks", search: { openTask: undefined } });
+    else if (n.entity_type === "meeting" && n.entity_id) navigate({ to: "/dashboard/eip/meetings/$id", params: { id: n.entity_id } });
+    else if (n.entity_type === "meeting") navigate({ to: "/dashboard/eip/meetings" });
     else if (n.entity_type === "announcement") navigate({ to: "/dashboard/eip/announcements" });
     else if (n.entity_type === "project") navigate({ to: "/dashboard/eip/projects" });
-    else if (n.entity_type === "quick_report" || n.entity_type === "eip_quick_report") navigate({ to: "/dashboard/eip/quick-reports" });
+    else if (n.entity_type === "quick_report" || n.entity_type === "eip_quick_report" || n.entity_type === "leave_handover") navigate({ to: "/dashboard/eip/quick-reports" });
     else if (n.entity_type === "feature_request") navigate({ to: "/dashboard/eip/feature-requests" });
     else if (n.entity_type === "document") navigate({ to: "/dashboard/eip/documents" });
+    else if (n.entity_type === "work_log") navigate({ to: "/dashboard/eip/work-log" });
+    else if (n.entity_type === "handover") navigate({ to: "/dashboard/eip/handover" });
+    else if (n.entity_type === "anomaly") navigate({ to: "/dashboard/eip/anomalies" });
     void load();
   };
 

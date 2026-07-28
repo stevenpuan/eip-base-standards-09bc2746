@@ -2,11 +2,12 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ShieldAlert, Inbox, Paperclip, Trash2, Plus } from "lucide-react";
+import { ShieldAlert, Inbox, Paperclip, Trash2, Plus, Download } from "lucide-react";
 
 // eip_anomaly / eip_anomaly_attachment 尚未進 src/integrations/supabase/types.ts，
 // 這裡用 any 形式的 client，型別在本檔自行宣告。
 import { supabase } from "@/lib/supabase";
+import { exportToExcel } from "@/lib/eip-export";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
 import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { UrlLinks } from "@/components/eip/UrlLinks";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -154,6 +156,9 @@ const fmtDateTime = (iso: string | null) =>
         hour: "2-digit",
         minute: "2-digit",
       });
+// 匯出的日期欄位只要日期。走 toLocaleDateString 是因為 toISOString() 在 UTC+8
+// 的深夜時段會把日期退回前一天，帳面上會變成「結案日比開立日還早」。
+const fmtDateOnly = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("sv-SE") : "");
 const fmtSize = (n?: number | null) =>
   !n
     ? ""
@@ -172,6 +177,7 @@ function AnomaliesPage() {
 
   const canView = can("eip_anomaly", "view");
   const canCreate = can("eip_anomaly", "create");
+  const canExport = can("eip_anomaly", "export");
 
   const [tab, setTab] = useState<string>("pending_fill");
   const [keyword, setKeyword] = useState("");
@@ -235,6 +241,77 @@ function AnomaliesPage() {
     });
   }, [listQ.data, mineOnly, keyword, appUser, nameOf]);
 
+  // 缺失資料列只帶 department_id，匯出要印中文部門名稱才另外查一次。
+  // 沒有匯出權限的人不需要這份對照，就不發這個請求。
+  const deptsQ = useQuery({
+    queryKey: ["eip", "departments"],
+    enabled: !!appUser && canView && canExport,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("department").select("id,name").order("name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string | null }[];
+    },
+  });
+  const deptNameOf = useMemo(() => {
+    const m = new Map<string, string>();
+    (deptsQ.data ?? []).forEach((d) => m.set(d.id, d.name ?? ""));
+    return (id: string | null) => (id ? (m.get(id) ?? "") : "");
+  }, [deptsQ.data]);
+
+  const handleExport = () => {
+    // 清單本身還沒好就不能說「沒有資料」，那會被當成真的一筆都沒有
+    if (listQ.isLoading) {
+      toast.info("清單還在載入，請稍候再匯出");
+      return;
+    }
+    if (listQ.isError) {
+      toast.error("清單載入失敗，無法匯出");
+      return;
+    }
+    // 匯出的是畫面上這份清單（狀態分頁 + 只看我的 + 關鍵字），不是整個資料表
+    if (rows.length === 0) {
+      toast.info("目前篩選條件下沒有資料可匯出");
+      return;
+    }
+    // 對照表載入失敗時照樣匯出，但要講明白哪一欄會空白，
+    // 否則使用者會把空白的部門／姓名當成資料本身就沒填。
+    if (deptsQ.isError) toast.warning("部門對照載入失敗，匯出檔的「部門」欄會留空");
+    if (allUsersQ.isError) toast.warning("人員對照載入失敗，匯出檔的姓名欄會留空");
+
+    exportToExcel({
+      filename: `EIP異常缺失_${STATUS_LABEL[tab] ?? tab}`,
+      sheetName: STATUS_LABEL[tab] ?? "異常缺失",
+      rows,
+      columns: [
+        { header: "單號", key: "code", map: (r) => r.code ?? "" },
+        { header: "開立日期", key: "raised_at", map: (r) => fmtDateOnly(r.raised_at) },
+        { header: "發生日期", key: "occurred_on", map: (r) => r.occurred_on ?? "" },
+        { header: "當事人", key: "subject_id", map: (r) => nameOf(r.subject_id) },
+        { header: "部門", key: "department_id", map: (r) => deptNameOf(r.department_id) },
+        { header: "標題", key: "title" },
+        {
+          header: "嚴重程度",
+          key: "severity",
+          map: (r) => SEVERITY_LABEL[r.severity] ?? r.severity,
+        },
+        { header: "狀態", key: "status", map: (r) => STATUS_LABEL[r.status] ?? r.status },
+        // 未填金額留空，不要寫 0 —— 0 元異常和「不適用」是兩件事
+        { header: "金額", key: "amount", map: (r) => (r.amount == null ? "" : Number(r.amount)) },
+        { header: "填報期限", key: "fill_due_date", map: (r) => r.fill_due_date ?? "" },
+        { header: "檢討原因", key: "cause", map: (r) => r.cause ?? "" },
+        { header: "改善對策", key: "action_taken", map: (r) => r.action_taken ?? "" },
+        { header: "預防再發", key: "prevention", map: (r) => r.prevention ?? "" },
+        // 還沒確認就留空白，不要沿用畫面上的破折號
+        {
+          header: "確認人",
+          key: "confirmed_by",
+          map: (r) => (r.confirmed_by ? nameOf(r.confirmed_by) : ""),
+        },
+        { header: "結案日", key: "closed_at", map: (r) => fmtDateOnly(r.closed_at) },
+      ],
+    });
+  };
+
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["eip", "anomalies"] });
     void qc.invalidateQueries({ queryKey: ["eip", "anomaly-kpi"] });
@@ -249,6 +326,14 @@ function AnomaliesPage() {
       <PageHeader
         title="異常缺失"
         description="主管開立缺失後會立即通知當事人並要求限期填報；填報完成由主管「確認並追蹤改善」，改善完成後結案。同仁也可以自己主動填報。"
+        actions={
+          canExport ? (
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="w-4 h-4 mr-1" />
+              匯出 Excel
+            </Button>
+          ) : undefined
+        }
       />
 
       <KpiCards canSeeKpi={isAdmin} />
@@ -955,6 +1040,14 @@ function DetailDialog({
           )}
 
           <Attachments anomalyId={row.id} canEdit={canFill || canManage} />
+
+          {/* 檔案不一定要上傳進系統；規格書 G 章的「連結」欄位走 eip_url_link */}
+          <UrlLinks
+            entityType="anomaly"
+            entityId={row.id}
+            readOnly={!(canFill || canManage)}
+            title="檔案／NAS 連結"
+          />
 
           {/* 填報區（CAPA） */}
           <div className="border-t pt-3 space-y-3">

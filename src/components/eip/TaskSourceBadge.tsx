@@ -96,12 +96,19 @@ export function useTaskSources(
     enabled: ids.length > 0,
     queryKey: ["task-sources", "meeting-links", ids],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("meeting_action_item")
-        .select("linked_task_id, meeting:meeting_id(title)")
-        .in("linked_task_id", ids);
-      if (error) throw error;
-      return data ?? [];
+      // 一次把數百個 uuid 塞進 .in() 會讓 query string 逼近 8–16KB，
+      // 有機會被 proxy 回 414、來源徽章整批消失。分批查再合併。
+      const CHUNK = 100;
+      const out: unknown[] = [];
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const { data, error } = await supabase
+          .from("meeting_action_item")
+          .select("linked_task_id, meeting:meeting_id(title)")
+          .in("linked_task_id", ids.slice(i, i + CHUNK));
+        if (error) throw error;
+        out.push(...(data ?? []));
+      }
+      return out as { linked_task_id: string | null; meeting: { title: string } | null }[];
     },
   });
 

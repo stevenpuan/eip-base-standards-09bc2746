@@ -649,8 +649,34 @@ function ManagerDialog({
     onSaved();
   };
 
+  /**
+   * 同步把新主管的 EIP 角色設成 dept_manager。
+   *
+   * 這裡原本是空實作 —— 對話框問「是否同時更新角色」，按下「好」什麼都不會發生。
+   * 結果就是 department.manager_id 是他、但推導角色仍是 member，
+   * 造成同一個人在異常缺失有主管權、在部門級報表卻被擋（實查真的發生過兩位）。
+   *
+   * 走 eip_set_user_roles RPC（與帳號管理同一條路），並保留他原有的其他角色。
+   */
   const promote = async (yes: boolean) => {
+    const uid = pendingPromote;
     setPendingPromote(null);
+    if (!yes || !uid) { onSaved(); return; }
+
+    const [{ data: roleRows, error: re }, { data: mine, error: me2 }] = await Promise.all([
+      supabase.from("roles").select("id,code"),
+      supabase.from("user_roles").select("role_id").eq("user_id", uid),
+    ]);
+    const dm = (roleRows ?? []).find((r) => r.code === "dept_manager");
+    if (re || me2 || !dm) {
+      toast.error("角色更新失敗：讀不到角色設定，請到帳號管理手動指派「部門主管」");
+      onSaved();
+      return;
+    }
+    const ids = Array.from(new Set([...(mine ?? []).map((r) => r.role_id), dm.id]));
+    const { error } = await supabase.rpc("eip_set_user_roles", { p_user_id: uid, p_role_ids: ids });
+    if (error) toast.error(`角色更新失敗：${error.message}`);
+    else toast.success("已同步設為部門主管");
     onSaved();
   };
 

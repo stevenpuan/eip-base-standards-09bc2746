@@ -79,6 +79,13 @@ function WorkLogPage() {
       const missing = [...log.morning, ...log.afternoon, ...log.special]
         .filter((x) => x.req && x.done && !(x.note ?? "").trim()).map((x) => x.text);
       if (missing.length) { toast.error(`這些項目需填執行內容：${missing.join("、")}`); return undefined; }
+      const badLink = [...log.morning, ...log.afternoon, ...log.special]
+        .filter((x) => (x.link ?? "").trim() && !/^(https?:\/\/|file:\/\/|\\\\)/.test((x.link ?? "").trim()))
+        .map((x) => x.text);
+      if (badLink.length) {
+        toast.error(`這些項目的連結格式不對（請用 http(s)://、file:// 或 \\伺服器\分享資料夾）：${badLink.join("、")}`);
+        return undefined;
+      }
     }
     setSaving(true);
     const body: any = {
@@ -298,11 +305,28 @@ function Section({ title, Icon, tone, items, editable, onChange, onToggleDone }:
               )}
             </div>
             {editable ? (
-              <textarea value={it.note ?? ""} rows={1} placeholder={it.req ? "執行內容（送出前必填）…" : "說明（選填）…"}
-                onChange={(e) => setItem(i, { note: e.target.value })}
-                className="mt-1 ml-6 block w-[calc(100%-1.75rem)] resize-y rounded-md bg-transparent px-1 py-0.5 text-xs text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
+              <>
+                <textarea value={it.note ?? ""} rows={1} placeholder={it.req ? "執行內容（送出前必填）…" : "執行內容（選填）…"}
+                  onChange={(e) => setItem(i, { note: e.target.value })}
+                  className="mt-1 ml-6 block w-[calc(100%-1.75rem)] resize-y rounded-md bg-transparent px-1 py-0.5 text-xs text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
+                {/* 相關檔案連結（訪談定案第 5 條）。與項目文字一樣走「儲存」批次寫入，
+                    不即時打 API —— 一邊打字一邊送出會很吵。 */}
+                <input value={it.link ?? ""} placeholder="相關連結（選填）：\\NAS\… 或 https://…"
+                  onChange={(e) => setItem(i, { link: e.target.value })}
+                  className="mt-0.5 ml-6 block w-[calc(100%-1.75rem)] rounded-md bg-transparent px-1 py-0.5 text-[11px] font-mono text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
+              </>
             ) : (
-              it.note ? <p className="mt-0.5 ml-6 text-xs text-muted-foreground whitespace-pre-wrap">{it.note}</p> : null
+              <>
+                {it.note ? <p className="mt-0.5 ml-6 text-xs text-muted-foreground whitespace-pre-wrap">{it.note}</p> : null}
+                {it.link ? (
+                  it.link.startsWith("\\\\") ? (
+                    <p className="mt-0.5 ml-6 text-[11px] font-mono text-muted-foreground break-all">{it.link}</p>
+                  ) : (
+                    <a href={it.link} target="_blank" rel="noopener noreferrer"
+                      className="mt-0.5 ml-6 block text-[11px] text-primary hover:underline break-all">{it.link}</a>
+                  )
+                ) : null}
+              </>
             )}
           </li>
         ))}

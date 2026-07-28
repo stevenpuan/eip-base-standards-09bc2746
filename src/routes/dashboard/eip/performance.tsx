@@ -57,6 +57,13 @@ type PerfRow = {
   routine_rate: number | string | null;
   worklog_submitted: number;
   worklog_draft: number;
+  // 準時＝送出當天的台北日期還沒超過日誌日期；rate 的分母為 0 時後端回 null
+  worklog_ontime: number;
+  worklog_ontime_rate: number | string | null;
+  // 請假代辦：指派給本人的總項數與其中已完成數
+  handover_items: number;
+  handover_done: number;
+  handover_rate: number | string | null;
   meeting_actions_done: number;
   meeting_actions_open_now: number;
   anomalies_raised: number;
@@ -72,6 +79,8 @@ type DeptRow = {
   tasks_overdue_now: number;
   routine_rate: number | string | null;
   worklog_submit_rate: number | string | null;
+  worklog_ontime_rate: number | string | null;
+  handover_rate: number | string | null;
   anomalies_raised: number;
   anomalies_unfilled: number;
 };
@@ -167,19 +176,22 @@ function PerformancePage() {
   );
 
   const totals = useMemo(() => {
-    const t = { done: 0, overdue: 0, sub: 0, draft: 0, unfilled: 0 };
+    const t = { done: 0, overdue: 0, sub: 0, draft: 0, ontime: 0, unfilled: 0 };
     rows.forEach((r) => {
       t.done += Number(r.tasks_done ?? 0);
       t.overdue += Number(r.tasks_overdue_now ?? 0);
       t.sub += Number(r.worklog_submitted ?? 0);
       t.draft += Number(r.worklog_draft ?? 0);
+      t.ontime += Number(r.worklog_ontime ?? 0);
       t.unfilled += Number(r.anomalies_unfilled ?? 0);
     });
     return t;
   }, [rows]);
 
-  const submitRate =
-    totals.sub + totals.draft === 0 ? null : (totals.sub * 100) / (totals.sub + totals.draft);
+  const logTotal = totals.sub + totals.draft;
+  const submitRate = logTotal === 0 ? null : (totals.sub * 100) / logTotal;
+  // 全體準時率自己加總，不能平均各人的百分比（每人日誌份數不同，平均會失真）
+  const ontimeRate = logTotal === 0 ? null : (totals.ontime * 100) / logTotal;
 
   if (authLoading || !permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" replace />;
@@ -241,13 +253,18 @@ function PerformancePage() {
       </div>
 
       {/* 單一數字用數字磚，不用圖 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatTile label="任務完成" value={totals.done} />
         <StatTile label="任務逾期" value={totals.overdue} tone={totals.overdue > 0 ? "bad" : ""} />
         <StatTile
           label="日誌送出率"
           value={submitRate == null ? "—" : `${submitRate.toFixed(0)}%`}
           hint={`${totals.sub} 送出 / ${totals.draft} 草稿`}
+        />
+        <StatTile
+          label="日誌準時率"
+          value={ontimeRate == null ? "—" : `${ontimeRate.toFixed(0)}%`}
+          hint={logTotal === 0 ? "這個期間沒有日誌" : `${totals.ontime} 準時 / ${logTotal} 份`}
         />
         <StatTile
           label="異常未填報"
@@ -312,6 +329,8 @@ function PerformancePage() {
                   <TableHead className="text-right">逾期（當下）</TableHead>
                   <TableHead className="text-right">例行達成率</TableHead>
                   <TableHead className="text-right">日誌送出率</TableHead>
+                  <TableHead className="text-right">準時率</TableHead>
+                  <TableHead className="text-right">代辦完成率</TableHead>
                   <TableHead className="text-right">異常</TableHead>
                   <TableHead className="text-right">未填報</TableHead>
                 </TableRow>
@@ -329,6 +348,9 @@ function PerformancePage() {
                     </TableCell>
                     <TableCell className="text-right">{pct(d.routine_rate)}</TableCell>
                     <TableCell className="text-right">{pct(d.worklog_submit_rate)}</TableCell>
+                    {/* 後端分母為 0 時回 null，pct() 會顯示破折號而不是 0% */}
+                    <TableCell className="text-right">{pct(d.worklog_ontime_rate)}</TableCell>
+                    <TableCell className="text-right">{pct(d.handover_rate)}</TableCell>
                     <TableCell className="text-right">{d.anomalies_raised}</TableCell>
                     <TableCell
                       className={`text-right ${Number(d.anomalies_unfilled) > 0 ? "text-destructive font-medium" : ""}`}
@@ -373,6 +395,8 @@ function PerformancePage() {
                   <TableHead className="text-right">未完成（當下）</TableHead>
                   <TableHead className="text-right">例行</TableHead>
                   <TableHead className="text-right">日誌</TableHead>
+                  <TableHead className="text-right">日誌準時</TableHead>
+                  <TableHead className="text-right">代辦</TableHead>
                   <TableHead className="text-right">會議決議</TableHead>
                   <TableHead className="text-right">異常</TableHead>
                 </TableRow>
@@ -412,6 +436,33 @@ function PerformancePage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right text-sm">
+                      {/* 分母是「送出 + 草稿」，也就是這期間該有的日誌份數；沒有日誌就不給百分比 */}
+                      {Number(r.worklog_submitted ?? 0) + Number(r.worklog_draft ?? 0) === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <>
+                          {Number(r.worklog_ontime ?? 0)}/
+                          {Number(r.worklog_submitted ?? 0) + Number(r.worklog_draft ?? 0)}
+                          <span className="text-muted-foreground ml-1">
+                            ({pct(r.worklog_ontime_rate)})
+                          </span>
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {/* 沒被指派過代辦的人分母是 0，顯示破折號而不是 0% */}
+                      {Number(r.handover_items ?? 0) === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <>
+                          {Number(r.handover_done ?? 0)}/{Number(r.handover_items ?? 0)}
+                          <span className="text-muted-foreground ml-1">
+                            ({pct(r.handover_rate)})
+                          </span>
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
                       {r.meeting_actions_done}
                       {r.meeting_actions_open_now > 0 && (
                         <span className="text-muted-foreground ml-1">
@@ -444,6 +495,11 @@ function PerformancePage() {
       <p className="text-xs text-muted-foreground">
         例行達成率的分母是「當期到期的個人例行範本項數」——
         還沒建立例行範本的同仁會顯示「無範本」而不是 0%，避免分母灌水。
+      </p>
+      <p className="text-xs text-muted-foreground">
+        「日誌準時」比的是送出時間的台北日期與日誌日期：當天（或更早）就送出才算準時，
+        隔天以後才補交的不算，所以準時率一定小於或等於送出率。「代辦」是請假交接指派給本人的項目，
+        沒被指派過的人分母是 0，顯示「—」而不是 0%。
       </p>
       <p className="text-xs text-muted-foreground px-1">
         標「當下」的欄位是即時狀態、和上面的日期區間無關（逾期／未完成／會議決議未結）；
