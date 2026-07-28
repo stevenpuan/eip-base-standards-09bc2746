@@ -51,6 +51,7 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
 import { TaskChecklist } from "@/components/eip/TaskChecklist";
+import { EntityLinks } from "@/components/eip/EntityLinks";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
@@ -1799,6 +1800,8 @@ export function EditTaskDialog({
               )}
             </Field>
           )}
+
+          {task.id && <EntityLinks entityType="task" entityId={task.id} readOnly={readOnly} />}
 
           {task.id && (
             <TaskChecklist

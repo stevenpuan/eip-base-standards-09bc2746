@@ -61,7 +61,11 @@ export function EipDashboardSummary() {
         .select("id,title,status_id,owner_id,created_by,due_date,progress,department_id,project_id");
       const role = appUser?.role;
       if (role === "company_admin") {
-        // 全公司概況需要全部任務（僅限公司層管理者）
+        // 全公司概況需要全部任務（僅限公司層管理者），但已完成的會無限累積，
+        // 所以只取「未完成全部 + 近 90 天完成」。首頁的待辦/逾期/本週到期都只看未完成，
+        // 唯一受影響的是主管卡的狀態分佈，而看板本來就是同一套口徑（H1 收尾）。
+        const since = new Date(Date.now() - 90 * 864e5).toISOString();
+        q = q.or(`completed_at.is.null,completed_at.gte.${since}`);
       } else if (role === "dept_manager" && appUser?.department_id) {
         q = q.or(
           `department_id.eq.${appUser.department_id},owner_id.eq.${appUser.id},created_by.eq.${appUser.id}`,
