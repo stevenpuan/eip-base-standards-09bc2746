@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/table";
 import type { Database } from "@/integrations/supabase/types";
 import { RecurringReportDialog } from "@/components/eip/RecurringReportDialog";
+import { TaskChecklist } from "@/components/eip/TaskChecklist";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 
@@ -175,15 +176,17 @@ function TasksPage() {
     },
   });
 
+  // 卡片上的「3/5」改讀 task_checklist_summary。
+  // 原本是數 task.parent_task_id 的子任務，但那條路早就被 filter 掉、正式庫 0 筆；
+  // 子項現在一律走 task_checklist 新表（見 docs/批3-批6_後端變更紀錄.md）。
   const subtasksQ = useQuery({
     queryKey: ["eip", "tasks-subcount"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("task")
-        .select("id,parent_task_id,status_id")
-        .not("parent_task_id", "is", null);
+      const { data, error } = await supabaseAny
+        .from("task_checklist_summary")
+        .select("task_id,total,done");
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as { task_id: string; total: number; done: number }[];
     },
   });
 
@@ -262,15 +265,11 @@ function TasksPage() {
 
   const subtaskMap = useMemo(() => {
     const m = new Map<string, { total: number; done: number }>();
-    const doneIds = new Set((statusesQ.data ?? []).filter((s) => s.is_done_state).map((s) => s.id));
-    (subtasksQ.data ?? []).forEach((s: any) => {
-      const cur = m.get(s.parent_task_id) ?? { total: 0, done: 0 };
-      cur.total++;
-      if (doneIds.has(s.status_id)) cur.done++;
-      m.set(s.parent_task_id, cur);
+    (subtasksQ.data ?? []).forEach((s) => {
+      m.set(s.task_id, { total: Number(s.total ?? 0), done: Number(s.done ?? 0) });
     });
     return m;
-  }, [subtasksQ.data, statusesQ.data]);
+  }, [subtasksQ.data]);
 
   const filteredTasks = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
@@ -492,6 +491,9 @@ function TasksPage() {
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
             setDetailTask(null);
+          }}
+          onChecklistChange={() => {
+            void qc.invalidateQueries({ queryKey: ["eip", "tasks-subcount"] });
           }}
         />
       )}
@@ -1525,11 +1527,13 @@ type ChangeLogRow = {
 };
 
 export function EditTaskDialog({
-  task, readOnly, onClose, onSaved, statuses, users, departments, projects,
+  task, readOnly, onClose, onSaved, statuses, users, departments, projects, onChecklistChange,
 }: {
   task: Task; readOnly: boolean;
   onClose: () => void; onSaved: () => void;
   statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
+  // 子項增減後要讓看板卡片的「3/5」重新計算
+  onChecklistChange?: () => void;
 }) {
   const { appUser } = useEipUser();
   const userMap = useMemo(() => {
@@ -1737,6 +1741,15 @@ export function EditTaskDialog({
             disabled={readOnly}
           />
           {err && <div className="text-sm text-destructive">{err}</div>}
+
+          {task.id && (
+            <TaskChecklist
+              taskId={task.id}
+              readOnly={readOnly}
+              nameOf={(id) => (id ? (userMap.get(id) ?? "") : "")}
+              onCountChange={onChecklistChange}
+            />
+          )}
 
           <div className="mt-2 border-t pt-3">
             <div className="text-sm font-medium mb-2">補充說明</div>
