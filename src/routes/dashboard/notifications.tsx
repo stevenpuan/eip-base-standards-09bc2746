@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCheck, Trash2, ClipboardList, RefreshCw, CalendarClock, AlertTriangle, Megaphone, FileText, Inbox, Stamp } from "lucide-react";
+import { Bell, CheckCheck, Trash2, ClipboardList, RefreshCw, CalendarClock, AlertTriangle, Megaphone, FileText, Inbox, Stamp, UserMinus, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,9 @@ const TYPE_META: Record<string, { label: string; Icon: typeof Bell; cls: string 
   review_needed:  { label: "待批示",   Icon: Stamp,         cls: "bg-accent/15 text-accent" },
   announcement:   { label: "公告",     Icon: Megaphone,     cls: "bg-primary/10 text-primary" },
   quick_report:   { label: "回報",     Icon: FileText,      cls: "bg-primary/10 text-primary" },
+  reassign_needed:    { label: "人員異動待處理", Icon: UserMinus, cls: "bg-accent/15 text-accent" },
+  handover_created:   { label: "交接待辦",     Icon: UserMinus, cls: "bg-accent/15 text-accent" },
+  handover_completed: { label: "交接完成",     Icon: UserCheck, cls: "bg-primary/10 text-primary" },
 };
 const meta = (t: string) => TYPE_META[t] ?? { label: t, Icon: Bell, cls: "bg-muted text-muted-foreground" };
 
@@ -74,6 +77,7 @@ function NotificationsPage() {
     else if (n.entity_type === "project") navigate({ to: "/dashboard/eip/projects" });
     else if (n.entity_type === "quick_report") navigate({ to: "/dashboard/eip/quick-reports" });
     else if (n.entity_type === "work_log") navigate({ to: "/dashboard/eip/work-log" });
+    else if (n.entity_type === "handover") navigate({ to: "/dashboard/eip/handover" });
     else void load();
   };
 

@@ -44,6 +44,7 @@ import { Route as DashboardEipMyTasksRouteImport } from './routes/dashboard/eip/
 import { Route as DashboardEipMembersRouteImport } from './routes/dashboard/eip/members'
 import { Route as DashboardEipMeetingsRouteImport } from './routes/dashboard/eip/meetings'
 import { Route as DashboardEipFeatureRequestsRouteImport } from './routes/dashboard/eip/feature-requests'
+import { Route as DashboardEipHandoverRouteImport } from './routes/dashboard/eip/handover'
 import { Route as DashboardEipDocumentsRouteImport } from './routes/dashboard/eip/documents'
 import { Route as DashboardEipChangelogRouteImport } from './routes/dashboard/eip/changelog'
 import { Route as DashboardEipCalendarRouteImport } from './routes/dashboard/eip/calendar'
@@ -240,6 +241,11 @@ const DashboardEipFeatureRequestsRoute =
     path: '/feature-requests',
     getParentRoute: () => DashboardEipRoute,
   } as any)
+const DashboardEipHandoverRoute = DashboardEipHandoverRouteImport.update({
+  id: '/handover',
+  path: '/handover',
+  getParentRoute: () => DashboardEipRoute,
+} as any)
 const DashboardEipDocumentsRoute = DashboardEipDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
@@ -342,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/eip/assistant': typeof DashboardEipAssistantRoute
   '/dashboard/eip/calendar': typeof DashboardEipCalendarRoute
   '/dashboard/eip/changelog': typeof DashboardEipChangelogRoute
+  '/dashboard/eip/handover': typeof DashboardEipHandoverRoute
   '/dashboard/eip/documents': typeof DashboardEipDocumentsRoute
   '/dashboard/eip/feature-requests': typeof DashboardEipFeatureRequestsRouteWithChildren
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRouteWithChildren
@@ -391,6 +398,7 @@ export interface FileRoutesByTo {
   '/dashboard/eip/assistant': typeof DashboardEipAssistantRoute
   '/dashboard/eip/calendar': typeof DashboardEipCalendarRoute
   '/dashboard/eip/changelog': typeof DashboardEipChangelogRoute
+  '/dashboard/eip/handover': typeof DashboardEipHandoverRoute
   '/dashboard/eip/documents': typeof DashboardEipDocumentsRoute
   '/dashboard/eip/members': typeof DashboardEipMembersRoute
   '/dashboard/eip/personal-routine': typeof DashboardEipPersonalRoutineRoute
@@ -439,6 +447,7 @@ export interface FileRoutesById {
   '/dashboard/eip/assistant': typeof DashboardEipAssistantRoute
   '/dashboard/eip/calendar': typeof DashboardEipCalendarRoute
   '/dashboard/eip/changelog': typeof DashboardEipChangelogRoute
+  '/dashboard/eip/handover': typeof DashboardEipHandoverRoute
   '/dashboard/eip/documents': typeof DashboardEipDocumentsRoute
   '/dashboard/eip/feature-requests': typeof DashboardEipFeatureRequestsRouteWithChildren
   '/dashboard/eip/meetings': typeof DashboardEipMeetingsRouteWithChildren
@@ -491,6 +500,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/assistant'
     | '/dashboard/eip/calendar'
     | '/dashboard/eip/changelog'
+    | '/dashboard/eip/handover'
     | '/dashboard/eip/documents'
     | '/dashboard/eip/feature-requests'
     | '/dashboard/eip/meetings'
@@ -540,6 +550,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/assistant'
     | '/dashboard/eip/calendar'
     | '/dashboard/eip/changelog'
+    | '/dashboard/eip/handover'
     | '/dashboard/eip/documents'
     | '/dashboard/eip/members'
     | '/dashboard/eip/personal-routine'
@@ -587,6 +598,7 @@ export interface FileRouteTypes {
     | '/dashboard/eip/assistant'
     | '/dashboard/eip/calendar'
     | '/dashboard/eip/changelog'
+    | '/dashboard/eip/handover'
     | '/dashboard/eip/documents'
     | '/dashboard/eip/feature-requests'
     | '/dashboard/eip/meetings'
@@ -862,6 +874,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEipFeatureRequestsRouteImport
       parentRoute: typeof DashboardEipRoute
     }
+    '/dashboard/eip/handover': {
+      id: '/dashboard/eip/handover'
+      path: '/handover'
+      fullPath: '/dashboard/eip/handover'
+      preLoaderRoute: typeof DashboardEipHandoverRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
     '/dashboard/eip/documents': {
       id: '/dashboard/eip/documents'
       path: '/documents'
@@ -1022,6 +1041,7 @@ interface DashboardEipRouteChildren {
   DashboardEipAssistantRoute: typeof DashboardEipAssistantRoute
   DashboardEipCalendarRoute: typeof DashboardEipCalendarRoute
   DashboardEipChangelogRoute: typeof DashboardEipChangelogRoute
+  DashboardEipHandoverRoute: typeof DashboardEipHandoverRoute
   DashboardEipDocumentsRoute: typeof DashboardEipDocumentsRoute
   DashboardEipFeatureRequestsRoute: typeof DashboardEipFeatureRequestsRouteWithChildren
   DashboardEipMeetingsRoute: typeof DashboardEipMeetingsRouteWithChildren
@@ -1041,6 +1061,7 @@ const DashboardEipRouteChildren: DashboardEipRouteChildren = {
   DashboardEipAssistantRoute: DashboardEipAssistantRoute,
   DashboardEipCalendarRoute: DashboardEipCalendarRoute,
   DashboardEipChangelogRoute: DashboardEipChangelogRoute,
+  DashboardEipHandoverRoute: DashboardEipHandoverRoute,
   DashboardEipDocumentsRoute: DashboardEipDocumentsRoute,
   DashboardEipFeatureRequestsRoute:
     DashboardEipFeatureRequestsRouteWithChildren,

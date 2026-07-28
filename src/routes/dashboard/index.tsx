@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ListTodo, AlertCircle, ClipboardCheck, type LucideIcon } from "lucide-react";
+import { ListTodo, AlertCircle, ClipboardCheck, UserMinus, type LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,9 +41,24 @@ function DashboardHome() {
     },
   });
 
+  // 指派給我、尚未處理的交接待辦（RLS 已限定可見範圍）
+  const { data: pendingHandover = 0 } = useQuery({
+    queryKey: ["eip", "handover-pending-count", profile?.id],
+    enabled: !!profile?.id && can("eip_handover", "view"),
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("eip_handover_item")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending")
+        .eq("assignee_id", profile!.id);
+      return count ?? 0;
+    },
+  });
+
   const showTodos = can("dev_todos", "view");
   const showIssues = can("issue_reports", "view");
   const showReview = pendingReviews > 0;
+  const showHandover = pendingHandover > 0;
 
   return (
     <div className="space-y-6">
@@ -55,8 +70,17 @@ function DashboardHome() {
           角色：{roleNames.join("、") || "—"}
         </p>
       </div>
-      {(showTodos || showIssues || showReview) && (
+      {(showTodos || showIssues || showReview || showHandover) && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {showHandover && (
+            <StatCard
+              title="交接待辦"
+              value={pendingHandover}
+              icon={UserMinus}
+              accent="accent"
+              to="/dashboard/eip/handover"
+            />
+          )}
           {showReview && (
             <StatCard
               title="待批示日誌"

@@ -2,10 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2, UserMinus } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 import { supabase } from "@/integrations/supabase/client";
+// eip_handover_item 尚未進 types.ts，僅該查詢改用 any 版 client
+import { supabase as supabaseAny } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/lib/auth";
@@ -123,6 +125,8 @@ function TasksPage() {
   const [filterOwner, setFilterOwner] = useState("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  // 只顯示因人員停用而待重新指派的任務（來源：eip_handover_item）
+  const [onlyReassign, setOnlyReassign] = useState(false);
   const [dueFrom, setDueFrom] = useState("");
   const [dueTo, setDueTo] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -180,6 +184,20 @@ function TasksPage() {
   const usersQ = useAllUsers();
   // 選人用：只在職，避免誤指派給已離職同仁
   const activeUsersQ = useActiveUsers();
+
+  // 待重新指派的任務 id（RLS 已限定可見範圍，前端不再過濾）
+  const reassignQ = useQuery({
+    queryKey: ["eip", "handover", "pending-task-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny
+        .from("eip_handover_item")
+        .select("entity_id")
+        .eq("status", "pending")
+        .in("entity_type", ["task", "task_collaborator"]);
+      if (error) throw error;
+      return new Set(((data ?? []) as { entity_id: string }[]).map((x) => x.entity_id));
+    },
+  });
 
   const deptsQ = useQuery({
     queryKey: ["eip", "departments"],
@@ -245,6 +263,7 @@ function TasksPage() {
       if (filterOwner !== "all" && t.owner_id !== filterOwner) return false;
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
       if (filterStatus !== "all" && t.status_id !== filterStatus) return false;
+      if (onlyReassign && !reassignQ.data?.has(t.id)) return false;
       if (dueFrom && (!t.due_date || t.due_date < dueFrom)) return false;
       if (dueTo && (!t.due_date || t.due_date > dueTo)) return false;
       if (kw) {
@@ -253,7 +272,7 @@ function TasksPage() {
       }
       return true;
     });
-  }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword]);
+  }, [tasksQ.data, filterDept, filterProject, filterOwner, filterPriority, filterStatus, dueFrom, dueTo, keyword, onlyReassign, reassignQ.data]);
 
   const sourceMap = useTaskSources(filteredTasks);
 
@@ -371,6 +390,8 @@ function TasksPage() {
         users={activeUsersQ.data ?? []}
         departments={deptsQ.data ?? []}
         projects={projectsQ.data ?? []}
+        onlyReassign={onlyReassign} setOnlyReassign={setOnlyReassign}
+        reassignCount={reassignQ.data?.size ?? 0}
       />
 
       <Tabs defaultValue="board">
@@ -502,6 +523,7 @@ function SharedFilters(props: {
   dueFrom: string; setDueFrom: (v: string) => void;
   dueTo: string; setDueTo: (v: string) => void;
   statuses: Status[]; users: AppUser[]; departments: Department[]; projects: Project[];
+  onlyReassign: boolean; setOnlyReassign: (v: boolean) => void; reassignCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const activeCount = [
@@ -512,7 +534,25 @@ function SharedFilters(props: {
     props.filterOwner !== "all",
     !!props.dueFrom,
     !!props.dueTo,
+    props.onlyReassign,
   ].filter(Boolean).length;
+
+  // 沒有任何待重新指派的任務時就不顯示這個切換，避免佔位
+  const reassignToggle = props.reassignCount > 0 || props.onlyReassign ? (
+    <Button
+      type="button"
+      variant={props.onlyReassign ? "default" : "outline"}
+      className="h-9 justify-start"
+      onClick={() => props.setOnlyReassign(!props.onlyReassign)}
+      title="只顯示因人員停用而需要重新指派負責人的任務"
+    >
+      <UserMinus className="w-4 h-4 mr-1.5" />
+      待重新指派
+      {props.reassignCount > 0 && (
+        <Badge variant="secondary" className="ml-1.5">{props.reassignCount}</Badge>
+      )}
+    </Button>
+  ) : null;
 
   const filterFields = (
     <div className="grid gap-3">
@@ -531,6 +571,7 @@ function SharedFilters(props: {
         <span className="text-xs text-muted-foreground text-center">至</span>
         <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
       </div>
+      {reassignToggle}
     </div>
   );
 
@@ -577,6 +618,7 @@ function SharedFilters(props: {
             <span className="text-xs text-muted-foreground shrink-0">至</span>
             <Input type="date" value={props.dueTo} onChange={(e) => props.setDueTo(e.target.value)} className="h-9 w-full" />
           </div>
+          {reassignToggle}
         </div>
       </CardContent>
     </Card>
