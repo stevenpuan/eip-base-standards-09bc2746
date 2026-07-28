@@ -33,6 +33,9 @@ type DeletedItem = {
   deleted_at: string;
   deleted_by_name: string | null;
   can_purge: boolean;
+  // 有協作者／變更紀錄／進度回報的任務屬共同產出，不給永久刪（L1 定案）。
+  // 非 null 就是不能刪的原因，直接顯示給使用者，不要讓他按下去才吃例外。
+  purge_block: string | null;
 };
 
 function MyTasksPage() {
@@ -194,7 +197,7 @@ function MyTasksPage() {
     refetch();
   };
   const purge = async (id: string, title: string | null) => {
-    if (!window.confirm(`永久刪除「${title ?? "此任務"}」？\n連同它的變更歷程一起清除，無法復原。`))
+    if (!window.confirm(`永久刪除「${title ?? "此任務"}」？\n這筆沒有協作者也沒有變更歷程，刪掉之後無法復原。`))
       return;
     const { error } = await supabaseAny.rpc("eip_purge_deleted", {
       p_module: "eip_tasks",
@@ -370,7 +373,7 @@ function MyTasksPage() {
                 <Button size="sm" variant="outline" onClick={() => void restore(d.item_id)}>
                   還原
                 </Button>
-                {d.can_purge && (
+                {d.can_purge && !d.purge_block && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -379,6 +382,14 @@ function MyTasksPage() {
                   >
                     永久刪除
                   </Button>
+                )}
+                {d.can_purge && d.purge_block && (
+                  <span
+                    className="text-xs text-muted-foreground whitespace-nowrap cursor-help"
+                    title={d.purge_block}
+                  >
+                    不可永久刪除
+                  </span>
                 )}
               </div>
             ))}
