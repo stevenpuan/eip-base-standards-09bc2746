@@ -101,7 +101,9 @@ export const Route = createFileRoute("/dashboard/eip/tasks")({
   }),
 });
 
-type Task = Database["public"]["Tables"]["task"]["Row"];
+// closing_summary 是 0117 新增的欄位，types.ts 還沒重新產生，先在這裡補上型別。
+// types.ts 重生成時把這個 & 拿掉即可。
+type Task = Database["public"]["Tables"]["task"]["Row"] & { closing_summary?: string | null };
 type Status = Database["public"]["Tables"]["task_status"]["Row"];
 type TaskType = Database["public"]["Tables"]["task_type"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
@@ -1635,8 +1637,26 @@ export function EditTaskDialog({
   const [projectId, setProjectId] = useState(task.project_id ?? "none");
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [progress, setProgress] = useState<number>(task.progress);
+  // closing_summary 不在主清單的 select 欄位裡（typed client 不認識新欄位），
+  // 開啟詳情時單獨補讀一次。
+  const [closingSummary, setClosingSummary] = useState("");
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const { data } = await supabaseAny
+        .from("task").select("closing_summary").eq("id", task.id).maybeSingle();
+      if (alive && data) setClosingSummary((data as { closing_summary: string | null }).closing_summary ?? "");
+    })();
+    return () => { alive = false; };
+  }, [task.id]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // 切到「已完成」類狀態時才要求結案摘要。
+  // DB 沒有 NOT NULL（既有任務都沒摘要，強制會讓現有結案流程直接壞），
+  // 所以這裡只做提示，不擋儲存。
+  const willBeDone = !!statuses.find((s) => s.id === statusId)?.is_done_state;
+  const wasDone = !!statuses.find((s) => s.id === task.status_id)?.is_done_state;
 
   const save = async () => {
     if (!title.trim()) { setErr("請輸入標題"); return; }
@@ -1662,7 +1682,12 @@ export function EditTaskDialog({
     } else {
       patch.completed_at = null;
     }
-    const { error } = await supabase.from("task").update(patch).eq("id", task.id);
+    // closing_summary 還沒進 types.ts，走 any 版 client 才不會被型別擋掉。
+    // 從已完成退回進行中時摘要保留，不無聲清掉使用者寫過的內容。
+    const { error } = await supabaseAny
+      .from("task")
+      .update({ ...patch, closing_summary: closingSummary.trim() || null })
+      .eq("id", task.id);
     setBusy(false);
     if (error) { setErr(error.message); return; }
     toast.success("已儲存");
@@ -1741,6 +1766,23 @@ export function EditTaskDialog({
             disabled={readOnly}
           />
           {err && <div className="text-sm text-destructive">{err}</div>}
+
+          {(willBeDone || (wasDone && closingSummary)) && (
+            <Field label="結案摘要">
+              <Textarea
+                rows={3}
+                value={closingSummary}
+                onChange={(e) => setClosingSummary(e.target.value)}
+                disabled={readOnly}
+                placeholder="做了什麼、結果如何、後續要注意什麼"
+              />
+              {!readOnly && !wasDone && !closingSummary.trim() && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  這筆任務要結案了，建議補一段摘要；留空也可以儲存。
+                </div>
+              )}
+            </Field>
+          )}
 
           {task.id && (
             <TaskChecklist
