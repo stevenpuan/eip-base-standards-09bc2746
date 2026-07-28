@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ListTodo, AlertCircle, ClipboardCheck, UserMinus, type LucideIcon } from "lucide-react";
+import { ListTodo, AlertCircle, UserMinus, type LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,20 +27,6 @@ function DashboardHome() {
     },
   });
 
-  // 待我批示的部門工作日誌（已送出、非本人；RLS 只會回傳本人可監督的日誌）
-  const { data: pendingReviews = 0 } = useQuery({
-    queryKey: ["dashboard-worklog-review", profile?.id],
-    enabled: !!profile?.id,
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("work_log")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "submitted")
-        .neq("user_id", profile!.id);
-      return count ?? 0;
-    },
-  });
-
   // 指派給我、尚未處理的交接待辦（RLS 已限定可見範圍）
   const { data: pendingHandover = 0 } = useQuery({
     queryKey: ["eip", "handover-pending-count", profile?.id],
@@ -57,7 +43,6 @@ function DashboardHome() {
 
   const showTodos = can("dev_todos", "view");
   const showIssues = can("issue_reports", "view");
-  const showReview = pendingReviews > 0;
   const showHandover = pendingHandover > 0;
 
   return (
@@ -70,7 +55,7 @@ function DashboardHome() {
           角色：{roleNames.join("、") || "—"}
         </p>
       </div>
-      {(showTodos || showIssues || showReview || showHandover) && (
+      {(showTodos || showIssues || showHandover) && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {showHandover && (
             <StatCard
@@ -79,15 +64,6 @@ function DashboardHome() {
               icon={UserMinus}
               accent="accent"
               to="/dashboard/eip/handover"
-            />
-          )}
-          {showReview && (
-            <StatCard
-              title="待批示日誌"
-              value={pendingReviews}
-              icon={ClipboardCheck}
-              accent="accent"
-              to="/dashboard/eip/work-log"
             />
           )}
           {showTodos && (
