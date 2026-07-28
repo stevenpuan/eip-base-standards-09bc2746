@@ -48,6 +48,7 @@ import { Route as DashboardEipHandoverRouteImport } from './routes/dashboard/eip
 import { Route as DashboardEipDocumentsRouteImport } from './routes/dashboard/eip/documents'
 import { Route as DashboardEipChangelogRouteImport } from './routes/dashboard/eip/changelog'
 import { Route as DashboardEipCalendarRouteImport } from './routes/dashboard/eip/calendar'
+import { Route as DashboardEipAnomaliesRouteImport } from './routes/dashboard/eip/anomalies'
 import { Route as DashboardEipAssistantRouteImport } from './routes/dashboard/eip/assistant'
 import { Route as DashboardEipAnnouncementsRouteImport } from './routes/dashboard/eip/announcements'
 import { Route as DashboardEipProjectsIndexRouteImport } from './routes/dashboard/eip/projects.index'
@@ -261,6 +262,11 @@ const DashboardEipCalendarRoute = DashboardEipCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => DashboardEipRoute,
 } as any)
+const DashboardEipAnomaliesRoute = DashboardEipAnomaliesRouteImport.update({
+  id: '/anomalies',
+  path: '/anomalies',
+  getParentRoute: () => DashboardEipRoute,
+} as any)
 const DashboardEipAssistantRoute = DashboardEipAssistantRouteImport.update({
   id: '/assistant',
   path: '/assistant',
@@ -345,6 +351,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/users': typeof DashboardUsersRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/eip/announcements': typeof DashboardEipAnnouncementsRoute
+  '/dashboard/eip/anomalies': typeof DashboardEipAnomaliesRoute
   '/dashboard/eip/assistant': typeof DashboardEipAssistantRoute
   '/dashboard/eip/calendar': typeof DashboardEipCalendarRoute
   '/dashboard/eip/changelog': typeof DashboardEipChangelogRoute
@@ -395,6 +402,7 @@ export interface FileRoutesByTo {
   '/dashboard/users': typeof DashboardUsersRoute
   '/dashboard': typeof DashboardIndexRoute
   '/dashboard/eip/announcements': typeof DashboardEipAnnouncementsRoute
+  '/dashboard/eip/anomalies': typeof DashboardEipAnomaliesRoute
   '/dashboard/eip/assistant': typeof DashboardEipAssistantRoute
   '/dashboard/eip/calendar': typeof DashboardEipCalendarRoute
   '/dashboard/eip/changelog': typeof DashboardEipChangelogRoute
@@ -444,6 +452,7 @@ export interface FileRoutesById {
   '/dashboard/users': typeof DashboardUsersRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/eip/announcements': typeof DashboardEipAnnouncementsRoute
+  '/dashboard/eip/anomalies': typeof DashboardEipAnomaliesRoute
   '/dashboard/eip/assistant': typeof DashboardEipAssistantRoute
   '/dashboard/eip/calendar': typeof DashboardEipCalendarRoute
   '/dashboard/eip/changelog': typeof DashboardEipChangelogRoute
@@ -497,6 +506,7 @@ export interface FileRouteTypes {
     | '/dashboard/users'
     | '/dashboard/'
     | '/dashboard/eip/announcements'
+    | '/dashboard/eip/anomalies'
     | '/dashboard/eip/assistant'
     | '/dashboard/eip/calendar'
     | '/dashboard/eip/changelog'
@@ -547,6 +557,7 @@ export interface FileRouteTypes {
     | '/dashboard/users'
     | '/dashboard'
     | '/dashboard/eip/announcements'
+    | '/dashboard/eip/anomalies'
     | '/dashboard/eip/assistant'
     | '/dashboard/eip/calendar'
     | '/dashboard/eip/changelog'
@@ -595,6 +606,7 @@ export interface FileRouteTypes {
     | '/dashboard/users'
     | '/dashboard/'
     | '/dashboard/eip/announcements'
+    | '/dashboard/eip/anomalies'
     | '/dashboard/eip/assistant'
     | '/dashboard/eip/calendar'
     | '/dashboard/eip/changelog'
@@ -902,6 +914,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEipCalendarRouteImport
       parentRoute: typeof DashboardEipRoute
     }
+    '/dashboard/eip/anomalies': {
+      id: '/dashboard/eip/anomalies'
+      path: '/anomalies'
+      fullPath: '/dashboard/eip/anomalies'
+      preLoaderRoute: typeof DashboardEipAnomaliesRouteImport
+      parentRoute: typeof DashboardEipRoute
+    }
     '/dashboard/eip/assistant': {
       id: '/dashboard/eip/assistant'
       path: '/assistant'
@@ -1038,6 +1057,7 @@ const DashboardEipProjectsRouteWithChildren =
 
 interface DashboardEipRouteChildren {
   DashboardEipAnnouncementsRoute: typeof DashboardEipAnnouncementsRoute
+  DashboardEipAnomaliesRoute: typeof DashboardEipAnomaliesRoute
   DashboardEipAssistantRoute: typeof DashboardEipAssistantRoute
   DashboardEipCalendarRoute: typeof DashboardEipCalendarRoute
   DashboardEipChangelogRoute: typeof DashboardEipChangelogRoute
@@ -1058,6 +1078,7 @@ interface DashboardEipRouteChildren {
 
 const DashboardEipRouteChildren: DashboardEipRouteChildren = {
   DashboardEipAnnouncementsRoute: DashboardEipAnnouncementsRoute,
+  DashboardEipAnomaliesRoute: DashboardEipAnomaliesRoute,
   DashboardEipAssistantRoute: DashboardEipAssistantRoute,
   DashboardEipCalendarRoute: DashboardEipCalendarRoute,
   DashboardEipChangelogRoute: DashboardEipChangelogRoute,
