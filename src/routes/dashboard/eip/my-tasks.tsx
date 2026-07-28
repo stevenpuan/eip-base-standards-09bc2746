@@ -23,7 +23,7 @@ export const Route = createFileRoute("/dashboard/eip/my-tasks")({ component: MyT
 type Task = Database["public"]["Tables"]["task"]["Row"];
 type Status = Database["public"]["Tables"]["task_status"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
-type SourceFilter = "all" | "normal" | "project" | "meeting";
+type SourceFilter = "all" | "normal" | "recurring" | "project" | "meeting";
 
 type DeletedItem = {
   module_key: string;
@@ -246,6 +246,9 @@ function MyTasksPage() {
                 <TabsTrigger value="normal" className="text-xs">
                   一般
                 </TabsTrigger>
+                <TabsTrigger value="recurring" className="text-xs">
+                  常態
+                </TabsTrigger>
                 <TabsTrigger value="project" className="text-xs">
                   專案
                 </TabsTrigger>
@@ -461,6 +464,7 @@ function Grouped({
     let key = "一般任務";
     if (groupBy === "source") {
       if (s?.type === "meeting") key = `會議:${s.label}`;
+      else if (s?.type === "recurring") key = "常態工作（例行）";
       else if (s?.type === "project") key = `專案:${s.label}`;
     } else {
       // groupBy === project

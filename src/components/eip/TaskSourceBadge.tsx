@@ -1,4 +1,4 @@
-import { CalendarDays, FolderKanban, ListChecks } from "lucide-react";
+import { CalendarDays, FolderKanban, ListChecks, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 export type TaskSource =
   | { type: "meeting"; label: string }
   | { type: "project"; label: string }
+  // 常態工作：由 recurring_rule 每天自動生出來的任務。
+  // 兩軸分類裡它屬「例行」，跟一般任務（特殊工作）要分得開。
+  | { type: "recurring" }
   | { type: "normal" };
 
 export function TaskSourceBadge({ source, className = "" }: { source: TaskSource; className?: string }) {
@@ -34,6 +37,17 @@ export function TaskSourceBadge({ source, className = "" }: { source: TaskSource
       </Badge>
     );
   }
+  if (source.type === "recurring") {
+    return (
+      <Badge
+        variant="secondary"
+        className={`text-[10px] gap-0.5 bg-teal-100 text-teal-800 hover:bg-teal-100 ${className}`}
+        title="常態工作（例行）"
+      >
+        <Repeat className="w-2.5 h-2.5" /> 常態
+      </Badge>
+    );
+  }
   return (
     <Badge variant="secondary" className={`text-[10px] gap-0.5 bg-slate-100 text-slate-700 hover:bg-slate-100 ${className}`}>
       <ListChecks className="w-2.5 h-2.5" /> 一般
@@ -43,7 +57,7 @@ export function TaskSourceBadge({ source, className = "" }: { source: TaskSource
 
 /** 根據 task ids + project_id 對應,回傳 task→來源 的 Map */
 export function useTaskSources(
-  tasks: Array<{ id: string; project_id: string | null }>,
+  tasks: Array<{ id: string; project_id: string | null; recurring_rule_id?: string | null }>,
 ): Map<string, TaskSource> {
   const ids = useMemo(() => tasks.map((t) => t.id).sort(), [tasks]);
   const projectIds = useMemo(
@@ -84,7 +98,10 @@ export function useTaskSources(
     const out = new Map<string, TaskSource>();
     tasks.forEach((t) => {
       const m = meetingMap.get(t.id);
+      // 判斷順序：會議決議 → 常態工作 → 專案 → 一般。
+      // 常態工作排在專案前面，因為它是「例行」那一軸，優先要讓使用者看出來。
       if (m) out.set(t.id, { type: "meeting", label: m });
+      else if (t.recurring_rule_id) out.set(t.id, { type: "recurring" });
       else if (t.project_id && projMap.get(t.project_id))
         out.set(t.id, { type: "project", label: projMap.get(t.project_id)! });
       else out.set(t.id, { type: "normal" });

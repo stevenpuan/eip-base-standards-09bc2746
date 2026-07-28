@@ -1518,14 +1518,19 @@ type TaskUpdateRow = {
   user_id: string;
 };
 
-type ChangeLogRow = {
-  id: string;
+// eip_task_timeline view：把欄位變更（task_change_log）、進度回報（task_update）、
+// 子項完成（task_checklist）併成一份時間軸。view 是 security_invoker，
+// 三個來源各自的 RLS 照常生效。
+type TimelineRow = {
   task_id: string;
-  changed_by: string | null;
-  field: string;
+  kind: "field_change" | "progress" | "checklist_done" | string;
+  at: string;
+  actor_id: string | null;
+  field: string | null;
   old_value: string | null;
   new_value: string | null;
-  created_at: string;
+  progress: number | null;
+  comment: string | null;
 };
 
 export function EditTaskDialog({
@@ -1580,20 +1585,20 @@ export function EditTaskDialog({
     void loadNotes();
   };
 
-  const [changeLog, setChangeLog] = useState<ChangeLogRow[]>([]);
-  const [changeLogLoading, setChangeLogLoading] = useState(true);
+  const [timeline, setTimeline] = useState<TimelineRow[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(true);
 
-  const loadChangeLog = async () => {
-    setChangeLogLoading(true);
-    const { data, error } = await supabase
-      .from("task_change_log")
+  const loadTimeline = async () => {
+    setTimelineLoading(true);
+    const { data, error } = await supabaseAny
+      .from("eip_task_timeline")
       .select("*")
       .eq("task_id", task.id)
-      .order("created_at", { ascending: false });
-    setChangeLogLoading(false);
-    if (!error) setChangeLog((data ?? []) as ChangeLogRow[]);
+      .order("at", { ascending: false });
+    setTimelineLoading(false);
+    if (!error) setTimeline((data ?? []) as TimelineRow[]);
   };
-  useEffect(() => { void loadChangeLog(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
+  useEffect(() => { void loadTimeline(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
 
   const loadNotes = async () => {
     setNotesLoading(true);
@@ -1789,7 +1794,11 @@ export function EditTaskDialog({
               taskId={task.id}
               readOnly={readOnly}
               nameOf={(id) => (id ? (userMap.get(id) ?? "") : "")}
-              onCountChange={onChecklistChange}
+              onCountChange={() => {
+                // 子項勾選會進執行歷程，順手把時間軸也刷新
+                void loadTimeline();
+                onChecklistChange?.();
+              }}
             />
           )}
 
@@ -1855,27 +1864,45 @@ export function EditTaskDialog({
 
           {task.id && (
             <div className="mt-2 border-t pt-3">
-              <div className="text-sm font-medium mb-2">變更紀錄</div>
-              {changeLogLoading ? (
+              <div className="text-sm font-medium mb-2">執行歷程</div>
+              {timelineLoading ? (
                 <div className="text-xs text-muted-foreground">載入中…</div>
-              ) : changeLog.length === 0 ? (
-                <div className="text-xs text-muted-foreground">尚無變更紀錄</div>
+              ) : timeline.length === 0 ? (
+                <div className="text-xs text-muted-foreground">尚無執行歷程</div>
               ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {changeLog.map((c) => {
-                    const actor = c.changed_by == null ? "系統" : (userMap.get(c.changed_by) ?? "—");
-                    const desc =
-                      c.old_value == null
-                        ? `新增${c.field}：${c.new_value}`
-                        : c.new_value == null
-                          ? `移除${c.field}：${c.old_value}`
-                          : `${c.field}：${c.old_value} → ${c.new_value}`;
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {timeline.map((e, i) => {
+                    const actor = e.actor_id == null ? "系統" : (userMap.get(e.actor_id) ?? "—");
+                    let desc: string;
+                    let tag: string;
+                    if (e.kind === "checklist_done") {
+                      tag = "子項";
+                      desc = `完成子項：${e.new_value ?? ""}`;
+                    } else if (e.kind === "progress") {
+                      tag = "回報";
+                      const bits: string[] = [];
+                      if (e.progress != null) bits.push(`進度 ${e.progress}%`);
+                      if (e.new_value) bits.push(`狀態改為「${e.new_value}」`);
+                      if (e.comment) bits.push(e.comment);
+                      desc = bits.join("・") || "進度回報";
+                    } else {
+                      tag = "變更";
+                      desc =
+                        e.old_value == null
+                          ? `新增${e.field}：${e.new_value}`
+                          : e.new_value == null
+                            ? `移除${e.field}：${e.old_value}`
+                            : `${e.field}：${e.old_value} → ${e.new_value}`;
+                    }
                     return (
-                      <div key={c.id} className="rounded-lg border bg-muted/30 p-2">
-                        <div className="text-sm">{desc}</div>
+                      <div key={`${e.kind}-${e.at}-${i}`} className="rounded-lg border bg-muted/30 p-2">
+                        <div className="text-sm">
+                          <span className="text-[11px] text-muted-foreground mr-1.5">[{tag}]</span>
+                          {desc}
+                        </div>
                         <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
                           <span className="font-medium text-foreground">{actor}</span>
-                          <span>{new Date(c.created_at).toLocaleString("zh-TW")}</span>
+                          <span>{new Date(e.at).toLocaleString("zh-TW")}</span>
                         </div>
                       </div>
                     );

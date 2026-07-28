@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+// eip_calendar_events view 尚未進 types.ts，請假來源用 any 版 client。
+import { supabase as supabaseAny } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/eip/calendar")({ component: CalendarPage });
 
-type EventType = "task" | "meeting" | "milestone" | "personal";
+type EventType = "task" | "meeting" | "milestone" | "personal" | "leave";
 
 type CalEvent = {
   id: string;
@@ -44,6 +46,18 @@ type PersonalEvent = {
   note: string | null;
 };
 
+type LeaveEvent = {
+  id: string;
+  user_id: string;
+  title: string;
+  start_date: string;
+  end_date: string | null;
+  start_time: string | null;
+  note: string | null;
+  leave_type: string | null;
+  status: string | null;
+};
+
 type AppUserLite = { id: string; name: string | null };
 
 const TIME_OPTIONS: string[] = (() => {
@@ -63,12 +77,13 @@ function fmtTime(t: string | null | undefined) {
   return m ? `${m[1]}:${m[2]}` : null;
 }
 
-const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程" } as const;
+const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程", leave: "請假" } as const;
 const TYPE_COLOR: Record<EventType, string> = {
   task: "bg-blue-100 text-blue-700 border-blue-200",
   meeting: "bg-emerald-100 text-emerald-700 border-emerald-200",
   milestone: "bg-amber-100 text-amber-700 border-amber-200",
   personal: "bg-purple-100 text-purple-700 border-purple-200",
+  leave: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
 function toYMD(d: Date | string | null) {
@@ -86,7 +101,7 @@ function CalendarPage() {
   const [cursor, setCursor] = useState(() => {
     const d = new Date(); d.setDate(1); return d;
   });
-  const [show, setShow] = useState({ task: true, meeting: true, milestone: true, personal: true });
+  const [show, setShow] = useState({ task: true, meeting: true, milestone: true, personal: true, leave: true });
 
   const tasksQ = useQuery({
     queryKey: ["cal", "tasks"],
@@ -122,6 +137,20 @@ function CalendarPage() {
       return (data ?? []) as PersonalEvent[];
     },
   });
+  // 請假：eip_calendar_events 把 personal_event 與 eip_quick_report(type='leave') 併成一個來源。
+  // view 是 security_invoker，所以本人看自己的、主管看管轄範圍，不會因為併成 view 就外洩。
+  // 這裡只取 leave（個人行程仍走上面 personalQ，因為那條路要支援編輯與分享）。
+  const leaveQ = useQuery({
+    queryKey: ["cal", "leave"],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny
+        .from("eip_calendar_events")
+        .select("id,user_id,title,start_date,end_date,start_time,note,leave_type,status")
+        .eq("kind", "leave");
+      if (error) throw error;
+      return (data ?? []) as LeaveEvent[];
+    },
+  });
   const sharesQ = useQuery({
     queryKey: ["cal", "personal_shares"],
     queryFn: async () => {
@@ -143,6 +172,9 @@ function CalendarPage() {
 
   const events = useMemo<CalEvent[]>(() => {
     const list: CalEvent[] = [];
+    // 別人的假要標出是誰；userMap 定義在後面，這裡就地建一份
+    const nameOf = (id: string) =>
+      (usersQ.data ?? []).find((u) => u.id === id)?.name ?? "";
     if (show.task) {
       (tasksQ.data ?? []).forEach((t: any) => {
         const d = toYMD(t.due_date);
@@ -175,8 +207,37 @@ function CalendarPage() {
         });
       });
     }
+    if (show.leave) {
+      (leaveQ.data ?? []).forEach((lv) => {
+        const start = toYMD(lv.start_date);
+        const end = toYMD(lv.end_date) ?? start;
+        if (!start) return;
+        // 跨日的假要每一天都出現，否則只看得到第一天
+        const cur = new Date(start + "T00:00:00");
+        const last = new Date((end ?? start) + "T00:00:00");
+        let guard = 0;
+        while (cur <= last && guard < 62) {
+          const d = toYMD(cur);
+          if (d) {
+            const who = lv.user_id === myId ? "" : `${nameOf(lv.user_id)} `;
+            list.push({
+              id: `lv-${lv.id}-${d}`,
+              type: "leave",
+              title: `${who}${lv.title}`,
+              date: d,
+              endDate: end ?? undefined,
+              // 請假在「臨時回報」維護，行事曆只顯示
+              href: "/dashboard/eip/quick-reports",
+              readOnly: true,
+            });
+          }
+          cur.setDate(cur.getDate() + 1);
+          guard += 1;
+        }
+      });
+    }
     return list;
-  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, personalQ.data, show, myId]);
+  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, personalQ.data, leaveQ.data, usersQ.data, show, myId]);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
