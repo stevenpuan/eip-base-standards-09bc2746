@@ -1,3 +1,4 @@
+import { EipUserPending } from "@/components/eip/EipUserPending";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -302,7 +303,7 @@ function DeptRoutinePage() {
 
   if (authLoading || !permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" replace />;
-  if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
+  if (!appUser) return <EipUserPending />;
 
   return (
     <div className="space-y-4">

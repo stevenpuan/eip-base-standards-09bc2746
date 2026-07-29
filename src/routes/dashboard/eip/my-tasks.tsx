@@ -1,3 +1,4 @@
+import { EipUserPending } from "@/components/eip/EipUserPending";
 import { createFileRoute } from "@tanstack/react-router";
 import { RequirePerm } from "@/components/RequirePerm";
 import { useMemo, useState } from "react";
@@ -191,7 +192,7 @@ function MyTasksPage() {
       return true;
     });
 
-  if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
+  if (!appUser) return <EipUserPending />;
 
   const owned = applyFilters(ownedQ.data ?? []);
   const collab = applyFilters(collabQ.data ?? []);
