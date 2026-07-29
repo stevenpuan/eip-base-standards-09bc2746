@@ -85,6 +85,26 @@ function canEditTask(task: Task, appUser: AppUser | null, can: CanFn, collabMap?
   }
   return true;
 }
+/**
+ * 協作者名單能不能寫入。**逐字對應**後端 task_collaborator 的 INSERT/DELETE 政策
+ * `eip_can_manage_task()`：company_admin ／ owner_id ／ created_by ／
+ * （dept_manager 且管轄該任務的部門）。
+ *
+ * 刻意不共用 canEditTask()：那支還認「協作者本人」與「被授予 eip_tasks:edit 的任何角色」，
+ * 而 eip_can_manage_task() 不認這兩種。拿 canEditTask 當協作者 picker 的旗標，
+ * 等於把可互動的 picker 開給寫入 100% 會被擋掉的人
+ *（INSERT 42501、DELETE 回 0 列），而且按下去之前沒有任何提示。
+ */
+function canManageCollaborators(task: Task, appUser: AppUser | null): boolean {
+  if (!appUser) return false;
+  if (appUser.role === "company_admin") return true;
+  if (task.owner_id === appUser.id) return true;
+  if (task.created_by === appUser.id) return true;
+  if (appUser.role === "dept_manager") {
+    return !!task.department_id && task.department_id === appUser.department_id;
+  }
+  return false;
+}
 function canDeleteTask(task: Task, appUser: AppUser | null, can: CanFn, collabMap?: Map<string, Set<string>>): boolean {
   if (!appUser) return false;
   if (task.owner_id === appUser.id) return true;
@@ -1865,6 +1885,10 @@ export function EditTaskDialog({
   // 跟 summaryLoaded 同一個道理：沒讀成功就不准算差集寫回去，
   // 否則會拿空的 collabInitial 當基準，把現有協作者當成「使用者移除的」全刪掉。
   const [collabLoaded, setCollabLoaded] = useState(false);
+  // 協作者的寫入權限比「能編輯這筆任務」窄（見 canManageCollaborators 的說明）。
+  // 在對話框內自己算而不是從外面傳 prop：這個對話框有三個呼叫端
+  //（tasks／my-tasks／projects.$id），傳 prop 遲早會有一邊忘記或算得不一樣。
+  const canEditCollab = !readOnly && canManageCollaborators(task, appUser);
 
   const loadCollaborators = async () => {
     setCollabLoading(true);
@@ -2059,19 +2083,41 @@ export function EditTaskDialog({
     if (error) { setBusy(false); setErr(error.message); return; }
     if (!(updated as { id: string }[] | null)?.length) {
       setBusy(false);
-      // 0 列的兩種可能：被 RLS 擋掉（沒有編輯權限），或改完可見範圍後這筆已經不在
-      // 自己的可見範圍內（RETURNING 也受 SELECT 政策限制）。訊息兩種都涵蓋。
-      setErr(
-        "資料庫回傳 0 列，這次儲存可能沒有生效：多半是沒有編輯這筆任務的權限（限負責人、建立者、協作者或管理者），" +
-        "或是可見範圍改成你看不到的部門。請重新開啟這筆任務確認。",
+      // RETURNING 也受 SELECT 政策限制。把自己負責的任務可見範圍從「全公司」改成
+      // 「部門＝別的部門」時，UPDATE 的 WITH CHECK 是過的（自己還是 owner），
+      // **資料已經寫進去了**，只是 task_read 讓自己看不到這一列 → 回 0 列。
+      //
+      // 舊版在這裡 early return：onSaved() 沒被呼叫、對話框不關、看板不 invalidate、
+      // 卡片停在舊值，看起來像沒存到。使用者按第二次時連 USING 都不過（他已經看不到
+      // 這一列了），還是 0 列，於是永遠卡在同一段錯誤訊息。
+      //
+      // 所以這裡照樣收尾（刷新＋關閉），只把訊息降級成警告讓他自己去確認。
+      toast.warning(
+        "已送出，但這筆任務已不在你的可見範圍內（可能是可見範圍改成了你看不到的部門），請重新確認",
       );
+      void qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+      onSaved();
       return;
     }
 
     // 協作者是「附帶寫入」：任務本體已經存好了，這段失敗不該讓整個儲存看起來失敗，
     // 但也不能照樣跳成功 toast —— 沿用 CreateTaskDialog 的 partial 模式列出沒進去的項目。
     const partial: string[] = [];
-    if (collabLoaded) {
+    // 只有「使用者真的動過協作者」或「負責人真的變了」才做差集。
+    //
+    // 為什麼不能無條件做：下面的 filter(id !== ownerId) 是為了「編輯中把負責人改成
+    // 原本的協作者」而寫的，但它不分使用者這次有沒有碰協作者。這輪之前編輯畫面根本
+    // 沒有協作者欄位，所以正式庫裡本來就存在「負責人同時掛著協作者紀錄」的資料 ——
+    // 無條件執行的話，任何人打開這種任務、只把進度從 40% 拉到 50% 按儲存，
+    // toRemove 就會憑空多一個人 → DELETE → trg_task_collab_change 在「執行歷程」
+    // 寫下一筆根本沒有人做過的「移除協作者」事件。
+    const collabDirty =
+      collabIds.length !== collabInitial.length ||
+      collabIds.some((id) => !collabInitial.includes(id));
+    const ownerChanged = ownerId !== task.owner_id;
+    // 沒有協作者寫入權的人（例如協作者本人改了負責人）不要送註定失敗的 INSERT/DELETE，
+    // 那只會換到一句「部分協作者未移除（權限不足）」的雜訊
+    if (collabLoaded && canEditCollab && (collabDirty || ownerChanged)) {
       // 負責人用「當前表單值」判斷：編輯中可能剛把負責人改成原本的協作者，
       // 那個人就該從協作者名單移除，而不是同時掛兩個角色。
       const target = collabIds.filter((id) => id !== ownerId);
@@ -2182,9 +2228,16 @@ export function EditTaskDialog({
           <Field label="協作者">
             {/* 這一行小字是給「為什麼協作者清單裡沒有我自己」的答案：
                 負責人預設就是自己，本來就不必再加一次。 */}
-            {!readOnly && (
+            {canEditCollab && (
               <p className="text-[12.5px] text-muted-foreground">
                 負責人（{ownerId ? (userMap.get(ownerId) ?? "已停用帳號") : "未指定"}）不需要重複加為協作者
+              </p>
+            )}
+            {/* 能編輯任務、但沒有協作者寫入權（例如協作者本人）：講原因，不要給一個
+                點得動卻一定被 RLS 擋掉的 picker */}
+            {!readOnly && !canEditCollab && (
+              <p className="text-[12.5px] text-muted-foreground">
+                只有負責人、建立者或本部門主管可以調整協作者
               </p>
             )}
             {collabLoading ? (
@@ -2197,7 +2250,7 @@ export function EditTaskDialog({
                 <Button size="sm" variant="ghost" className="h-6 ml-1 text-xs"
                   onClick={() => void loadCollaborators()}>重試</Button>
               </div>
-            ) : readOnly ? (
+            ) : !canEditCollab ? (
               collabIds.length === 0 ? (
                 <div className="text-xs text-muted-foreground">無協作者</div>
               ) : (

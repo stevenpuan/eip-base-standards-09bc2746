@@ -20,6 +20,7 @@ import {
 // 都尚未進 src/integrations/supabase/types.ts，
 // 這裡用寬鬆型別的 client，型別在本檔自行宣告。
 import { supabase } from "@/lib/supabase";
+import { LEAVE_DONE_STATUSES } from "@/lib/eip-constants";
 import { useEipUser } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
 import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
@@ -204,7 +205,11 @@ function HandoverPage() {
   const resolve = async (r: HandoverItem) => {
     if (!appUser?.id || busyId) return;
     setBusyId(r.id);
-    const { error } = await supabase
+    // eip_handover_item 的 UPDATE 政策只給建立者／主管／管理者：被指派的成員讀得到
+    // 卻改不到，PostgREST 那時是 0 列 ＋ error 為 null。只看 error 會跳「已標記完成」，
+    // 重讀後那一列原封不動回到「待處理」，使用者只會一直重按。
+    // （這張表沒有軟刪除 guard，是純 UPDATE，所以筆數是可信的。）
+    const { data, error } = await supabase
       .from("eip_handover_item")
       .update({
         status: "resolved",
@@ -212,10 +217,18 @@ function HandoverPage() {
         resolved_by: appUser.id,
         resolved_at: new Date().toISOString(),
       })
-      .eq("id", r.id);
+      .eq("id", r.id)
+      .select("id");
     setBusyId(null);
     if (error) {
       toast.error(error.message);
+      return;
+    }
+    if (!(data as { id: string }[] | null)?.length) {
+      toast.error("沒有權限標記這筆交接完成，請聯絡建立者或部門主管");
+      // 別人可能已經處理掉了，重讀一次讓畫面回到真實狀態
+      void qc.invalidateQueries({ queryKey: ["eip", "handover"] });
+      void qc.invalidateQueries({ queryKey: ["eip", "handover-pending-count"] });
       return;
     }
     toast.success("已標記完成");
@@ -441,10 +454,6 @@ type UserOpt = { id: string; name: string };
 /** shadcn Select 不接受空字串當值，「未指派」用 sentinel */
 const NO_ASSIGNEE = "__none__";
 
-// 2026-07-28 起請假不簽核，status 由完成度 trigger 推導。
-// acknowledged 是舊制「主管已確認」留下的值，與 done / closed 同樣視為已結案。
-const LEAVE_CLOSED = new Set(["done", "acknowledged", "closed"]);
-
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const hhmm = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 /** 本地（台北）日期字串；toISOString() 在 UTC+8 會退回前一天，不能用 */
@@ -533,7 +542,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
   });
 
   const allReports = reportsQ.data ?? [];
-  const openReports = allReports.filter((r) => !LEAVE_CLOSED.has(r.status));
+  const openReports = allReports.filter((r) => !LEAVE_DONE_STATUSES.has(r.status));
   const closedCount = allReports.length - openReports.length;
   const reports = showClosed ? allReports : openReports;
 
@@ -626,8 +635,8 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
     const { error } = await supabase.from("eip_leave_handover_item").insert({
       quick_report_id: report.id,
       title,
-      // null＝沒指定：DB 的 eip_fill_lhi_defaults 會補成這張單的 deputy_id，
-      // deputy 也是 null 就留 null（未指派），這是允許的狀態
+      // 呼叫端（AddLeaveItemRow）選「同代理人」時已經把 deputy_id 填進來了；
+      // 真的沒有代理人才會是 null（未指派），這是允許的狀態
       assignee_id: input.assigneeId,
       url: input.url,
       sort_order: nextSort,
@@ -761,7 +770,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
               const items = itemsByReport.get(r.id) ?? [];
               const done = items.filter((i) => i.done_at).length;
               const unassigned = items.filter((i) => !i.assignee_id).length;
-              const closed = LEAVE_CLOSED.has(r.status);
+              const closed = LEAVE_DONE_STATUSES.has(r.status);
               const span = leaveSpan(r.leave_from, r.leave_to, r.report_date);
               const deputyOptions = withCurrent(others, r.deputy_id, nameOf, activeIds);
               return (
@@ -845,7 +854,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
                           item={it}
                           users={withCurrent(others, it.assignee_id, nameOf, activeIds)}
                           nameOf={nameOf}
-                          hasDeputy={!!r.deputy_id}
+                          deputyId={r.deputy_id}
                           canEdit={!closed}
                           onSave={saveItem}
                           onDelete={removeItem}
@@ -863,7 +872,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
                   {!closed && !itemsQ.isError && (
                     <AddLeaveItemRow
                       users={others}
-                      hasDeputy={!!r.deputy_id}
+                      deputyId={r.deputy_id}
                       onAdd={(input) => addItem(r, input)}
                     />
                   )}
@@ -915,7 +924,7 @@ function LeaveItemRow({
   item,
   users,
   nameOf,
-  hasDeputy,
+  deputyId,
   canEdit,
   onSave,
   onDelete,
@@ -923,7 +932,8 @@ function LeaveItemRow({
   item: LeaveItem;
   users: UserOpt[];
   nameOf: (id: string | null) => string;
-  hasDeputy: boolean;
+  /** 這張請假單目前的代理人；「同代理人」要寫入的就是這個 id（不是 null） */
+  deputyId: string | null;
   canEdit: boolean;
   onSave: (
     item: LeaveItem,
@@ -964,9 +974,13 @@ function LeaveItemRow({
       }
     }
     setBusy(true);
+    // 「同代理人」必須寫入 deputyId，不能寫 null：DB 的 eip_fill_lhi_defaults 只在
+    // INSERT 時補預設值，trg_lhi_backfill_on_deputy_set 只在 deputy_id 變更時回填，
+    // UPDATE 既有項目時兩支都不會動 —— 寫 null 的結果是變成「未指派」，
+    // 代理人的工作區直接收不到這一項。
     const ok = await onSave(item, {
       title: t,
-      assignee_id: assignee === NO_ASSIGNEE ? null : assignee,
+      assignee_id: assignee === NO_ASSIGNEE ? deputyId : assignee,
       url: u || null,
     });
     setBusy(false);
@@ -988,8 +1002,8 @@ function LeaveItemRow({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {/* 沒選人時 DB 會補成這張單的代理人；沒有代理人就留成未指派 */}
-              <SelectItem value={NO_ASSIGNEE}>{hasDeputy ? "同代理人" : "未指派"}</SelectItem>
+              {/* 有代理人就直接寫入代理人；沒有代理人才是真的留成未指派 */}
+              <SelectItem value={NO_ASSIGNEE}>{deputyId ? "同代理人" : "未指派"}</SelectItem>
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name}
@@ -1076,11 +1090,12 @@ function LeaveItemRow({
 /** 新增一列代辦：事項必填，指派與連結選填 */
 function AddLeaveItemRow({
   users,
-  hasDeputy,
+  deputyId,
   onAdd,
 }: {
   users: UserOpt[];
-  hasDeputy: boolean;
+  /** 這張請假單目前的代理人；「同代理人」直接寫入這個 id */
+  deputyId: string | null;
   onAdd: (input: { title: string; assigneeId: string | null; url: string | null }) => Promise<boolean>;
 }) {
   const [title, setTitle] = useState("");
@@ -1093,7 +1108,8 @@ function AddLeaveItemRow({
     setBusy(true);
     const ok = await onAdd({
       title,
-      assigneeId: assignee === NO_ASSIGNEE ? null : assignee,
+      // 跟編輯一致：有代理人就明確寫進去，不依賴 INSERT trigger 的預設值
+      assigneeId: assignee === NO_ASSIGNEE ? deputyId : assignee,
       url: url.trim() || null,
     });
     setBusy(false);
@@ -1123,7 +1139,7 @@ function AddLeaveItemRow({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={NO_ASSIGNEE}>{hasDeputy ? "同代理人" : "未指派"}</SelectItem>
+          <SelectItem value={NO_ASSIGNEE}>{deputyId ? "同代理人" : "未指派"}</SelectItem>
           {users.map((u) => (
             <SelectItem key={u.id} value={u.id}>
               {u.name}
