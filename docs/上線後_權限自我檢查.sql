@@ -152,6 +152,31 @@ where u.status='active' and u.role in ('dept_manager','company_admin')
 order by u.role, u.name;
 
 
+-- 每個部門都必須找得到一位「實際負責的在職主管」。
+-- 規則（0159）：自己 → 父 → 祖父… 往上找第一個有在職 manager_id 或明確登記督導的部門。
+-- 沒有直屬主管不是問題（會往上跑），★ 只會出現在「連往上都找不到」的情況，
+-- 或是新增部門時整條線都沒指派。
+with recursive tree as (
+  select d.id, d.name, d.parent_id, 0 lvl, d.name::text path
+    from public.department d where d.parent_id is null
+  union all
+  select d.id, d.name, d.parent_id, t.lvl+1, t.path||' > '||d.name
+    from public.department d join tree t on d.parent_id = t.id
+)
+select repeat('　', t.lvl)||t.name as 部門,
+       coalesce(mu.name,'（未指派）') as 掛的主管,
+       coalesce(mu.status::text,'-') as 狀態,
+       coalesce(eu.name,'★ 連往上都找不到在職主管') as 實際負責人,
+       case when d.manager_id is not null and mu.status::text='active' then '直屬'
+            when eu.id is null then '★ 無人'
+            else '往上找到' end as 來源
+from tree t
+join public.department d on d.id = t.id
+left join public.app_user mu on mu.id = d.manager_id
+left join public.app_user eu on eu.id = public.eip_dept_effective_manager(d.id)
+order by t.path;
+
+
 -- =============================================================================
 -- 【檢查 4】部門主管：管轄範圍內要能做事、範圍外要被擋
 -- 換人測：改 v_mgr
