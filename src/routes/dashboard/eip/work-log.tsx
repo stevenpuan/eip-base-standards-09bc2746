@@ -277,16 +277,17 @@ function Section({ title, Icon, tone, items, editable, onChange, onToggleDone }:
   const setItem = (i: number, patch: Partial<Item>) => onChange(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const toneCls = tone === "accent" ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary";
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${toneCls}`}><Icon className="w-4 h-4" /></span>
-        <span className="text-sm font-semibold">{title}</span>
-        <span className="ml-auto text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{items.length}</span>
+    <div className="h-full rounded-2xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-border/70">
+        <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${toneCls}`}><Icon className="w-4.5 h-4.5" /></span>
+        <span className="text-base font-semibold tracking-tight">{title}</span>
+        <span className="ml-auto text-xs font-semibold text-muted-foreground bg-muted rounded-full px-2.5 py-1 tabular">{items.length}</span>
       </div>
-      {items.length === 0 && <div className="text-xs text-muted-foreground mb-2 pl-1">尚無項目</div>}
-      <ul className="space-y-1.5 mb-2">
+      {items.length === 0 && <div className="text-sm text-muted-foreground mb-3 pl-1">尚無項目</div>}
+      <ul className="space-y-1 mb-3">
         {items.map((it, i) => (
-          <li key={i} className="group rounded-lg hover:bg-muted/40 px-1.5 py-1">
+          <li key={i} className="group rounded-lg hover:bg-muted/40 px-2 py-1.5">
+
             <div className="flex items-center gap-2 text-sm">
               <button type="button" disabled={!editable}
                 title={it.done ? "取消勾選（立即儲存）" : "勾選＝今天有做（立即儲存）"}
