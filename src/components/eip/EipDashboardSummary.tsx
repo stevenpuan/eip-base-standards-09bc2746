@@ -214,7 +214,6 @@ export function EipDashboardSummary() {
             <div className="text-sm text-muted-foreground py-8 text-center">尚無公告</div>
           ) : (
             <ul className="divide-y divide-border/70">
-              <li className="hidden" />
               {(annQ.data ?? []).map((a: any) => (
                 <li key={a.id} className="py-2.5 flex items-center gap-2.5 text-sm">
                   {a.is_pinned && <Pin className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
