@@ -235,24 +235,24 @@ export function EipDashboardSummary() {
 
 
       {managerLevel && mgrStats && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm font-medium mb-2">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="shadow-sm">
+            <CardContent className="p-5">
+              <div className="text-sm font-semibold mb-3">
                 {appUser?.role === "dept_manager" ? "部門任務分佈" : "全公司任務分佈"}
               </div>
               <div className="flex flex-wrap gap-2">
                 {statuses.length === 0 && (
-                  <span className="text-xs text-muted-foreground">無資料</span>
+                  <span className="text-sm text-muted-foreground">無資料</span>
                 )}
                 {statuses.map((s: any) => (
                   <Link
                     key={s.id}
                     to="/dashboard/eip/tasks"
-                    className="px-2.5 py-1 rounded-md bg-muted text-xs hover:bg-accent"
+                    className="px-3 py-1.5 rounded-lg border bg-muted/60 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     {s.name}
-                    <span className="ml-1.5 font-semibold">
+                    <span className="ml-1.5 font-semibold tabular">
                       {mgrStats.byStatus[s.id] ?? 0}
                     </span>
                   </Link>
@@ -260,13 +260,13 @@ export function EipDashboardSummary() {
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm font-medium mb-2">進行中專案</div>
+          <Card className="shadow-sm">
+            <CardContent className="p-5">
+              <div className="text-sm font-semibold mb-3">進行中專案</div>
               {mgrStats.projects.length === 0 ? (
-                <div className="text-xs text-muted-foreground">尚無進行中專案</div>
+                <div className="text-sm text-muted-foreground">尚無進行中專案</div>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="space-y-3">
                   {mgrStats.projects.slice(0, 5).map((p: any) => {
                     const t = (tasksQ.data ?? []).filter((x: any) =>
                       (x as any).project_id === p.id,
@@ -274,19 +274,19 @@ export function EipDashboardSummary() {
                     const done = t.filter((x: any) => doneStatusIds.includes(x.status_id)).length;
                     const pct = t.length ? Math.round((done / t.length) * 100) : 0;
                     return (
-                      <li key={p.id} className="text-xs">
-                        <div className="flex items-center justify-between">
+                      <li key={p.id} className="text-sm">
+                        <div className="flex items-center justify-between gap-3">
                           <Link
                             to="/dashboard/eip/projects"
                             className="truncate hover:text-primary hover:underline"
                           >
                             {p.name}
                           </Link>
-                          <Badge variant="secondary" className="text-[11.5px]">{pct}%</Badge>
+                          <Badge variant="secondary" className="text-[11.5px] tabular shrink-0">{pct}%</Badge>
                         </div>
-                        <div className="h-1.5 rounded-full bg-muted mt-1 overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-muted mt-1.5 overflow-hidden">
                           <div
-                            className="h-full bg-primary"
+                            className="h-full bg-primary transition-all"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -297,6 +297,9 @@ export function EipDashboardSummary() {
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+
         </div>
       )}
     </div>
