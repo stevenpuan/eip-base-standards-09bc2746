@@ -186,15 +186,18 @@ function UsersPage() {
       p_role_ids: editRoleIds,
     });
     if (rpcErr) { toast.error(humanizeError(rpcErr, "角色更新")); return; }
-    // upsert app_user（部門/LINE）
-    const existing = appUserMap[editing.id];
-    if (existing) {
-      const { error } = await supabase.from("app_user").update({
-        department_id: editDept === "none" ? null : editDept,
-        line_user_id: editLine.trim() || null,
-        deputy_id: editDeputy === "none" ? null : editDeputy,
-      }).eq("id", editing.id);
-      if (error) { toast.error(humanizeError(error, "儲存成員資料")); return; }
+    // 寫回 app_user（部門 / LINE / 代理人）。
+    // 不再用 appUserMap 先判斷有沒有列 —— 改成看實際更新筆數，
+    // 0 筆代表這個人沒有 app_user 列或被 RLS 擋掉，必須讓使用者知道。
+    const { data: updated, error } = await supabase.from("app_user").update({
+      department_id: editDept === "none" ? null : editDept,
+      line_user_id: editLine.trim() || null,
+      deputy_id: editDeputy === "none" ? null : editDeputy,
+    }).eq("id", editing.id).select("id");
+    if (error) { toast.error(humanizeError(error, "儲存成員資料")); return; }
+    if (!updated || updated.length === 0) {
+      toast.error("找不到這位同仁的成員資料，部門／LINE／代理人未儲存，請聯絡系統管理者");
+      return;
     }
     toast.success("已儲存");
     setEditing(null);
