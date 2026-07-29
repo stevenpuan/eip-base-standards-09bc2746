@@ -231,16 +231,30 @@ function MyTasksPage() {
   const canDelete = (t: Task) =>
     t.owner_id === appUser.id && !statusMap.get(t.status_id)?.is_done_state;
   const handleDelete = async (t: Task) => {
-    if (!window.confirm(`確定刪除任務「${t.title}」？子任務與協作紀錄會一併移除，此動作無法復原。`))
+    // 文案更正：這不是永久刪除，會進回收區（原本寫「無法復原」是錯的）
+    if (!window.confirm(`確定刪除任務「${t.title}」？會移到回收區，可在「已刪除」分頁還原。`))
       return;
     setDeleting(t.id);
-    const { error } = await supabase.from("task").delete().eq("id", t.id);
+    // 走 eip_soft_delete RPC，跟 tasks.tsx 的單筆／批次刪除一致。
+    // 不能用 .delete()：task 上的軟刪除 guard 是 BEFORE DELETE ... RETURN NULL，
+    // ROW_COUNT 一律 0，所以列數檢查在這張表上會把成功報成失敗；
+    // 而只看 error 又會把被 RLS 擋掉的情況報成成功 —— 原本就是這個 bug。
+    const { data, error } = await supabaseAny.rpc("eip_soft_delete", {
+      p_module: "eip_tasks",
+      p_id: t.id,
+    });
     setDeleting(null);
     if (error) {
-      toast.error(error.message);
+      // 後端訊息原封不動顯示：purge_guard 的拒絕理由帶了協作者／變更紀錄／
+      // 進度回報的筆數，是刻意寫給使用者看的。
+      toast.error(`刪除失敗：${error.message}`);
       return;
     }
-    toast.success("已刪除任務");
+    if ((data as { ok?: boolean } | null)?.ok !== true) {
+      toast.error("刪除失敗：僅本人 / 本部門主管 / 管理者可刪除這筆任務");
+      return;
+    }
+    toast.success("已移到回收區，可在「已刪除」分頁還原");
     refetch();
   };
 

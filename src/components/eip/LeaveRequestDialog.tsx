@@ -50,18 +50,21 @@ let seq = 0;
 const newKey = () => `d${++seq}`;
 
 /**
- * 請假申請 ＋ 代辦事項清單（規格書 H、原型 H-1）。
+ * 請假申請（規格書 H、原型 H-1）。
  *
- * 三個刻意的設計決定，對應訪談定案：
+ * 四個刻意的設計決定，對應訪談定案：
  *  ・**沒有假別、沒有事由** —— EZ9 已有正式假單，EIP 只管交接，避免兩套資料
  *    （定案第 13 條）。舊資料的 leave_type 欄位保留但不再有輸入入口。
+ *  ・**只填請假區間就能送出**：臨時請假常常是人在外面、趕時間，
+ *    代理人與代辦清單一律**選填**，事後在「交接代辦」頁補登。
+ *    前一版把三者綁成一張必填表單，結果是假送不出去 —— 這裡刻意反過來。
  *  ・**代理人是每次請假指定**（存 eip_quick_report.deputy_id），
  *    不是 app_user.deputy_id 那個靜態代理人（那是通知副本用）。
  *  ・**主管不核准、不簽核**（定案第 14 條）：送出只發通知給單位主管與代理人，
  *    這個表單裡不會有任何「送審」的概念。
  *
- * 代辦清單跟請假單一起送出，因為代理人要的是「哪幾件事要接手」，
- * 分兩步做的話多數人只會做第一步。
+ * 代辦沒指定 assignee 時 DB 的 eip_fill_lhi_defaults 會自動掛給這張單的 deputy_id；
+ * deputy 也是 null 就留 null（＝未指派），這是允許的狀態，前端不擋。
  */
 export function LeaveRequestDialog({
   open,
@@ -81,7 +84,10 @@ export function LeaveRequestDialog({
   const [fromTime, setFromTime] = useState("08:00");
   const [toTime, setToTime] = useState("17:30");
   const [deputyId, setDeputyId] = useState<string>(NO_ASSIGNEE);
-  const [items, setItems] = useState<Draft[]>([{ key: newKey(), title: "", assigneeId: NO_ASSIGNEE, url: "" }]);
+  // 預設空陣列＋收起：臨時請假的主流程是「只填區間就送出」，
+  // 一開場就攤開一列空白輸入會讓人以為那是必填的
+  const [items, setItems] = useState<Draft[]>([]);
+  const [showItems, setShowItems] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const others = (usersQ.data ?? []).filter((u) => u.id !== appUser?.id);
@@ -89,13 +95,22 @@ export function LeaveRequestDialog({
   const patch = (key: string, p: Partial<Draft>) =>
     setItems((prev) => prev.map((x) => (x.key === key ? { ...x, ...p } : x)));
 
+  const blankRow = (): Draft => ({ key: newKey(), title: "", assigneeId: NO_ASSIGNEE, url: "" });
+
+  /** 展開代辦區塊；空的時候補一列，否則展開後是一片空白沒東西可填 */
+  const openItems = () => {
+    setShowItems(true);
+    setItems((prev) => (prev.length ? prev : [blankRow()]));
+  };
+
   const reset = () => {
     setFromDate(todayLocal());
     setToDate(todayLocal());
     setFromTime("08:00");
     setToTime("17:30");
     setDeputyId(NO_ASSIGNEE);
-    setItems([{ key: newKey(), title: "", assigneeId: NO_ASSIGNEE, url: "" }]);
+    setItems([]);
+    setShowItems(false);
   };
 
   const submit = async () => {
@@ -103,9 +118,10 @@ export function LeaveRequestDialog({
     if (!fromDate || !toDate) return toast.error("請選擇請假區間");
     if (toDate < fromDate) return toast.error("迄日不可早於起日");
     if (fromDate === toDate && toTime <= fromTime) return toast.error("同一天的迄時要晚於起時");
-    if (deputyId === NO_ASSIGNEE) return toast.error("請指定這次請假的代理人");
+    // 代理人是選填：沒指定就整張單先成立，之後在「交接代辦」補。這裡刻意不擋。
 
-    const filled = items.filter((x) => x.title.trim());
+    // 代辦區塊收起時一律不送代辦，即使之前展開過打了字（那視同放棄）
+    const filled = showItems ? items.filter((x) => x.title.trim()) : [];
     for (const it of filled) {
       const u = it.url.trim();
       if (u) {
@@ -123,7 +139,8 @@ export function LeaveRequestDialog({
         report_date: fromDate,
         leave_from: stamp(fromDate, fromTime),
         leave_to: stamp(toDate, toTime),
-        deputy_id: deputyId,
+        // 未指定代理人就寫 null（DB 允許），不要寫 sentinel 字串
+        deputy_id: deputyId === NO_ASSIGNEE ? null : deputyId,
         submitted_at: new Date().toISOString(),
       })
       .select("id")
@@ -136,13 +153,19 @@ export function LeaveRequestDialog({
 
     // 代辦項目是附帶寫入：失敗不該讓請假單消失，但也絕對不能照跳成功
     let itemErr: string | null = null;
+    const deputy = deputyId === NO_ASSIGNEE ? null : deputyId;
+    // 代理人與逐項指派都空＝未指派，DB 允許（trigger 補不到人時留 null）
+    const unassigned = deputy
+      ? 0
+      : filled.filter((x) => x.assigneeId === NO_ASSIGNEE).length;
     if (filled.length) {
       const { error: ie } = await supabase.from("eip_leave_handover_item").insert(
         filled.map((x, i) => ({
           quick_report_id: rep.id,
           title: x.title.trim(),
-          // 沒指定就掛給這次的代理人（DB trigger 也會補，這裡先寫清楚語意）
-          assignee_id: x.assigneeId === NO_ASSIGNEE ? deputyId : x.assigneeId,
+          // 沒指定就掛給這次的代理人（DB trigger 也會補，這裡先寫清楚語意）；
+          // 代理人也沒指定時是 null＝未指派
+          assignee_id: x.assigneeId === NO_ASSIGNEE ? deputy : x.assigneeId,
           url: x.url.trim() || null,
           sort_order: i + 1,
         })),
@@ -152,15 +175,19 @@ export function LeaveRequestDialog({
     setBusy(false);
 
     if (itemErr) {
-      toast.warning(`請假已送出，但代辦事項沒有存進去（${itemErr}），請到臨時回報頁補上`);
+      toast.warning(`請假已送出，但代辦事項沒有存進去（${itemErr}），請到「交接代辦」頁補上`);
     } else if (filled.length === 0) {
-      toast.success("請假已送出（沒有代辦事項，可直接在清單頁結案）");
+      toast.success("請假已送出。代辦事項可到「交接代辦」頁補登，代理人也可以在那裡指定。");
+    } else if (unassigned > 0) {
+      toast.warning(`請假已送出，${unassigned} 項代辦尚未指派，請到「交接代辦」指定代理人`);
     } else {
       toast.success(`請假已送出，${filled.length} 項代辦已通知代理人`);
     }
 
     void qc.invalidateQueries({ queryKey: ["eip", "quick-reports"] });
     void qc.invalidateQueries({ queryKey: ["eip", "leave-handover-inbox"] });
+    // 交接代辦頁的「我的請假交接」要立刻看得到這張新單（代理人／代辦在那裡補登）
+    void qc.invalidateQueries({ queryKey: ["eip", "my-leave-handover"] });
     reset();
     onSubmitted?.();
     onClose();
@@ -170,10 +197,16 @@ export function LeaveRequestDialog({
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>請假申請 ＋ 代辦事項清單</DialogTitle>
+          <DialogTitle>請假申請</DialogTitle>
           <DialogDescription>
-            送出後不需主管核准，系統會直接通知單位主管與代理人。
-            假別與事由請走 EZ9 正式假單，這裡只處理期間的工作交接。
+            <span className="block">
+              只要填請假區間就可以送出。代理人與代辦事項都是選填，臨時請假來不及登打時，
+              事後到「交接代辦」頁面補就好。
+            </span>
+            <span className="block mt-1">
+              送出後不需主管核准、不用簽核，系統會直接通知單位主管與代理人。
+              假別與事由請走 EZ9 正式假單，這裡只處理期間的工作交接。
+            </span>
           </DialogDescription>
         </DialogHeader>
 
@@ -197,7 +230,7 @@ export function LeaveRequestDialog({
           </div>
 
           <div>
-            <Label className="text-xs">代理人（必填，這一次請假的代理人）</Label>
+            <Label className="text-xs">代理人（選填，可稍後在交接代辦指定）</Label>
             <Select value={deputyId} onValueChange={setDeputyId}>
               <SelectTrigger className="h-9 mt-1">
                 <SelectValue placeholder="選擇代理人…" />
@@ -213,24 +246,45 @@ export function LeaveRequestDialog({
             </Select>
             {usersQ.isError && (
               <p className="text-[12.5px] text-destructive mt-1">
-                人員清單載入失敗，請重新整理後再送出，否則代理人會是空的。
+                人員清單載入失敗，代理人選單會是空的；可以先送出，之後到「交接代辦」再指定。
               </p>
             )}
           </div>
 
-          {/* 代辦清單 */}
-          <div className="rounded-md border p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium">代辦事項清單</span>
+          {/* 代辦清單：預設收起。臨時請假的人要能三十秒送完，不能被清單擋住 */}
+          {!showItems ? (
+            <button
+              type="button"
+              onClick={openItems}
+              className="text-sm text-primary hover:underline text-left inline-flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              順便填代辦事項（選填，也可以稍後在交接代辦補登）
+            </button>
+          ) : (
+            <div className="rounded-md border p-3">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-sm font-medium">代辦事項清單（選填）</span>
               <span className="text-[12.5px] text-muted-foreground">
                 每一項可以單獨指派給不同人；留空的列不會送出
               </span>
               <div className="flex-1" />
               <Button
                 size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setShowItems(false);
+                  setItems([]);
+                }}
+              >
+                先不填
+              </Button>
+              <Button
+                size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={() => setItems((p) => [...p, { key: newKey(), title: "", assigneeId: NO_ASSIGNEE, url: "" }])}
+                onClick={() => setItems((p) => [...p, blankRow()])}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 新增
@@ -251,7 +305,9 @@ export function LeaveRequestDialog({
                       <SelectValue placeholder="指派" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NO_ASSIGNEE}>同代理人</SelectItem>
+                      <SelectItem value={NO_ASSIGNEE}>
+                        {deputyId === NO_ASSIGNEE ? "未指派" : "同代理人"}
+                      </SelectItem>
                       {others.map((u) => (
                         <SelectItem key={u.id} value={u.id}>
                           {u.name}
@@ -282,8 +338,10 @@ export function LeaveRequestDialog({
             </div>
             <p className="text-[12.5px] text-muted-foreground mt-2">
               代理人在「我的工作」就能勾完成，完成度即時回傳給你與單位主管；全部完成時系統自動發第二段通知。
+              沒有指派對象也沒有代理人的項目會先留成「未指派」，到「交接代辦」指定代理人就會有人接。
             </p>
-          </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

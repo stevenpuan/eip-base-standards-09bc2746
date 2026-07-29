@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-// eip_calendar_events view 尚未進 types.ts，請假來源用 any 版 client。
+// eip_leave_roster RPC 尚未進 types.ts，請假名單用 any 版 client（型別在本檔自行宣告）。
 import { supabase as supabaseAny } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -37,6 +37,7 @@ type CalEvent = {
   projectId?: string;
   endDate?: string;
   personal?: PersonalEvent;
+  leave?: LeaveInfo;
   readOnly?: boolean;
 };
 
@@ -51,16 +52,30 @@ type PersonalEvent = {
   note: string | null;
 };
 
-type LeaveEvent = {
+/**
+ * eip_leave_roster RPC 的一列（migration 0148）。
+ * SECURITY DEFINER，全公司都看得到所有人的請假；刻意不回事由與假別，
+ * 所以行事曆上的請假只顯示姓名、部門與時段。
+ */
+type LeaveRosterRow = {
   id: string;
   user_id: string;
-  title: string;
+  user_name: string;
+  department_name: string | null;
   start_date: string;
-  end_date: string | null;
+  end_date: string;
   start_time: string | null;
-  note: string | null;
-  leave_type: string | null;
-  status: string | null;
+  end_time: string | null;
+  is_full_day: boolean;
+  handover_done: boolean;
+};
+
+/** 日格裡請假事件要用到的顯示資訊 */
+type LeaveInfo = {
+  userName: string;
+  departmentName: string | null;
+  timeLabel: string;
+  handoverDone: boolean;
 };
 
 type AppUserLite = { id: string; name: string | null };
@@ -82,6 +97,17 @@ function fmtTime(t: string | null | undefined) {
   return m ? `${m[1]}:${m[2]}` : null;
 }
 
+/** 請假時段文字：全天顯示「全天」，半天顯示 HH:MM–HH:MM */
+function leaveTimeLabel(r: LeaveRosterRow) {
+  if (r.is_full_day) return "全天";
+  const s = fmtTime(r.start_time);
+  const e = fmtTime(r.end_time);
+  if (s && e) return `${s}–${e}`;
+  if (s) return `${s} 起`;
+  if (e) return `至 ${e}`;
+  return "時段未填";
+}
+
 const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程", leave: "請假" } as const;
 const TYPE_COLOR: Record<EventType, string> = {
   task: "bg-blue-100 text-blue-700 border-blue-200",
@@ -90,6 +116,9 @@ const TYPE_COLOR: Record<EventType, string> = {
   personal: "bg-purple-100 text-purple-700 border-purple-200",
   leave: "bg-rose-100 text-rose-700 border-rose-200",
 };
+
+/** 日格未展開時最多顯示幾筆 */
+const DAY_PREVIEW_COUNT = 4;
 
 function toYMD(d: Date | string | null) {
   if (!d) return null;
@@ -107,6 +136,16 @@ function CalendarPage() {
     const d = new Date(); d.setDate(1); return d;
   });
   const [show, setShow] = useState({ task: true, meeting: true, milestone: true, personal: true, leave: true });
+  // 已展開（顯示全部事項）的日格，key 是該格的 ymd
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  // 請假名單按月份範圍查，切月份要重新抓
+  const rangeFrom = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const rangeTo = `${year}-${String(month + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+  const today = toYMD(new Date()) ?? rangeFrom;
 
   const tasksQ = useQuery({
     queryKey: ["cal", "tasks"],
@@ -142,18 +181,24 @@ function CalendarPage() {
       return (data ?? []) as PersonalEvent[];
     },
   });
-  // 請假：eip_calendar_events 把 personal_event 與 eip_quick_report(type='leave') 併成一個來源。
-  // view 是 security_invoker，所以本人看自己的、主管看管轄範圍，不會因為併成 view 就外洩。
-  // 這裡只取 leave（個人行程仍走上面 personalQ，因為那條路要支援編輯與分享）。
+  // 請假改走 eip_leave_roster RPC（SECURITY DEFINER），全公司每個人都看得到所有人的假。
+  // 原本讀 eip_calendar_events view 是 security_invoker，一般成員受 eip_quick_report 的
+  // qr_read 政策限制，只看得到自己與自己代理的假，等於行事曆上根本沒有當日請假名單。
   const leaveQ = useQuery({
-    queryKey: ["cal", "leave"],
+    queryKey: ["cal", "leave-roster", rangeFrom, rangeTo],
     queryFn: async () => {
-      const { data, error } = await supabaseAny
-        .from("eip_calendar_events")
-        .select("id,user_id,title,start_date,end_date,start_time,note,leave_type,status")
-        .eq("kind", "leave");
+      const { data, error } = await supabaseAny.rpc("eip_leave_roster", { p_from: rangeFrom, p_to: rangeTo });
       if (error) throw error;
-      return (data ?? []) as LeaveEvent[];
+      return (data ?? []) as LeaveRosterRow[];
+    },
+  });
+  // 「今日請假」不管月曆翻到哪個月都要正確，所以今天單獨查一次（快取以 today 為 key，切月份不會重抓）。
+  const todayLeaveQ = useQuery({
+    queryKey: ["cal", "leave-roster", today, today],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny.rpc("eip_leave_roster", { p_from: today, p_to: today });
+      if (error) throw error;
+      return (data ?? []) as LeaveRosterRow[];
     },
   });
   const sharesQ = useQuery({
@@ -177,9 +222,6 @@ function CalendarPage() {
 
   const events = useMemo<CalEvent[]>(() => {
     const list: CalEvent[] = [];
-    // 別人的假要標出是誰；userMap 定義在後面，這裡就地建一份
-    const nameOf = (id: string) =>
-      (usersQ.data ?? []).find((u) => u.id === id)?.name ?? "";
     if (show.task) {
       (tasksQ.data ?? []).forEach((t: any) => {
         const d = toYMD(t.due_date);
@@ -217,6 +259,7 @@ function CalendarPage() {
         const start = toYMD(lv.start_date);
         const end = toYMD(lv.end_date) ?? start;
         if (!start) return;
+        const timeLabel = leaveTimeLabel(lv);
         // 跨日的假要每一天都出現，否則只看得到第一天
         const cur = new Date(start + "T00:00:00");
         const last = new Date((end ?? start) + "T00:00:00");
@@ -224,16 +267,21 @@ function CalendarPage() {
         while (cur <= last && guard < 62) {
           const d = toYMD(cur);
           if (d) {
-            const who = lv.user_id === myId ? "" : `${nameOf(lv.user_id)} `;
             list.push({
               id: `lv-${lv.id}-${d}`,
               type: "leave",
-              title: `${who}${lv.title}`,
+              // RPC 不回事由與假別，標題只放請假人姓名
+              title: lv.user_name,
               date: d,
               endDate: end ?? undefined,
-              // 請假在「臨時回報」維護，行事曆只顯示
-              href: "/dashboard/eip/quick-reports",
+              // 一般成員沒有權限看請假詳情，所以不做成可點擊跳轉，只用 tooltip 補資訊
               readOnly: true,
+              leave: {
+                userName: lv.user_name,
+                departmentName: lv.department_name,
+                timeLabel,
+                handoverDone: lv.handover_done,
+              },
             });
           }
           cur.setDate(cur.getDate() + 1);
@@ -242,12 +290,9 @@ function CalendarPage() {
       });
     }
     return list;
-  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, personalQ.data, leaveQ.data, usersQ.data, show, myId]);
+  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, personalQ.data, leaveQ.data, show, myId]);
 
-  const year = cursor.getFullYear();
-  const month = cursor.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: (Date | null)[] = [];
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
@@ -263,7 +308,38 @@ function CalendarPage() {
     return m;
   }, [events]);
 
-  const today = toYMD(new Date());
+  const toggleDay = (ymd: string) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(ymd)) next.delete(ymd);
+      else next.add(ymd);
+      return next;
+    });
+  };
+  // 本月哪些日格超過預覽筆數（只有這些格子需要展開／收合）
+  const overflowDays = cells
+    .map((d) => (d ? toYMD(d) : null))
+    .filter((ymd): ymd is string => !!ymd && (eventsByDay.get(ymd)?.length ?? 0) > DAY_PREVIEW_COUNT);
+  const allExpanded = overflowDays.length > 0 && overflowDays.every((ymd) => expandedDays.has(ymd));
+  const toggleAllDays = () => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      overflowDays.forEach((ymd) => { if (allExpanded) next.delete(ymd); else next.add(ymd); });
+      return next;
+    });
+  };
+
+  // 今日請假名單：不受 show.leave 篩選影響，所有人都看得到
+  const todayLeaves = useMemo(
+    () => [...(todayLeaveQ.data ?? [])].sort((a, b) => a.user_name.localeCompare(b.user_name, "zh-Hant")),
+    [todayLeaveQ.data],
+  );
+  // 兩支請假查詢任一失敗都要讓使用者看得出來，不能顯示成 0 筆或空白
+  const leaveFailed = todayLeaveQ.isError || leaveQ.isError;
+  const retryLeave = () => {
+    void todayLeaveQ.refetch();
+    void leaveQ.refetch();
+  };
 
   // ---- Personal event dialog ----
   const [peOpen, setPeOpen] = useState(false);
@@ -291,7 +367,7 @@ function CalendarPage() {
   const openCreatePe = () => {
     setPeEditing(null);
     setPeTitle("");
-    setPeStart(today ?? "");
+    setPeStart(today);
     setPeEnd("");
     setPeStartTime("");
     setPeEndTime("");
@@ -377,7 +453,7 @@ function CalendarPage() {
     <div>
       <PageHeader
         title="行事曆"
-        description="整合任務、會議、里程碑與個人行程於同一視圖。"
+        description="整合任務、會議、里程碑、個人行程與請假名單於同一視圖。"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={() => setCursor(new Date(year, month - 1, 1))}><ChevronLeft className="w-4 h-4" /></Button>
@@ -397,7 +473,42 @@ function CalendarPage() {
             {TYPE_LABEL[k]}
           </label>
         ))}
+        {overflowDays.length > 0 && (
+          <Button variant="outline" size="sm" className="h-6 text-xs ml-auto" onClick={toggleAllDays}>
+            {allExpanded ? "全部收合" : "全部展開"}
+          </Button>
+        )}
       </div>
+
+      <Card className="mb-3">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium">今日請假</h2>
+            <span className="text-xs text-muted-foreground">{today}</span>
+          </div>
+          {leaveFailed ? (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-destructive">請假名單載入失敗</span>
+              <Button size="sm" variant="outline" className="h-6 text-xs" onClick={retryLeave}>重試</Button>
+            </div>
+          ) : todayLeaveQ.isLoading ? (
+            <p className="text-xs text-muted-foreground">請假名單載入中…</p>
+          ) : todayLeaves.length === 0 ? (
+            <p className="text-xs text-muted-foreground/70">今天沒有人請假</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {todayLeaves.map((lv) => (
+                <div key={lv.id} className="flex items-center gap-2 text-xs border rounded-md px-2 py-1">
+                  <span className="font-medium">{lv.user_name}</span>
+                  <span className="text-muted-foreground">{lv.department_name ?? "未設部門"}</span>
+                  <span className="text-muted-foreground">{leaveTimeLabel(lv)}</span>
+                  {!lv.handover_done && <span className="text-muted-foreground/70">代辦未完成</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
@@ -411,17 +522,30 @@ function CalendarPage() {
               const ymd = d ? toYMD(d) : null;
               const evs = ymd ? eventsByDay.get(ymd) ?? [] : [];
               const isToday = ymd === today;
+              const expanded = !!ymd && expandedDays.has(ymd);
+              const visible = expanded ? evs : evs.slice(0, DAY_PREVIEW_COUNT);
               return (
-                <div key={i} className={`min-h-[110px] border-r border-b p-1.5 ${isToday ? "bg-accent/30" : ""}`}>
+                <div key={i} className={`min-h-[110px] h-auto border-r border-b p-1.5 ${isToday ? "bg-accent/30" : ""}`}>
                   {d && (
                     <>
                       <div className={`text-xs font-medium mb-1 ${isToday ? "text-primary" : "text-muted-foreground"}`}>{d.getDate()}</div>
                       <div className="space-y-1">
-                        {evs.slice(0, 4).map((e) => {
+                        {visible.map((e) => {
                           const cls = `block text-[12.5px] truncate px-1.5 py-0.5 rounded border ${TYPE_COLOR[e.type]}`;
                           const displayTitle = (e.type === "personal" && e.personal && fmtTime(e.personal.start_time))
                             ? `${fmtTime(e.personal.start_time)} ${e.title}`
                             : e.title;
+                          if (e.type === "leave" && e.leave) {
+                            const lv = e.leave;
+                            // 一般成員沒有權限看請假詳情，所以不做連結，資訊放 tooltip
+                            const tip = `請假：${lv.userName}（${lv.departmentName ?? "未設部門"}）${lv.timeLabel}`;
+                            return (
+                              <div key={e.id} className={cls} title={lv.handoverDone ? tip : `${tip}／代辦未完成`}>
+                                {lv.userName}
+                                {!lv.handoverDone && <span className="ml-1 opacity-60">代辦未完成</span>}
+                              </div>
+                            );
+                          }
                           if (e.type === "personal" && e.personal) {
                             const onClick = () => {
                               if (e.readOnly) setPeViewing(e.personal!);
@@ -481,7 +605,15 @@ function CalendarPage() {
                             <div key={e.id} className={cls} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>{displayTitle}</div>
                           );
                         })}
-                        {evs.length > 4 && <div className="text-[11.5px] text-muted-foreground px-1">+{evs.length - 4}</div>}
+                        {ymd && evs.length > DAY_PREVIEW_COUNT && (
+                          <button
+                            type="button"
+                            onClick={() => toggleDay(ymd)}
+                            className="text-[11.5px] text-muted-foreground hover:text-foreground hover:underline px-1 text-left w-full"
+                          >
+                            {expanded ? "收合" : `+${evs.length - DAY_PREVIEW_COUNT}`}
+                          </button>
+                        )}
                       </div>
                     </>
                   )}

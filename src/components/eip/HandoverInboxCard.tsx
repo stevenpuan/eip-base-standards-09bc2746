@@ -272,6 +272,10 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
               </span>
             )}
             <div className="flex-1" />
+            {/* 代理人與代辦事項改成事後補登，補登的地方在「交接代辦」，這裡給一個入口 */}
+            <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
+              <Link to="/dashboard/eip/handover">補登交接代辦</Link>
+            </Button>
             {/* 定案第 15 條：請假從快速回報獨立，入口併進我的工作區 */}
             <Button
               size="sm"
@@ -286,8 +290,8 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
 
           {!showInbox ? (
             <div className="text-xs text-muted-foreground">
-              目前沒有需要你接手的代辦。請假時按上面的「我要請假」填區間、代理人與代辦清單，
-              送出後直接通知單位主管與代理人，不需要主管核准。
+              目前沒有需要你接手的代辦。請假按上面的「我要請假」，只要填請假區間就能送出，
+              不需要主管核准；代理人與代辦事項可以之後到「交接代辦」頁面補登。
             </div>
           ) : (
             <>
