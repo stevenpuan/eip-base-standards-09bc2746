@@ -72,7 +72,7 @@ function RolePermPage() {
   // 穩定參考，避免 useEffect 無限重跑
   const perms = permsData ?? EMPTY_ROWS;
   const [draft, setDraft] = useState<Record<string, any>>({});
-  useEffect(() => { const m: Record<string, any> = {}; perms.forEach((p) => (m[p.module_key] = p)); setDraft(m); }, [perms]);
+  useEffect(() => { const m: Record<string, any> = {}; perms.forEach((p: any) => (m[p.module_key] = p)); setDraft(m); }, [perms]);
   const mFlag = (k: string, a: string) => (isAdminRole ? true : !!draft[k]?.[a]);
   const mToggle = (k: string, a: string) => {
     if (!editable || isAdminRole) return;
