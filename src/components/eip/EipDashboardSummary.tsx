@@ -160,15 +160,16 @@ export function EipDashboardSummary() {
   if (!user) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">EIP 工作概況</h2>
-        <Link to="/dashboard/eip/my-tasks" className="text-xs text-primary hover:underline">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold tracking-tight">EIP 工作概況</h2>
+        <Link to="/dashboard/eip/my-tasks" className="text-sm text-primary hover:underline shrink-0">
           前往我的任務 →
         </Link>
       </div>
 
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+
         <MiniCard
           to="/dashboard/eip/my-tasks"
           icon={<ListTodo className="w-4 h-4" />}
