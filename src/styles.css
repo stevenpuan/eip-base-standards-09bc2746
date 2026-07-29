@@ -12,7 +12,24 @@
  */
 
 @theme inline {
+  /* 中文介面易讀性：整體字級微幅放大、行高加寬 */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.9063rem;
+  --text-sm--line-height: 1.6;
+  --text-base: 1.0313rem;
+  --text-base--line-height: 1.75;
+  --text-lg: 1.1563rem;
+  --text-lg--line-height: 1.65;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.5;
+  --text-2xl: 1.5625rem;
+  --text-2xl--line-height: 1.35;
+  --text-3xl: 1.9375rem;
+  --text-3xl--line-height: 1.25;
+
   --radius-sm: calc(var(--radius) - 4px);
+
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
