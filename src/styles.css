@@ -147,12 +147,37 @@
     border-color: hsl(var(--border));
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: ui-sans-serif, system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: 0.01em;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* 標題層級更清楚：字重加強、字距收緊 */
+  h1, h2, h3, h4 {
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  /* 數字對齊（統計卡、表格） */
+  table, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 表單控制項在行動裝置不縮放、可點擊面積足夠 */
+  input, textarea, select, button {
+    letter-spacing: inherit;
   }
 }
+
 
 /* RWD: 列表表格在窄螢幕可橫向捲動，並避免儲存格逐字斷行 */
 .overflow-x-auto > table {
