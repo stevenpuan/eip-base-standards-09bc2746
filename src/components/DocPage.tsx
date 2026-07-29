@@ -29,8 +29,15 @@ export function DocPage({ docKey, title, description }: { docKey: string; title:
   useEffect(() => { setContent(data?.content ?? ""); }, [data]);
 
   const save = async () => {
-    const { error } = await supabase.from("doc_pages").update({ content }).eq("key", docKey);
+    const { data: rows, error } = await supabase
+      .from("doc_pages")
+      .upsert({ key: docKey, content }, { onConflict: "key" })
+      .select("id");
     if (error) { toast.error(humanizeError(error, "儲存")); return; }
+    if (!rows || rows.length === 0) {
+      toast.error("儲存失敗：沒有寫入任何內容（可能是權限不足），請聯絡系統管理者");
+      return;
+    }
     toast.success("已儲存");
     setEditing(false);
     qc.invalidateQueries({ queryKey: ["doc", docKey] });
