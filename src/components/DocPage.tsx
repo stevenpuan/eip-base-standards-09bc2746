@@ -18,7 +18,8 @@ export function DocPage({ docKey, title, description }: { docKey: string; title:
   const { data } = useQuery({
     queryKey: ["doc", docKey],
     queryFn: async () => {
-      const { data } = await supabase.from("doc_pages").select("*").eq("key", docKey).maybeSingle();
+      const { data, error } = await supabase.from("doc_pages").select("*").eq("key", docKey).maybeSingle();
+      if (error) throw error;
       return data as { content: string | null } | null;
     },
   });
