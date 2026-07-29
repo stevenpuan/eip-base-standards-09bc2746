@@ -30,6 +30,8 @@ const ACTIONS: [string, string][] = [
 
 interface Role { id: string; code: string; name: string; is_system: boolean; }
 
+const EMPTY_ROWS: any[] = [];
+
 function RolePermPage() {
   const { can } = useAuth();
   const qc = useQueryClient();
