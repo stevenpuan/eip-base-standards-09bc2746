@@ -242,7 +242,7 @@ export function TodayRoutineCard() {
             </span>
           )}
           {missing > 0 && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+            <span className="text-[12.5px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
               {missing} 項還沒填執行內容
             </span>
           )}
@@ -287,7 +287,7 @@ export function TodayRoutineCard() {
               onSaveLink={saveLink}
               onRemove={remove}
             />
-            <p className="text-[11px] text-muted-foreground pt-0.5">
+            <p className="text-[12.5px] text-muted-foreground pt-0.5">
               勾選與執行內容都會直接存進今天的日誌，不需要再按儲存。
             </p>
           </div>
@@ -321,7 +321,7 @@ function RoutineGroup({
   if (!rows.length) return null;
   return (
     <div>
-      <div className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+      <div className="text-[12.5px] text-muted-foreground flex items-center gap-1 mb-1">
         <Icon className="w-3 h-3" />
         {label}
       </div>
@@ -429,13 +429,13 @@ function RoutineRowItem({
           {row.text}
         </span>
         {row.source && ROUTINE_SOURCE_LABEL[row.source] && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+          <span className="text-[11.5px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
             {ROUTINE_SOURCE_LABEL[row.source]}
           </span>
         )}
         {row.require_content && (
           <span
-            className={`text-[10px] shrink-0 ${needContent ? "text-destructive font-medium" : "text-amber-600"}`}
+            className={`text-[11.5px] shrink-0 ${needContent ? "text-destructive font-medium" : "text-amber-600"}`}
             title="需填執行內容（送出日誌前必填）"
           >
             需填
@@ -464,7 +464,7 @@ function RoutineRowItem({
             needContent ? "border-destructive/40" : "border-transparent hover:border-border/60"
           } focus:border-border`}
         />
-        <span className="text-[10px] text-muted-foreground shrink-0 pt-1.5 w-8 text-right">
+        <span className="text-[11.5px] text-muted-foreground shrink-0 pt-1.5 w-8 text-right">
           {saving ? "存…" : ""}
         </span>
       </div>
@@ -475,7 +475,7 @@ function RoutineRowItem({
           <button
             type="button"
             onClick={() => setLinkOpen(true)}
-            className="text-[11px] text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+            className="text-[12.5px] text-muted-foreground hover:text-primary inline-flex items-center gap-1"
           >
             <Link2 className="w-3 h-3" />
             加連結
@@ -508,14 +508,14 @@ function RoutineRowItem({
                 }
               }}
               placeholder="\\NAS\品保\2026\ 或 https://…"
-              className="flex-1 min-w-0 rounded-md bg-transparent px-1.5 py-0.5 text-[11px] font-mono outline-none border border-transparent hover:border-border/60 focus:border-border"
+              className="flex-1 min-w-0 rounded-md bg-transparent px-1.5 py-0.5 text-[12.5px] font-mono outline-none border border-transparent hover:border-border/60 focus:border-border"
             />
             {row.link && !isLocalPath(row.link) && (
               <a
                 href={row.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-primary hover:underline shrink-0"
+                className="text-[12.5px] text-primary hover:underline shrink-0"
               >
                 開啟
               </a>
@@ -524,7 +524,7 @@ function RoutineRowItem({
               <button
                 type="button"
                 onClick={() => void copyPath(row.link!, toast.success, toast.info)}
-                className="text-[11px] text-primary hover:underline shrink-0"
+                className="text-[12.5px] text-primary hover:underline shrink-0"
               >
                 複製
               </button>

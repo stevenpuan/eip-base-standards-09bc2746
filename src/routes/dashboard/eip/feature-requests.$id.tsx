@@ -223,7 +223,7 @@ function FeatureRequestDetailPage() {
               </div>
               <div>
                 <div className="text-sm font-semibold">AI 可行性分析</div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-[12.5px] text-muted-foreground">
                   以上為 AI 評估參考,非最終決策
                 </div>
               </div>
@@ -322,7 +322,7 @@ function FeatureRequestDetailPage() {
                 )}
               </div>
 
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-[12.5px] text-muted-foreground">
                 由 {a.model ?? "AI"} 於{" "}
                 {new Date(a.created_at).toLocaleString("zh-TW")} 產生
               </div>
@@ -355,7 +355,7 @@ function Metric({
 }) {
   return (
     <div className="border rounded-md p-3 bg-background">
-      <div className="text-[11px] text-muted-foreground mb-1">{label}</div>
+      <div className="text-[12.5px] text-muted-foreground mb-1">{label}</div>
       <div>{children}</div>
     </div>
   );

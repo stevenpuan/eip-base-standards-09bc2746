@@ -96,7 +96,7 @@ function Page() {
         {m.route && <span className="text-xs font-mono text-muted-foreground truncate">{m.route}</span>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {m.module_key && <Badge variant="outline" className="text-[10px]">{m.module_key}</Badge>}
+        {m.module_key && <Badge variant="outline" className="text-[11.5px]">{m.module_key}</Badge>}
         <Badge variant={m.is_active ? "default" : "outline"}>{m.is_active ? "啟用" : "停用"}</Badge>
         {canEdit && <Button size="sm" variant="outline" onClick={() => toggle(m)}>{m.is_active ? "停用" : "啟用"}</Button>}
         {canEdit && <Button size="sm" variant="outline" onClick={() => setForm({ ...m })}>編輯</Button>}

@@ -187,7 +187,7 @@ export function TaskChecklist({
                 {it.title}
               </span>
               {it.is_done && it.done_at && (
-                <span className="text-[11px] text-muted-foreground shrink-0">
+                <span className="text-[12.5px] text-muted-foreground shrink-0">
                   {nameOf?.(it.done_by) ?? ""}{" "}
                   {new Date(it.done_at).toLocaleDateString("zh-TW", {
                     month: "2-digit",

@@ -302,9 +302,9 @@ function Section({ title, Icon, tone, items, editable, onChange, onToggleDone }:
                 <span className={`flex-1 ${it.done ? "line-through text-muted-foreground" : ""}`}>{it.text}</span>
               )}
               {it.source && SOURCE_LABEL[it.source] && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{SOURCE_LABEL[it.source]}</span>
+                <span className="text-[11.5px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{SOURCE_LABEL[it.source]}</span>
               )}
-              {it.req && <span className="text-[10px] px-1 text-amber-600 shrink-0" title="需填執行內容">需填</span>}
+              {it.req && <span className="text-[11.5px] px-1 text-amber-600 shrink-0" title="需填執行內容">需填</span>}
               {editable && (
                 <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-muted-foreground/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"><X className="w-3.5 h-3.5" /></button>
               )}
@@ -318,17 +318,17 @@ function Section({ title, Icon, tone, items, editable, onChange, onToggleDone }:
                     不即時打 API —— 一邊打字一邊送出會很吵。 */}
                 <input value={it.link ?? ""} placeholder="相關連結（選填）：\\NAS\… 或 https://…"
                   onChange={(e) => setItem(i, { link: e.target.value })}
-                  className="mt-0.5 ml-6 block w-[calc(100%-1.75rem)] rounded-md bg-transparent px-1 py-0.5 text-[11px] font-mono text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
+                  className="mt-0.5 ml-6 block w-[calc(100%-1.75rem)] rounded-md bg-transparent px-1 py-0.5 text-[12.5px] font-mono text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
               </>
             ) : (
               <>
                 {it.note ? <p className="mt-0.5 ml-6 text-xs text-muted-foreground whitespace-pre-wrap">{it.note}</p> : null}
                 {it.link ? (
                   it.link.startsWith("\\\\") ? (
-                    <p className="mt-0.5 ml-6 text-[11px] font-mono text-muted-foreground break-all">{it.link}</p>
+                    <p className="mt-0.5 ml-6 text-[12.5px] font-mono text-muted-foreground break-all">{it.link}</p>
                   ) : (
                     <a href={it.link} target="_blank" rel="noopener noreferrer"
-                      className="mt-0.5 ml-6 block text-[11px] text-primary hover:underline break-all">{it.link}</a>
+                      className="mt-0.5 ml-6 block text-[12.5px] text-primary hover:underline break-all">{it.link}</a>
                   )
                 ) : null}
               </>
@@ -497,7 +497,7 @@ function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boole
                 <Download className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{a.file_name}</span>
               </button>
-              <span className="text-[11px] text-muted-foreground shrink-0">{fmtSize(a.file_size)}</span>
+              <span className="text-[12.5px] text-muted-foreground shrink-0">{fmtSize(a.file_size)}</span>
               {canEdit && (
                 <button type="button" onClick={() => remove(a)} className="text-muted-foreground/50 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
               )}

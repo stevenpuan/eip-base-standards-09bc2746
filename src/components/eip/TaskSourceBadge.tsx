@@ -39,7 +39,7 @@ export function TaskSourceBadge({ source, className = "" }: { source: TaskSource
     return (
       <Badge
         variant="secondary"
-        className={`text-[10px] gap-0.5 bg-amber-100 text-amber-800 hover:bg-amber-100 ${className}`}
+        className={`text-[11.5px] gap-0.5 bg-amber-100 text-amber-800 hover:bg-amber-100 ${className}`}
         title={`會議：${source.label}`}
       >
         <CalendarDays className="w-2.5 h-2.5" />
@@ -51,7 +51,7 @@ export function TaskSourceBadge({ source, className = "" }: { source: TaskSource
     return (
       <Badge
         variant="secondary"
-        className={`text-[10px] gap-0.5 bg-indigo-100 text-indigo-800 hover:bg-indigo-100 ${className}`}
+        className={`text-[11.5px] gap-0.5 bg-indigo-100 text-indigo-800 hover:bg-indigo-100 ${className}`}
         title={`專案：${source.label}`}
       >
         <FolderKanban className="w-2.5 h-2.5" />
@@ -63,7 +63,7 @@ export function TaskSourceBadge({ source, className = "" }: { source: TaskSource
     return (
       <Badge
         variant="secondary"
-        className={`text-[10px] gap-0.5 bg-teal-100 text-teal-800 hover:bg-teal-100 ${className}`}
+        className={`text-[11.5px] gap-0.5 bg-teal-100 text-teal-800 hover:bg-teal-100 ${className}`}
         title={TASK_SOURCE_HINT.recurring}
       >
         <Repeat className="w-2.5 h-2.5" /> 常態工作
@@ -74,7 +74,7 @@ export function TaskSourceBadge({ source, className = "" }: { source: TaskSource
   return (
     <Badge
       variant="secondary"
-      className={`text-[10px] gap-0.5 bg-slate-100 text-slate-700 hover:bg-slate-100 ${className}`}
+      className={`text-[11.5px] gap-0.5 bg-slate-100 text-slate-700 hover:bg-slate-100 ${className}`}
       title={TASK_SOURCE_HINT.normal}
     >
       <ListChecks className="w-2.5 h-2.5" /> 任務看板

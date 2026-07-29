@@ -212,7 +212,7 @@ export function LeaveRequestDialog({
               </SelectContent>
             </Select>
             {usersQ.isError && (
-              <p className="text-[11px] text-destructive mt-1">
+              <p className="text-[12.5px] text-destructive mt-1">
                 人員清單載入失敗，請重新整理後再送出，否則代理人會是空的。
               </p>
             )}
@@ -222,7 +222,7 @@ export function LeaveRequestDialog({
           <div className="rounded-md border p-3">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm font-medium">代辦事項清單</span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[12.5px] text-muted-foreground">
                 每一項可以單獨指派給不同人；留空的列不會送出
               </span>
               <div className="flex-1" />
@@ -280,7 +280,7 @@ export function LeaveRequestDialog({
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-2">
+            <p className="text-[12.5px] text-muted-foreground mt-2">
               代理人在「我的工作」就能勾完成，完成度即時回傳給你與單位主管；全部完成時系統自動發第二段通知。
             </p>
           </div>

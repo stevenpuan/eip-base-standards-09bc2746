@@ -338,11 +338,11 @@ function ProjectRow({
       >
         <ChevronRight className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", expanded && "rotate-90")} />
         <div className="font-medium truncate min-w-0 flex-[2]">{p.name}</div>
-        <Badge className={cn("text-[10px] shrink-0", PROJECT_STATUS_COLOR[p.status])} variant="secondary">
+        <Badge className={cn("text-[11.5px] shrink-0", PROJECT_STATUS_COLOR[p.status])} variant="secondary">
           {PROJECT_STATUS_LABEL[p.status]}
         </Badge>
         <VisibilityBadge scope={p.visibility_scope} departmentId={p.department_id} deptMap={deptMap} className="shrink-0" />
-        <span className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+        <span className="hidden sm:flex items-center gap-1 text-[12.5px] text-muted-foreground shrink-0">
           <span className={cn("inline-block w-2 h-2 rounded-full", HEALTH_DOT[p.health])} />
           {HEALTH_LABEL[p.health]}
         </span>
@@ -350,9 +350,9 @@ function ProjectRow({
           <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
             <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
           </div>
-          <span className="text-[11px] text-muted-foreground tabular-nums w-9 text-right">{pct}%</span>
+          <span className="text-[12.5px] text-muted-foreground tabular-nums w-9 text-right">{pct}%</span>
         </div>
-        <span className="sm:hidden text-[11px] text-muted-foreground tabular-nums shrink-0">{pct}%</span>
+        <span className="sm:hidden text-[12.5px] text-muted-foreground tabular-nums shrink-0">{pct}%</span>
         <span className="hidden lg:inline text-xs text-muted-foreground truncate w-28 text-right">
           {owner?.name ?? "—"}
         </span>
@@ -394,11 +394,11 @@ function ProjectRow({
           <div className="grid gap-4 md:grid-cols-3">
             <div className="md:col-span-2 space-y-2">
               <div>
-                <div className="text-[11px] text-muted-foreground mb-0.5">目標</div>
+                <div className="text-[12.5px] text-muted-foreground mb-0.5">目標</div>
                 <div className="text-sm line-clamp-3 whitespace-pre-wrap">{p.goal || "—"}</div>
               </div>
               <div>
-                <div className="text-[11px] text-muted-foreground mb-0.5">範疇</div>
+                <div className="text-[12.5px] text-muted-foreground mb-0.5">範疇</div>
                 <div className="text-sm line-clamp-3 whitespace-pre-wrap">{p.scope || "—"}</div>
               </div>
             </div>

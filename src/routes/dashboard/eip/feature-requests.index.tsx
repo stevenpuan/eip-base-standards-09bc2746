@@ -379,7 +379,7 @@ function FeatureRequestsPage() {
                     ) : (
                       <Badge
                         variant="secondary"
-                        className={`text-[11px] ${STATUS_COLOR[r.status] ?? ""}`}
+                        className={`text-[12.5px] ${STATUS_COLOR[r.status] ?? ""}`}
                       >
                         {STATUS_LABEL[r.status] ?? r.status}
                       </Badge>

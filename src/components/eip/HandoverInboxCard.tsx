@@ -292,7 +292,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
           ) : (
             <>
               {usersQ.isError && (
-                <div className="text-[11px] text-destructive mb-2">
+                <div className="text-[12.5px] text-destructive mb-2">
                   人員清單載入失敗，下面的姓名可能顯示不出來。
                 </div>
               )}
@@ -303,7 +303,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="text-xs font-medium text-muted-foreground">離職交接</span>
                     {escalated > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+                      <span className="text-[11.5px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
                         {escalated} 筆已催辦
                       </span>
                     )}
@@ -334,7 +334,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
                           key={r.id}
                           className="flex items-center gap-2 text-sm rounded-md border px-2 py-1.5"
                         >
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                          <span className="text-[11.5px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
                             {ENTITY_LABEL[r.entity_type] ?? r.entity_type}
                           </span>
                           <span className="flex-1 min-w-0 truncate">
@@ -343,7 +343,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
                         </div>
                       ))}
                       {rows.length > 5 && (
-                        <div className="text-[11px] text-muted-foreground pl-1">
+                        <div className="text-[12.5px] text-muted-foreground pl-1">
                           另有 {rows.length - 5} 筆，請到交接待辦頁查看
                         </div>
                       )}
@@ -374,7 +374,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
                         {!g.unreadable && `（${formatRange(g.from, g.to)}）`}
                       </span>
                       <div className="flex-1" />
-                      <span className="text-[11px] text-muted-foreground bg-background rounded-full px-2 py-0.5">
+                      <span className="text-[12.5px] text-muted-foreground bg-background rounded-full px-2 py-0.5">
                         {g.done}/{g.items.length}
                       </span>
                     </div>
@@ -414,14 +414,14 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
                                 <Link2 className="w-3.5 h-3.5" />
                               </a>
                             ))}
-                          <span className="text-[11px] text-muted-foreground shrink-0 w-20 text-right tabular-nums">
+                          <span className="text-[12.5px] text-muted-foreground shrink-0 w-20 text-right tabular-nums">
                             {it.done_at ? formatDoneAt(it.done_at) : "—"}
                           </span>
                         </div>
                       ))}
                     </div>
                     {g.done === g.items.length && (
-                      <div className="px-2 py-1 text-[11px] text-muted-foreground bg-muted/20 flex items-center gap-1">
+                      <div className="px-2 py-1 text-[12.5px] text-muted-foreground bg-muted/20 flex items-center gap-1">
                         <Check className="w-3 h-3" />
                         全部完成，已自動通知休假人與單位主管
                       </div>
@@ -430,7 +430,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
                 ))
               )}
               {groups.length > 0 && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[12.5px] text-muted-foreground">
                   完成度即時回傳，休假人與單位主管都看得到；主管不需要按任何按鈕。
                 </p>
               )}

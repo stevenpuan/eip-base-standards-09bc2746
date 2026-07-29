@@ -303,7 +303,7 @@ function StatBox({ label, value, sub, accent }: { label: string; value: React.Re
       <CardContent className="p-3">
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className={`text-xl font-bold mt-0.5 ${accent ?? ""}`}>{value}</div>
-        {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
+        {sub && <div className="text-[12.5px] text-muted-foreground mt-0.5">{sub}</div>}
       </CardContent>
     </Card>
   );
@@ -484,7 +484,7 @@ function MilestonesSection({ projectId, tenantId, milestones, canEdit, highlight
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm ${m.status === "done" ? "line-through text-muted-foreground" : ""}`}>{m.name}</span>
-                      {overdue && <Badge variant="destructive" className="text-[10px]">逾期</Badge>}
+                      {overdue && <Badge variant="destructive" className="text-[11.5px]">逾期</Badge>}
                     </div>
                     <div className="text-xs text-muted-foreground">{m.due_date ?? "無期限"} · 進度 {m.progress}%</div>
                     <Progress value={m.progress} className="h-1 mt-1 max-w-xs" />
@@ -573,7 +573,7 @@ function TasksSection({
                 </div>
                 <div className="w-20 hidden sm:block">
                   <Progress value={t.progress} className="h-1.5" />
-                  <div className="text-[10px] text-muted-foreground text-right mt-0.5">{t.progress}%</div>
+                  <div className="text-[11.5px] text-muted-foreground text-right mt-0.5">{t.progress}%</div>
                 </div>
               </button>
             );
@@ -689,9 +689,9 @@ function RisksSection({ projectId, tenantId, risks, canEdit }: { projectId: stri
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium">{r.title}</span>
-                  <Badge variant="outline" className="text-[10px]">可能性 {RISK_LEVEL_LABEL[r.likelihood ?? "medium"] ?? r.likelihood}</Badge>
-                  <Badge variant="outline" className="text-[10px]">影響 {RISK_LEVEL_LABEL[r.impact ?? "medium"] ?? r.impact}</Badge>
-                  <Badge className={`text-[10px] ${RISK_STATUS_COLOR[r.status] ?? ""}`} variant="secondary">{RISK_STATUS_LABEL[r.status] ?? r.status}</Badge>
+                  <Badge variant="outline" className="text-[11.5px]">可能性 {RISK_LEVEL_LABEL[r.likelihood ?? "medium"] ?? r.likelihood}</Badge>
+                  <Badge variant="outline" className="text-[11.5px]">影響 {RISK_LEVEL_LABEL[r.impact ?? "medium"] ?? r.impact}</Badge>
+                  <Badge className={`text-[11.5px] ${RISK_STATUS_COLOR[r.status] ?? ""}`} variant="secondary">{RISK_STATUS_LABEL[r.status] ?? r.status}</Badge>
                 </div>
                 {r.mitigation && <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">應對：{r.mitigation}</div>}
               </div>
@@ -839,7 +839,7 @@ function MeetingsSection({ projectId, meetings, canEdit }: { projectId: string; 
                     {new Date(m.meeting_date).toLocaleString("zh-TW")}{m.location && ` · ${m.location}`}
                   </div>
                 </div>
-                <Badge variant="secondary" className="text-[10px]">{MEETING_STATUS_LABEL[m.status] ?? m.status}</Badge>
+                <Badge variant="secondary" className="text-[11.5px]">{MEETING_STATUS_LABEL[m.status] ?? m.status}</Badge>
               </Link>
               {canEdit && (
                 <Button size="sm" variant="ghost" onClick={() => unlink(m.id)} className="h-7 text-xs text-muted-foreground">取消關聯</Button>

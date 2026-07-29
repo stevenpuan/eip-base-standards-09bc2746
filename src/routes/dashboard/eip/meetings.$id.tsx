@@ -435,7 +435,7 @@ function AttendeesSection({
                   必到
                 </label>
               ) : (
-                a.is_required && <Badge variant="outline" className="text-[10px]">必到</Badge>
+                a.is_required && <Badge variant="outline" className="text-[11.5px]">必到</Badge>
               )}
               {canEdit ? (
                 <Select
@@ -450,7 +450,7 @@ function AttendeesSection({
                   </SelectContent>
                 </Select>
               ) : (
-                <Badge className={`text-[10px] ${ATTEND_COLOR[a.attend_status]}`} variant="outline">
+                <Badge className={`text-[11.5px] ${ATTEND_COLOR[a.attend_status]}`} variant="outline">
                   {ATTEND_LABEL[a.attend_status]}
                 </Badge>
               )}
@@ -744,7 +744,7 @@ function ActionItemsSection({
                   {it.due_date && ` ・ 期限 ${it.due_date}`}
                 </div>
               </div>
-              <Badge variant="outline" className="text-[10px]">{ACTION_LABEL[it.status]}</Badge>
+              <Badge variant="outline" className="text-[11.5px]">{ACTION_LABEL[it.status]}</Badge>
               {it.linked_task_id ? (
                 <Link to="/dashboard/eip/tasks" className="text-xs text-primary hover:underline">
                   已連結任務

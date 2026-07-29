@@ -82,7 +82,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
         <img src="/logo.png" alt="陞煇食品" className="w-10 h-10 object-contain shrink-0" />
         <div className="min-w-0">
           <h1 className="text-sm font-bold text-primary truncate">陞煇食品</h1>
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">內部管理平台</p>
+          <p className="text-[12.5px] text-muted-foreground mt-0.5 truncate">內部管理平台</p>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">

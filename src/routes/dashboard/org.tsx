@@ -476,7 +476,7 @@ function TreeNode({
           </button>
         ) : (<span className="w-4" />)}
         <span className="truncate">{dept.name}</span>
-        {dept.code && <span className="ml-auto text-[10px] text-muted-foreground font-mono">{dept.code}</span>}
+        {dept.code && <span className="ml-auto text-[11.5px] text-muted-foreground font-mono">{dept.code}</span>}
         {isAdmin && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

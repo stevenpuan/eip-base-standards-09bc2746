@@ -103,7 +103,7 @@ export function VisibilityScopeFields({
               ))}
             </SelectContent>
           </Select>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-[12.5px] text-muted-foreground">
             選擇部門後，該部門及其上層主管可見；其他部門看不到。
           </div>
         </div>
@@ -125,7 +125,7 @@ export function VisibilityBadge({
     return (
       <Badge
         variant="outline"
-        className={`text-[10px] bg-blue-50 text-blue-700 border-blue-200 ${className ?? ""}`}
+        className={`text-[11.5px] bg-blue-50 text-blue-700 border-blue-200 ${className ?? ""}`}
       >
         全公司
       </Badge>
@@ -136,7 +136,7 @@ export function VisibilityBadge({
     return (
       <Badge
         variant="outline"
-        className={`text-[10px] bg-slate-100 text-slate-700 border-slate-200 ${className ?? ""}`}
+        className={`text-[11.5px] bg-slate-100 text-slate-700 border-slate-200 ${className ?? ""}`}
       >
         {name}
       </Badge>
