@@ -200,30 +200,31 @@ export function EipDashboardSummary() {
         />
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-medium flex items-center gap-2">
+      <Card className="shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="text-sm font-semibold flex items-center gap-2">
               <Megaphone className="w-4 h-4 text-muted-foreground" /> 最新公告
             </div>
-            <Link to="/dashboard/eip/announcements" className="text-xs text-primary hover:underline">
+            <Link to="/dashboard/eip/announcements" className="text-sm text-primary hover:underline shrink-0">
               全部公告 →
             </Link>
           </div>
           {(annQ.data ?? []).length === 0 ? (
-            <div className="text-xs text-muted-foreground py-6 text-center">尚無公告</div>
+            <div className="text-sm text-muted-foreground py-8 text-center">尚無公告</div>
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-border/70">
+              <li className="hidden" />
               {(annQ.data ?? []).map((a: any) => (
-                <li key={a.id} className="py-2 flex items-center gap-2 text-sm">
-                  {a.is_pinned && <Pin className="w-3 h-3 text-amber-600 shrink-0" />}
+                <li key={a.id} className="py-2.5 flex items-center gap-2.5 text-sm">
+                  {a.is_pinned && <Pin className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
                   <Link
                     to="/dashboard/eip/announcements"
                     className="flex-1 truncate hover:text-primary hover:underline"
                   >
                     {a.title}
                   </Link>
-                  <span className="text-xs text-muted-foreground shrink-0">
+                  <span className="text-xs text-muted-foreground shrink-0 tabular">
                     {a.published_at ? new Date(a.published_at).toLocaleDateString("zh-TW") : ""}
                   </span>
                 </li>
@@ -232,6 +233,7 @@ export function EipDashboardSummary() {
           )}
         </CardContent>
       </Card>
+
 
       {managerLevel && mgrStats && (
         <div className="grid gap-3 md:grid-cols-2">
