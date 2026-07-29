@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCheck, Trash2, ClipboardList, RefreshCw, CalendarClock, AlertTriangle, Megaphone, FileText, Inbox, Stamp, UserMinus, UserCheck } from "lucide-react";
+import { Bell, CheckCheck, Trash2, ClipboardList, RefreshCw, CalendarClock, AlertTriangle, Megaphone, FileText, Inbox, Stamp, UserMinus, UserCheck, ShieldAlert, ClipboardCheck, CircleCheckBig } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,12 @@ const TYPE_META: Record<string, { label: string; Icon: typeof Bell; cls: string 
   reassign_needed:    { label: "人員異動待處理", Icon: UserMinus, cls: "bg-accent/15 text-accent" },
   handover_created:   { label: "交接待辦",     Icon: UserMinus, cls: "bg-accent/15 text-accent" },
   handover_completed: { label: "交接完成",     Icon: UserCheck, cls: "bg-primary/10 text-primary" },
+  anomaly_opened:     { label: "缺失開立",     Icon: ShieldAlert,    cls: "bg-destructive/10 text-destructive" },
+  anomaly_filled:     { label: "缺失已填報",   Icon: ClipboardCheck, cls: "bg-accent/15 text-accent" },
+  anomaly_confirmed:  { label: "缺失已確認",   Icon: Stamp,          cls: "bg-accent/15 text-accent" },
+  anomaly_closed:     { label: "缺失結案",     Icon: CircleCheckBig, cls: "bg-primary/10 text-primary" },
+  anomaly_overdue:    { label: "缺失逾期未填", Icon: AlertTriangle,  cls: "bg-destructive/10 text-destructive" },
+  system_alert:       { label: "系統異常",     Icon: ShieldAlert,    cls: "bg-destructive/10 text-destructive" },
 };
 // handover_created / handover_completed 兩種型別同時被「離職交接」與「請假代辦」使用，
 // 因此標題要看 entity_type 才能正確顯示。
