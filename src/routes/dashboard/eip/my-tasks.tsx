@@ -256,6 +256,10 @@ function MyTasksPage() {
     }
     toast.success("已移到回收區，可在「已刪除」分頁還原");
     refetch();
+    // deletedQ 宣告在頁面層級、observer 一直掛著，切分頁不會重新 mount。
+    // 少了這一行，剛刪掉的任務要等視窗失焦再回來才會出現在「已刪除」，
+    // 使用者照著上面那句 toast 切過去看到空的，會以為真的永久刪掉了。
+    void deletedQ.refetch();
   };
 
   return (

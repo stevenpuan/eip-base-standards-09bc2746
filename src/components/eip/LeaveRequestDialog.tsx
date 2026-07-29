@@ -97,6 +97,9 @@ export function LeaveRequestDialog({
 
   const blankRow = (): Draft => ({ key: newKey(), title: "", assigneeId: NO_ASSIGNEE, url: "" });
 
+  /** 有填標題的列數：收起後用來提示「還留著幾項」 */
+  const draftCount = items.filter((x) => x.title.trim()).length;
+
   /** 展開代辦區塊；空的時候補一列，否則展開後是一片空白沒東西可填 */
   const openItems = () => {
     setShowItems(true);
@@ -259,7 +262,11 @@ export function LeaveRequestDialog({
               className="text-sm text-primary hover:underline text-left inline-flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" />
-              順便填代辦事項（選填，也可以稍後在交接代辦補登）
+              {/* 收起狀態刻意不送代辦（submit 端的 showItems 閘門）。既然「收起」不再清空，
+                  就必須把「還留著 N 項、但收著送出不會送」講明，否則會變成另一種靜默丟失 */}
+              {draftCount > 0
+                ? `展開代辦事項（已填 ${draftCount} 項；保持收起送出不會一起送）`
+                : "順便填代辦事項（選填，也可以稍後在交接代辦補登）"}
             </button>
           ) : (
             <div className="rounded-md border p-3">
@@ -269,16 +276,15 @@ export function LeaveRequestDialog({
                 每一項可以單獨指派給不同人；留空的列不會送出
               </span>
               <div className="flex-1" />
+              {/* 只收起、不清空：使用者常常是想回頭確認一下請假區間才收起的，
+                  把已經打好的幾列直接丟掉且不可回復是無法接受的 */}
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-7 text-xs"
-                onClick={() => {
-                  setShowItems(false);
-                  setItems([]);
-                }}
+                onClick={() => setShowItems(false)}
               >
-                先不填
+                收起
               </Button>
               <Button
                 size="sm"

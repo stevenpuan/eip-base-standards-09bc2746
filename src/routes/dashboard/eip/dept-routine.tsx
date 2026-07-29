@@ -237,6 +237,14 @@ function DeptRoutinePage() {
   // 切換區間後舊的選日可能已不在範圍內，用推導而不是 useEffect 修正，避免多一次 render
   const pendingDate = dateOptions.includes(pickedDate) ? pickedDate : defaultPendingDate;
 
+  // 上面的 defaultPendingDate 只能「盡量」不落在今天：預設區間是「今天」時
+  // from === to，dateOptions 只剩今天一天，find(d => d < to) 必然 undefined 而 fallback
+  // 回今天。所以「不要催今天」的保護不能只靠預設值，一定要有這道守衛。
+  // to 就是今天（dayStr(0)），只有嚴格早於今天的日期才算已到期。
+  const canNudgeDate = pendingDate < to;
+  const NOT_DUE_HINT =
+    "今天的日誌還沒到期，不能催填。請切換到「近 7 天」以上的範圍，選一個已經到期的日期。";
+
   const pending = useMemo(() => {
     return rows
       .filter((r) => r.log_date === pendingDate && r.log_status !== "submitted")
@@ -294,6 +302,11 @@ function DeptRoutinePage() {
     if (selectedIds.length === 0 || nudgeM.isPending) return;
     if (pendingDate > to) {
       toast.error("不能催填未來日期");
+      return;
+    }
+    // 今天也不行：日誌是當天結束前才要交的，催一份晚上才到期的日誌等於誤催
+    if (!canNudgeDate) {
+      toast.error(NOT_DUE_HINT);
       return;
     }
     if (selectedIds.length > NUDGE_MAX) {
@@ -531,19 +544,33 @@ function DeptRoutinePage() {
               </SelectContent>
             </Select>
             <div className="flex-1" />
+            {/* 只把按鈕 disable 會讓人猜原因，所以原因就寫在按鈕旁邊 */}
+            {canNudge && !canNudgeDate && (
+              <span className="text-xs text-amber-700 max-w-md">{NOT_DUE_HINT}</span>
+            )}
             <Button
               size="sm"
               onClick={handleNudge}
-              disabled={!canNudge || selectedIds.length === 0 || nudgeM.isPending}
+              disabled={!canNudge || !canNudgeDate || selectedIds.length === 0 || nudgeM.isPending}
             >
               <BellRing className="w-4 h-4" />
               {nudgeM.isPending
                 ? "催填中…"
                 : !canNudge
                   ? "沒有催填權限"
-                  : `催填選取的 ${selectedIds.length} 人`}
+                  : !canNudgeDate
+                    ? "今天還沒到期，不能催填"
+                    : `催填選取的 ${selectedIds.length} 人`}
             </Button>
           </div>
+
+          {/* 預設區間是「今天」，所以這份名單多數時候看的是還沒到期的當天 ——
+              不講清楚，主管會把「全部門都在名單上」讀成「全部門都沒繳」 */}
+          {!canNudgeDate && (
+            <p className="text-xs text-amber-700">
+              今天的日誌還沒到期，這份名單只是現況，不代表未繳。
+            </p>
+          )}
 
           <p className="text-xs text-muted-foreground">
             只列出當天「有例行範本到期或有勾選紀錄」的同仁；完全沒建立例行範本又沒填日誌的人不會出現在這裡，所以這份名單不等於全部門人數。催填會同時發送系統通知與

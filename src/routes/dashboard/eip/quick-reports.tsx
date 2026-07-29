@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, ExternalLink, Inbox, Plus, Trash2, FolderOpe
 // eip_leave_handover_item 整張表都尚未進 src/integrations/supabase/types.ts，
 // 故本頁改用 any 版 client（型別在本檔自行宣告）。
 import { supabase } from "@/lib/supabase";
+import { LEAVE_DONE_STATUSES } from "@/lib/eip-constants";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
 import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
@@ -106,7 +107,9 @@ const STATUS_LABEL: Record<string, string> = {
   done: "已完成",
   closed: "已完成",
 };
-const DONE_STATUSES = new Set(["done", "closed"]);
+// 已結案判定與「交接代辦」頁共用 eip-constants 的 LEAVE_DONE_STATUSES，
+// 不要在這裡再宣告一份 —— acknowledged 就是因為兩頁各留一份才被誤當成已結案的。
+const DONE_STATUSES = LEAVE_DONE_STATUSES;
 
 function formatDateTimeZh(iso: string) {
   const d = new Date(iso);
@@ -591,8 +594,14 @@ function QuickReportsPage() {
                 // RLS 的 INSERT/DELETE 條件是「請假人本人或 company_admin」。
                 // 這裡必須用 app_user.role，不能用 useAuth().isAdmin（那是 roles.code='admin'，
                 // 跟 current_role_name() 不是同一個來源，兩邊會不一致）
+                //
+                // 已結案（done／closed）一律唯讀，跟「交接代辦」頁對齊 —— 同一張單在兩頁
+                // 一邊能增刪、一邊鎖死是使用者最容易誤判的不一致。代理人的完成勾選框
+                // 刻意不受這個旗標管，否則已結案的單沒有人能取消完成、退不回未完成。
                 const canManageItems =
-                  isLeave && (appUser?.id === r.submitter_id || appUser?.role === "company_admin");
+                  isLeave &&
+                  !isDone &&
+                  (appUser?.id === r.submitter_id || appUser?.role === "company_admin");
                 const isOpen = expanded.has(r.id);
                 return (
                   <Fragment key={r.id}>
