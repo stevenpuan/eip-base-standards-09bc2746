@@ -31,20 +31,32 @@ interface UserLite { id: string; name: string; department_id: string | null; }
 const EVENT_LABEL: Record<string, string> = {
   task_assigned: "任務指派給我",
   task_status_changed: "任務狀態變更",
-  quick_report_submitted: "請假 / 遲到 / 事件回報",
   recurring_due_soon: "常態工作即將到期",
   recurring_overdue: "常態工作逾期",
   announcement_published: "公告發布",
   meeting_invited: "會議邀請",
   worklog_submitted: "工作日誌送出",
+  worklog_nudge: "催填工作日誌",
+  quick_report_submitted: "請假 / 遲到 / 事件回報",
+  leave_handover_created: "請假代辦建立",
+  leave_handover_completed: "請假代辦完成",
+  anomaly_opened: "異常缺失開立",
+  anomaly_filled: "異常缺失已填報",
+  anomaly_confirmed: "異常缺失已確認",
+  anomaly_closed: "異常缺失結案",
+  anomaly_overdue: "異常缺失逾期未填",
+  direct_notify: "系統直接通知",
 };
-const EVENT_CODES = Object.keys(EVENT_LABEL);
+
+// direct_notify 的收件人由各功能程式自行指定，設部門覆寫沒有意義，故排除
+const EVENT_CODES = Object.keys(EVENT_LABEL).filter((c) => c !== "direct_notify");
 
 const SCOPES: { key: string; label: string }[] = [
   { key: "owner", label: "本人（負責人）" },
   { key: "deputy", label: "職務代理人" },
   { key: "dept_manager", label: "部門主管" },
   { key: "parent_dept_manager", label: "上層部門主管" },
+  { key: "role:company_admin", label: "系統管理者" },
   { key: "all_company", label: "全公司" },
 ];
 
