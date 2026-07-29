@@ -313,13 +313,14 @@ function MiniCard({
   tone: string;
 }) {
   return (
-    <Link to={to as any} className="block">
-      <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-        <CardContent className="p-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {icon} {label}
+    <Link to={to as any} className="block h-full">
+      <Card className="h-full shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+            {icon} <span className="truncate">{label}</span>
           </div>
-          <div className={`text-2xl font-semibold mt-1 ${tone}`}>{value}</div>
+          <div className={`text-2xl sm:text-3xl font-bold mt-2 leading-none tabular ${tone}`}>{value}</div>
+
         </CardContent>
       </Card>
     </Link>
