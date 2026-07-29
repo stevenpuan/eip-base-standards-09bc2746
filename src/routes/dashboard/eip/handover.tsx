@@ -1,3 +1,4 @@
+import { EipUserPending } from "@/components/eip/EipUserPending";
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -199,7 +200,7 @@ function HandoverPage() {
     void qc.invalidateQueries({ queryKey: ["eip", "handover-pending-count"] });
   };
 
-  if (!appUser) return <div className="text-muted-foreground py-8">EIP 帳號載入中…</div>;
+  if (!appUser) return <EipUserPending />;
   // 權限還沒載入完就判斷 allowed 會把有權限的人踢走（重新整理／書籤必中）
   if (!permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!allowed) return <Navigate to="/dashboard/eip/my-tasks" replace />;
