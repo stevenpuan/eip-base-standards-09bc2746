@@ -199,7 +199,7 @@ function WorkLogPage() {
           </div>
         } />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2 items-start">
         <Section title="上午例行" Icon={ListChecks} tone="primary" items={log.morning} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, morning: v } : l))} onToggleDone={(i) => void toggleDone("morning", i)} />
         <Section title="下午例行" Icon={Clock} tone="primary" items={log.afternoon} editable={editable} onChange={(v) => setLog((l) => (l ? { ...l, afternoon: v } : l))} onToggleDone={(i) => void toggleDone("afternoon", i)} />
         <div className="md:col-span-2">
@@ -208,7 +208,7 @@ function WorkLogPage() {
       </div>
 
       {editable && (
-        <div className="flex justify-between gap-2 flex-wrap">
+        <div className="flex justify-between gap-3 flex-wrap rounded-2xl border bg-card/60 p-4 shadow-sm">
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={syncToday} disabled={saving}><RefreshCw className="w-4 h-4 mr-1.5" /> 同步今日任務</Button>
             {log.id && <Button variant="outline" onClick={() => deleteLog()} disabled={saving} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4 mr-1.5" /> 刪除</Button>}
@@ -255,13 +255,13 @@ function Collapsible({ title, Icon, children, defaultOpen = false, tone, badge }
   return (
     <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
       <button type="button" onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/40 transition-colors text-left">
+        className="w-full flex items-center gap-2.5 px-5 py-4 hover:bg-muted/40 transition-colors text-left">
         {Icon && <Icon className={`w-4 h-4 shrink-0 ${iconCls}`} />}
-        <span className="text-sm font-semibold flex-1">{title}</span>
+        <span className="text-base font-semibold flex-1 tracking-tight">{title}</span>
         {badge}
         <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
-      {open && <div className="px-4 pb-4 pt-1 border-t">{children}</div>}
+      {open && <div className="px-5 pb-5 pt-4 border-t">{children}</div>}
     </div>
   );
 }
@@ -473,7 +473,7 @@ function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boole
   const fmtSize = (n?: number) => !n ? "" : n < 1024 ? `${n}B` : n < 1048576 ? `${(n / 1024).toFixed(0)}KB` : `${(n / 1048576).toFixed(1)}MB`;
 
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
+    <div className="rounded-2xl border bg-card p-5 shadow-sm space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         <Paperclip className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-semibold">附加檔案</span>
