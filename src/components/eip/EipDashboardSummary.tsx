@@ -299,9 +299,6 @@ export function EipDashboardSummary() {
           </Card>
         </div>
       )}
-
-        </div>
-      )}
     </div>
   );
 }
