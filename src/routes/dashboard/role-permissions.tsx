@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/role-permissions")({ component: () => (
     <RequirePerm module="role_permissions">
@@ -80,7 +81,7 @@ function RolePermPage() {
       can_edit: !!draft[p.key]?.can_edit, can_delete: !!draft[p.key]?.can_delete, can_export: !!draft[p.key]?.can_export,
     }));
     const { error } = await supabase.from("role_module_permissions").upsert(rows, { onConflict: "role_id,module_key" });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "儲存模組權限")); return; }
     toast.success("模組權限已儲存"); qc.invalidateQueries({ queryKey: ["rmp", roleId] });
   };
 
@@ -107,7 +108,7 @@ function RolePermPage() {
       .filter((r) => [r.can_view, r.can_create, r.can_edit, r.can_delete, r.can_export].some((x) => x !== null));
     if (rows.length) {
       const { error } = await supabase.from("role_page_permissions").insert(rows);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(humanizeError(error, "儲存頁面權限")); return; }
     }
     toast.success("子頁面權限已儲存"); qc.invalidateQueries({ queryKey: ["rpp", roleId] });
   };

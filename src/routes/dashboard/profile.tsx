@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Copy, CheckCircle2, Link2, Link2Off } from "lucide-react";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/profile")({ component: Page });
 
@@ -26,7 +27,7 @@ function Page() {
   const saveProfile = async () => {
     if (!user) return;
     const { error } = await supabase.from("profiles").update({ full_name: fullName }).eq("id", user.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "更新個人資料")); return; }
     toast.success("已更新個人資料");
     await refresh();
   };
@@ -34,7 +35,7 @@ function Page() {
   const changePassword = async () => {
     if (pw.length < 6) { toast.error("密碼至少 6 碼"); return; }
     const { error } = await supabase.auth.updateUser({ password: pw });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "變更密碼")); return; }
     toast.success("密碼已更新");
     setPw("");
   };
@@ -90,7 +91,7 @@ function LineBindingCard({ userId }: { userId: string }) {
       if (error) throw error;
       setCode(String(data));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(humanizeError(e, "產生綁定碼"));
     } finally { setBusy(false); }
   };
 
@@ -103,7 +104,7 @@ function LineBindingCard({ userId }: { userId: string }) {
       toast.success("已解除綁定");
       await statusQ.refetch();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(humanizeError(e, "解除綁定"));
     } finally { setBusy(false); }
   };
 

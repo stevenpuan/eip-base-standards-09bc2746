@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/menu-management")({ component: () => (
     <RequirePerm module="menu_management">
@@ -72,19 +73,19 @@ function Page() {
     const res = form.id
       ? await supabase.from("menus").update(payload).eq("id", form.id)
       : await supabase.from("menus").insert(payload);
-    if (res.error) { toast.error(res.error.message); return; }
+    if (res.error) { toast.error(humanizeError(res.error, "儲存")); return; }
     toast.success("已儲存"); setForm(null); reload();
   };
   const del = async (m: MenuRow) => {
     const isGroup = !m.route && childrenOf(m.id).length > 0;
     if (!confirm(isGroup ? `「${m.title}」是群組,刪除會一併移除其子選單,確定?` : `確定刪除「${m.title}」?`)) return;
     const { error } = await supabase.from("menus").delete().eq("id", m.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "刪除")); return; }
     toast.success("已刪除"); reload();
   };
   const toggle = async (m: MenuRow) => {
     const { error } = await supabase.from("menus").update({ is_active: !m.is_active }).eq("id", m.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "切換啟用狀態")); return; }
     reload();
   };
 

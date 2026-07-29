@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Plus, Send, MessageSquare, Loader2, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/assistant")({
   component: () => (
@@ -97,7 +98,7 @@ function AssistantPage() {
         setTimeout(() => reject(new Error("回覆逾時，請稍後再試")), 60000)
       );
       const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as any;
-      if (error) throw new Error(error.message || "呼叫失敗");
+      if (error) throw error;
       if (data?.error) throw new Error(data.error);
       const newId = (data?.conversation_id as string | undefined) ?? prevConversationId;
       const reply = (data?.reply as string | undefined) ?? "";
@@ -120,7 +121,7 @@ function AssistantPage() {
       // of truth (otherwise the just-sent exchange renders twice).
       setOptimistic([]);
     } catch (e: any) {
-      setError(e?.message ?? "未知錯誤");
+      setError(humanizeError(e, "送出訊息"));
       setOptimistic((prev) => prev.filter((m) => !m.pending));
     } finally {
       setSending(false);

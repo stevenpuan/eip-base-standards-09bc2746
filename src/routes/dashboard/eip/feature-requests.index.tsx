@@ -40,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Database } from "@/integrations/supabase/types";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/feature-requests/")({
   component: FeatureRequestsPage,
@@ -176,7 +177,7 @@ function FeatureRequestsPage() {
       .update(patch)
       .eq("id", id);
     if (error) {
-      toast.error(error.message);
+      toast.error(humanizeError(error, "更新狀態"));
     } else {
       toast.success("狀態已更新");
       qc.invalidateQueries({ queryKey: ["eip", "feature-requests"] });
@@ -190,7 +191,7 @@ function FeatureRequestsPage() {
       .delete()
       .eq("id", deleteId);
     if (error) {
-      toast.error(error.message);
+      toast.error(humanizeError(error, "刪除"));
     } else {
       toast.success("已刪除需求");
       qc.invalidateQueries({ queryKey: ["eip", "feature-requests"] });

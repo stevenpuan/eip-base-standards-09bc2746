@@ -9,6 +9,7 @@ import { useEipUser } from "@/lib/eip-user";
 import { isLocalPath, validateExternalUrl, copyPath } from "@/lib/eip-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { humanizeError } from "@/lib/eip-error";
 
 export type UrlLinkEntity = "task" | "work_log" | "anomaly" | "project" | "meeting" | "document";
 
@@ -84,7 +85,7 @@ export function UrlLinks({
       .from("eip_url_link")
       .insert({ entity_type: entityType, entity_id: entityId, label: label.trim() || null, url: u });
     setBusy(false);
-    if (error) return toast.error(`新增失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "新增"));
     toast.success("已新增連結");
     setLabel("");
     setUrl("");
@@ -100,7 +101,7 @@ export function UrlLinks({
     const { data, error } = await supabase
       .from("eip_url_link").delete().eq("id", r.id).select("id");
     setRemoving(null);
-    if (error) return toast.error(`移除失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "移除"));
     if (!data?.length) return toast.error("移除失敗：只有建立這筆連結的人或管理者可以移除");
     void q.refetch();
   };

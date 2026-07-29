@@ -46,6 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/handover")({
   component: HandoverPage,
@@ -221,7 +222,7 @@ function HandoverPage() {
       .select("id");
     setBusyId(null);
     if (error) {
-      toast.error(error.message);
+      toast.error(humanizeError(error, "標記完成"));
       return;
     }
     if (!(data as { id: string }[] | null)?.length) {
@@ -599,7 +600,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
       return n;
     });
     if (error) {
-      toast.error(`代理人更新失敗：${error.message}`);
+      toast.error(humanizeError(error, "代理人更新"));
       return;
     }
     if (!data?.length) {
@@ -642,7 +643,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
       sort_order: nextSort,
     });
     if (error) {
-      toast.error(`新增失敗：${error.message}`);
+      toast.error(humanizeError(error, "新增"));
       return false;
     }
     toast.success("已新增代辦事項");
@@ -661,7 +662,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
       .eq("id", item.id)
       .select("id");
     if (error) {
-      toast.error(`修改失敗：${error.message}`);
+      toast.error(humanizeError(error, "修改"));
       return false;
     }
     if (!data?.length) {
@@ -682,7 +683,7 @@ function MyLeaveHandoverSection({ meId }: { meId: string }) {
       .eq("id", item.id)
       .select("id");
     if (error) {
-      toast.error(`刪除失敗：${error.message}`);
+      toast.error(humanizeError(error, "刪除"));
       return;
     }
     if (!data?.length) {

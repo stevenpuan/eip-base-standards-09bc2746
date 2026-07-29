@@ -26,6 +26,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import type { Database } from "@/integrations/supabase/types";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/recurring")({ component: RecurringPage });
 
@@ -127,13 +128,13 @@ function RecurringPage() {
       .from("recurring_rule")
       .update({ is_active: !r.is_active })
       .eq("id", r.id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "更新狀態"));
     else { toast.success(r.is_active ? "已停用" : "已啟用"); refresh(); }
   };
   const remove = async (r: Rule) => {
     if (!confirm(`確定刪除「${r.title}」？`)) return;
     const { error } = await supabase.from("recurring_rule").delete().eq("id", r.id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "刪除"));
     else { toast.success("已刪除"); refresh(); }
   };
   const runNow = async () => {
@@ -141,7 +142,7 @@ function RecurringPage() {
     setRunning(true);
     const { error } = await supabase.rpc("eip_run_recurring", {});
     setRunning(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "立即執行"));
     else { toast.success("已執行：產生到期任務與提醒"); refresh(); }
   };
 
@@ -313,7 +314,7 @@ function RuleDialog({
       }
       onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "儲存失敗");
+      toast.error(humanizeError(e, "儲存"));
     } finally {
       setBusy(false);
     }

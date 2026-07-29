@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/dept-routine")({
   component: DeptRoutinePage,
@@ -294,7 +295,7 @@ function DeptRoutinePage() {
       toast.warning(`沒有發出通知（可能不在你的管轄範圍，或 ${pendingDate} 已經催過）`);
     },
     onError: (e: unknown) => {
-      toast.error(e instanceof Error ? e.message : "催填失敗");
+      toast.error(humanizeError(e, "催填"));
     },
   });
 

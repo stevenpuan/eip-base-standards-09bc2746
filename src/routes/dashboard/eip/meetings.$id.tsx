@@ -23,6 +23,7 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import { STATUS_LABEL, TYPE_LABEL, statusBadgeClass } from "./meetings.index";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
+import { humanizeError } from "@/lib/eip-error";
 
 type Department = { id: string; name: string; parent_id: string | null; sort_order: number | null };
 
@@ -229,14 +230,14 @@ function HeaderSection({
       department_id: v.payload.department_id,
     }).eq("id", meeting.id);
     setSaving(false);
-    if (error) toast.error(`儲存失敗：${error.message}`);
+    if (error) toast.error(humanizeError(error, "儲存"));
     else { toast.success("已儲存"); onUpdated(); }
   };
 
   const quickStatus = async (s: MeetingStatus) => {
     setStatus(s);
     const { error } = await supabase.from("meeting").update({ status: s }).eq("id", meeting.id);
-    if (error) toast.error(error.message); else { toast.success("狀態已更新"); onUpdated(); }
+    if (error) toast.error(humanizeError(error, "更新狀態")); else { toast.success("狀態已更新"); onUpdated(); }
   };
 
   const project = projects.find((p) => p.id === meeting.project_id);
@@ -342,7 +343,7 @@ function HeaderSection({
                   setDeleting(true);
                   const { error } = await supabase.from("meeting").delete().eq("id", meeting.id);
                   setDeleting(false);
-                  if (error) toast.error(error.message);
+                  if (error) toast.error(humanizeError(error, "刪除會議"));
                   else {
                     toast.success("會議已刪除");
                     navigate({ to: "/dashboard/eip/meetings" });
@@ -386,19 +387,19 @@ function AttendeesSection({
     const { error } = await supabase.from("meeting_attendee").insert({
       meeting_id: meetingId, user_id: uid,
     });
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "新增出席者"));
     else qc.invalidateQueries({ queryKey: ["eip", "meeting-attendees-full", meetingId] });
   };
   const removeUser = async (uid: string) => {
     const { error } = await supabase.from("meeting_attendee").delete()
       .eq("meeting_id", meetingId).eq("user_id", uid);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "移除出席者"));
     else qc.invalidateQueries({ queryKey: ["eip", "meeting-attendees-full", meetingId] });
   };
   const updateAttendee = async (uid: string, patch: Partial<Attendee>) => {
     const { error } = await supabase.from("meeting_attendee").update(patch)
       .eq("meeting_id", meetingId).eq("user_id", uid);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "更新出席者"));
     else qc.invalidateQueries({ queryKey: ["eip", "meeting-attendees-full", meetingId] });
   };
 
@@ -525,7 +526,7 @@ function AgendaSection({
         owner_id: owner === "none" ? null : owner,
         notes: notes.trim() || null,
       }).eq("id", editing.id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(humanizeError(error, "更新議程"));
     } else {
       const nextOrder = items.length ? Math.max(...items.map((i) => i.sort_order ?? 0)) + 1 : 1;
       const { error } = await supabase.from("meeting_agenda_item").insert({
@@ -536,14 +537,14 @@ function AgendaSection({
         notes: notes.trim() || null,
         sort_order: nextOrder,
       });
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(humanizeError(error, "新增議程"));
     }
     reset(); refresh();
   };
 
   const remove = async (id: string) => {
     const { error } = await supabase.from("meeting_agenda_item").delete().eq("id", id);
-    if (error) toast.error(error.message); else refresh();
+    if (error) toast.error(humanizeError(error, "刪除議程")); else refresh();
   };
 
   const move = async (it: AgendaItem, dir: -1 | 1) => {
@@ -677,7 +678,7 @@ function ActionItemsSection({
         owner_id: owner === "none" ? null : owner,
         due_date: due || null,
       }).eq("id", editing.id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(humanizeError(error, "更新行動項"));
     } else {
       const { error } = await supabase.from("meeting_action_item").insert({
         tenant_id: meeting.tenant_id,
@@ -687,19 +688,19 @@ function ActionItemsSection({
         due_date: due || null,
         status: "open",
       });
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(humanizeError(error, "新增行動項"));
     }
     reset(); refresh();
   };
 
   const remove = async (id: string) => {
     const { error } = await supabase.from("meeting_action_item").delete().eq("id", id);
-    if (error) toast.error(error.message); else refresh();
+    if (error) toast.error(humanizeError(error, "刪除行動項")); else refresh();
   };
 
   const setStatus = async (id: string, status: ActionStatus) => {
     const { error } = await supabase.from("meeting_action_item").update({ status }).eq("id", id);
-    if (error) toast.error(error.message); else refresh();
+    if (error) toast.error(humanizeError(error, "更新狀態")); else refresh();
   };
 
   const convertToTask = async (item: ActionItem) => {
@@ -718,7 +719,7 @@ function ActionItemsSection({
       due_date: item.due_date,
       created_by: appUser.id,
     }).select("id").single();
-    if (error || !task) return toast.error(`轉任務失敗：${error?.message ?? ""}`);
+    if (error || !task) return toast.error(error ? humanizeError(error, "轉任務") : "轉任務失敗：任務沒有建立成功，請重新整理頁面確認後再試");
     await supabase.from("meeting_action_item")
       .update({ status: "converted", linked_task_id: task.id }).eq("id", item.id);
     toast.success("已轉為任務");
@@ -819,7 +820,7 @@ function NotesSection({
     setSaving(true);
     const { error } = await supabase.from("meeting").update({ notes }).eq("id", meeting.id);
     setSaving(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "儲存會議紀錄"));
     else { toast.success("會議紀錄已儲存"); onSaved(); }
   };
 

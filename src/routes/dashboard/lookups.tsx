@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/lookups")({ component: () => (
     <RequirePerm module="lookups">
@@ -47,7 +48,7 @@ function Page() {
   const create = async () => {
     if (!category || !code || !label) { toast.error("請填寫類別、代碼、標籤"); return; }
     const { error } = await supabase.from("lookups").insert({ category, code, label });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "新增")); return; }
     toast.success("已新增"); setAddOpen(false); setCode(""); setLabel(""); reload();
   };
 
@@ -55,13 +56,13 @@ function Page() {
   const saveEdit = async () => {
     if (!edit) return;
     const { error } = await supabase.from("lookups").update({ label: edit.label, sort_order: edit.sort_order, is_active: edit.is_active }).eq("id", edit.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "更新")); return; }
     toast.success("已更新"); setEdit(null); reload();
   };
   const del = async (r: Lookup) => {
     if (!confirm(`確定刪除「${r.label}」？`)) return;
     const { error } = await supabase.from("lookups").delete().eq("id", r.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "刪除")); return; }
     toast.success("已刪除"); reload();
   };
 

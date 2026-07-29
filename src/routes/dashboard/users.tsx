@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/users")({ component: () => (
     <RequirePerm module="users">
@@ -138,7 +139,7 @@ function UsersPage() {
 
   const setStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "更新狀態")); return; }
     // 同步 app_user.status：active → active；其他 → inactive
     const appStatus = status === "active" ? "active" : "inactive";
     await supabase.from("app_user").update({ status: appStatus }).eq("id", id);
@@ -184,7 +185,7 @@ function UsersPage() {
       p_user_id: editing.id,
       p_role_ids: editRoleIds,
     });
-    if (rpcErr) { toast.error(rpcErr.message); return; }
+    if (rpcErr) { toast.error(humanizeError(rpcErr, "角色更新")); return; }
     // upsert app_user（部門/LINE）
     const existing = appUserMap[editing.id];
     if (existing) {
@@ -193,7 +194,7 @@ function UsersPage() {
         line_user_id: editLine.trim() || null,
         deputy_id: editDeputy === "none" ? null : editDeputy,
       }).eq("id", editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(humanizeError(error, "儲存成員資料")); return; }
     }
     toast.success("已儲存");
     setEditing(null);
@@ -214,7 +215,7 @@ function UsersPage() {
       invited_by: user?.id ?? null,
       expires_at: new Date(Date.now() + days * 86400000).toISOString(),
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "建立邀請碼")); return; }
     toast.success("已產生邀請碼");
     setInvEmail("");
     qc.invalidateQueries({ queryKey: ["invitations"] });
@@ -253,7 +254,7 @@ function UsersPage() {
       p_department_id: cDept === "none" ? null : cDept,
     });
     setCSubmitting(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "新增使用者")); return; }
     const d = data as { ok?: boolean; email?: string; password?: string } | null;
     if (d?.ok && d.password && d.email) {
       setCreated({ email: d.email, password: d.password });
@@ -280,7 +281,7 @@ function UsersPage() {
     setDelSubmitting(true);
     const { error } = await supabase.rpc("eip_admin_delete_user", { p_user_id: deleting.id });
     setDelSubmitting(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "刪除使用者")); return; }
     toast.success("已永久刪除");
     qc.invalidateQueries({ queryKey: ["users"] });
     qc.invalidateQueries({ queryKey: ["app_users"] });

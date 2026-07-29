@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/logging";
+import { humanizeError } from "@/lib/eip-error";
 
 const LOGIN_DOMAIN = "shfc.com.tw";
 
@@ -70,7 +71,7 @@ function LoginPage() {
     });
     if (error) {
       setBusy(false);
-      toast.error("註冊失敗：" + error.message);
+      toast.error(humanizeError(error, "註冊"));
       return;
     }
     if (invite && signUpData.session) {

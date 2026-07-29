@@ -44,6 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/anomalies")({
   component: AnomaliesPage,
@@ -673,7 +674,7 @@ function RaiseDialog({
 
     if (error) {
       setBusy(false);
-      toast.error(`開立失敗：${error.message}`);
+      toast.error(humanizeError(error, "開立"));
       return;
     }
 
@@ -844,7 +845,7 @@ async function uploadFiles(anomalyId: string, files: File[]) {
       .from("anomaly")
       .upload(path, f, { contentType: f.type || undefined, upsert: false });
     if (up.error) {
-      toast.error(`${f.name} 上傳失敗：${up.error.message}`);
+      toast.error(`${f.name}：${humanizeError(up.error, "上傳")}`);
       continue;
     }
     const ins = await supabase.from("eip_anomaly_attachment").insert({
@@ -855,7 +856,7 @@ async function uploadFiles(anomalyId: string, files: File[]) {
       file_size: f.size,
     });
     if (ins.error) {
-      toast.error(ins.error.message);
+      toast.error(`${f.name}：${humanizeError(ins.error, "登錄附件")}`);
       await supabase.storage.from("anomaly").remove([path]);
       continue;
     }
@@ -877,7 +878,7 @@ function Attachments({ anomalyId, canEdit }: { anomalyId: string; canEdit: boole
       .eq("anomaly_id", anomalyId)
       .order("created_at");
     // 失敗時不能靜默顯示「尚無附件」——使用者會以為檔案不見了
-    if (error) { setLoadErr(error.message); return; }
+    if (error) { setLoadErr(humanizeError(error, "附件載入")); return; }
     setLoadErr(null);
     setList((data ?? []) as Att[]);
   };
@@ -900,7 +901,7 @@ function Attachments({ anomalyId, canEdit }: { anomalyId: string; canEdit: boole
     const { data, error } = await supabase.storage
       .from("anomaly")
       .createSignedUrl(a.storage_path, 60);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(humanizeError(error, "開啟附件"));
     if (!data?.signedUrl) return toast.error("無法取得檔案連結");
     // 先試開新視窗；被行動瀏覽器攔掉（await 之後開窗常被視為非使用者手勢）
     // 才退回同分頁導轉。原本直接改 location 會把整個 SPA 導走，
@@ -915,7 +916,7 @@ function Attachments({ anomalyId, canEdit }: { anomalyId: string; canEdit: boole
     // 反過來的話 RLS 擋住 delete 時檔案已經沒了、紀錄還在，
     // 清單上留下一筆永遠打不開的附件。
     const { error } = await supabase.from("eip_anomaly_attachment").delete().eq("id", a.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(humanizeError(error, "刪除附件"));
     const rm = await supabase.storage.from("anomaly").remove([a.storage_path]);
     if (rm.error) toast.warning("紀錄已刪除，但實體檔案未刪成功（不影響使用）");
     void load();
@@ -991,7 +992,7 @@ function DetailDialog({
     setBusy(true);
     const { error } = await supabase.from("eip_anomaly").update(payload).eq("id", row.id);
     setBusy(false);
-    if (error) return toast.error(`更新失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "更新"));
     toast.success(okMsg);
     onChanged();
   };

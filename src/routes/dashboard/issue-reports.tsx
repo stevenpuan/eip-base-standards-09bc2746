@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/issue-reports")({ component: () => (
     <RequirePerm module="issue_reports">
@@ -45,7 +46,7 @@ function Page() {
   const create = async () => {
     if (!title) { toast.error("請輸入標題"); return; }
     const { error } = await supabase.from("issue_reports").insert({ title, description: desc || null, severity, reporter_id: user?.id ?? null });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "新增回報")); return; }
     toast.success("已回報");
     setOpen(false); setTitle(""); setDesc(""); setSeverity("normal");
     qc.invalidateQueries({ queryKey: ["issue_reports"] });

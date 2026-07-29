@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/feature-requests/$id/edit")({
   component: EditFeatureRequestPage,
@@ -109,7 +110,7 @@ function EditFeatureRequestPage() {
       toast.success("已更新需求");
       navigate({ to: "/dashboard/eip/feature-requests" });
     } catch (e) {
-      toast.error(`失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(humanizeError(e, "更新需求"));
     } finally {
       setBusy(false);
     }

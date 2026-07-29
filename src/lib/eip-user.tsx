@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./auth";
 import { DEFAULT_TENANT_ID } from "./eip-constants";
+import { humanizeError } from "./eip-error";
 import type { Database } from "@/integrations/supabase/types";
 
 export type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
@@ -59,8 +60,7 @@ export function EipUserProvider({ children }: { children: ReactNode }) {
       if (insErr) throw insErr;
       setAppUser(inserted as AppUser);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
+      setError(humanizeError(e, "取得 EIP 身分"));
     } finally {
       setLoading(false);
     }

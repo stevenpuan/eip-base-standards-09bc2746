@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { toggleRoutineItem, type RoutineSection } from "@/lib/eip-routine";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/work-log")({ component: () => (
     <RequirePerm module="eip_work_log">
@@ -44,7 +45,7 @@ interface Log { id?: string; log_date: string; morning: Item[]; afternoon: Item[
 //   特殊     = 我負責/協作且未完成的任務 + 今日完成的任務 + 未結案會議決議
 async function fetchSeed(uid: string, date: string): Promise<{ morning: Item[]; afternoon: Item[]; special: Item[] }> {
   const { data, error } = await supabase.rpc("eip_worklog_seed", { p_user_id: uid, p_date: date });
-  if (error) { toast.error(`帶入失敗：${error.message}`); return { morning: [], afternoon: [], special: [] }; }
+  if (error) { toast.error(humanizeError(error, "帶入")); return { morning: [], afternoon: [], special: [] }; }
   const d = (data ?? {}) as Record<string, unknown>;
   return { morning: arr(d.morning), afternoon: arr(d.afternoon), special: arr(d.special) };
 }
@@ -110,7 +111,7 @@ function WorkLogPage() {
     if (targetId) res = await supabase.from("work_log").update(body).eq("id", targetId).select("*").maybeSingle();
     else res = await supabase.from("work_log").insert(body).select("*").maybeSingle();
     setSaving(false);
-    if (res.error) { toast.error(res.error.message); return undefined; }
+    if (res.error) { toast.error(humanizeError(res.error, "儲存日誌")); return undefined; }
 
     if (res.data) setLog((l) => (l ? { ...l, id: res.data.id, status: res.data.status } : l));
     setRefreshKey((k) => k + 1);
@@ -157,7 +158,7 @@ function WorkLogPage() {
       });
     } catch (e) {
       setDone(it.done);
-      toast.error(`更新失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(humanizeError(e, "更新"));
     }
   };
 
@@ -168,7 +169,7 @@ function WorkLogPage() {
     setSaving(true);
     const { error } = await supabase.from("work_log").delete().eq("id", targetId);
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "刪除日誌")); return; }
     toast.success("已刪除日誌");
     setRefreshKey((k) => k + 1);
     if (d && d !== date) setRefreshKey((k) => k + 1);
@@ -454,11 +455,11 @@ function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boole
       if (f.size > 10 * 1024 * 1024) { toast.error(`${f.name} 超過 10MB`); continue; }
       const path = `${workLogId}/${crypto.randomUUID()}`;
       const up = await supabase.storage.from("worklog").upload(path, f, { contentType: f.type || undefined, upsert: false });
-      if (up.error) { toast.error(`${f.name} 上傳失敗：${up.error.message}`); continue; }
+      if (up.error) { toast.error(`${f.name}：${humanizeError(up.error, "上傳")}`); continue; }
       const ins = await supabase.from("work_log_attachment").insert({
         work_log_id: workLogId, file_name: f.name, storage_path: path, mime_type: f.type || null, file_size: f.size,
       });
-      if (ins.error) { toast.error(ins.error.message); await supabase.storage.from("worklog").remove([path]); continue; }
+      if (ins.error) { toast.error(`${f.name}：${humanizeError(ins.error, "登錄附件")}`); await supabase.storage.from("worklog").remove([path]); continue; }
       ok += 1;
     }
     setBusy(false); e.target.value = "";
@@ -468,7 +469,7 @@ function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boole
 
   const download = async (a: any) => {
     const { data, error } = await supabase.storage.from("worklog").createSignedUrl(a.storage_path, 60);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "下載")); return; }
     // 同分頁開啟：避免手機在 await 後攔截 window.open 彈窗
     if (data?.signedUrl) window.location.href = data.signedUrl;
   };
@@ -476,7 +477,7 @@ function Attachments({ workLogId, canEdit }: { workLogId: string; canEdit: boole
     if (!window.confirm(`刪除附件「${a.file_name}」？`)) return;
     await supabase.storage.from("worklog").remove([a.storage_path]);
     const { error } = await supabase.from("work_log_attachment").delete().eq("id", a.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "刪除附件")); return; }
     void load();
   };
   const fmtSize = (n?: number) => !n ? "" : n < 1024 ? `${n}B` : n < 1048576 ? `${(n / 1024).toFixed(0)}KB` : `${(n / 1048576).toFixed(1)}MB`;

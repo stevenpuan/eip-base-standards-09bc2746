@@ -27,6 +27,7 @@ import { TodayRoutineCard } from "@/components/eip/TodayRoutineCard";
 import { HandoverInboxCard } from "@/components/eip/HandoverInboxCard";
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 import type { Database } from "@/integrations/supabase/types";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/my-tasks")({ component: () => (
     <RequirePerm module="eip_my_tasks">
@@ -204,7 +205,7 @@ function MyTasksPage() {
       p_module: "eip_tasks",
       p_id: id,
     });
-    if (error) return toast.error(`還原失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "還原"));
     toast.success("已還原");
     void deletedQ.refetch();
     void createdQ.refetch();
@@ -217,7 +218,7 @@ function MyTasksPage() {
       p_module: "eip_tasks",
       p_id: id,
     });
-    if (error) return toast.error(`永久刪除失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "永久刪除"));
     toast.success("已永久刪除");
     void deletedQ.refetch();
   };
@@ -247,7 +248,7 @@ function MyTasksPage() {
     if (error) {
       // 後端訊息原封不動顯示：purge_guard 的拒絕理由帶了協作者／變更紀錄／
       // 進度回報的筆數，是刻意寫給使用者看的。
-      toast.error(`刪除失敗：${error.message}`);
+      toast.error(humanizeError(error, "刪除"));
       return;
     }
     if ((data as { ok?: boolean } | null)?.ok !== true) {

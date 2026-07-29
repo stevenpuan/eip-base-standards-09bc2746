@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/dev-history")({ component: () => (
     <RequirePerm module="dev_history">
@@ -51,7 +52,7 @@ function Page() {
   const create = async () => {
     if (!version || !title) { toast.error("請輸入版本與標題"); return; }
     const { error } = await supabase.from("changelogs").insert({ version, type, title, content: content || null, released_at: new Date().toISOString().slice(0, 10) });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "新增版本紀錄")); return; }
     toast.success("已新增");
     setOpen(false); setVersion(""); setTitle(""); setContent("");
     qc.invalidateQueries({ queryKey: ["changelogs"] });

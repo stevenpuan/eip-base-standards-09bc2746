@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/system-config")({ component: () => (
     <RequirePerm module="system_config">
@@ -47,7 +48,7 @@ function Page() {
     if (updates.length === 0) { toast.info("沒有變更"); return; }
     const results = await Promise.all(updates);
     const err = results.find((x) => x.error);
-    if (err?.error) { toast.error(err.error.message); return; }
+    if (err?.error) { toast.error(humanizeError(err.error, "儲存設定")); return; }
     toast.success("已儲存");
     qc.invalidateQueries({ queryKey: ["system_configs"] });
   };

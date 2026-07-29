@@ -31,6 +31,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { TaskSourceBadge, useTaskSources } from "@/components/eip/TaskSourceBadge";
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 import { VisibilityBadge } from "@/components/eip/VisibilityScope";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -175,7 +176,7 @@ function ProjectDetailPage() {
 
   const saveProject = async (patch: Partial<Project>) => {
     const { error } = await supabase.from("project").update(patch).eq("id", project.id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "儲存專案"));
     else { toast.success("已儲存"); refetchProject(); }
   };
 
@@ -317,7 +318,7 @@ function KpiSection({ projectId, tenantId, kpis, canEdit }: { projectId: string;
 
   const remove = async (k: Kpi) => {
     const { error } = await supabase.from("project_kpi").delete().eq("id", k.id);
-    if (error) toast.error(error.message); else { toast.success("已刪除"); refetch(); }
+    if (error) toast.error(humanizeError(error, "刪除 KPI")); else { toast.success("已刪除"); refetch(); }
   };
 
   return (
@@ -396,7 +397,7 @@ function KpiDialog({ kpi, projectId, tenantId, onClose, onSaved }: { kpi: Kpi | 
       ? await supabase.from("project_kpi").update(payload).eq("id", kpi.id)
       : await supabase.from("project_kpi").insert(payload);
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("已儲存"); onSaved(); }
+    if (error) toast.error(humanizeError(error, "儲存 KPI")); else { toast.success("已儲存"); onSaved(); }
   };
 
   return (
@@ -447,20 +448,20 @@ function MilestonesSection({ projectId, tenantId, milestones, canEdit, highlight
       tenant_id: tenantId, project_id: projectId, name: name.trim(),
       due_date: due || null, status: "pending",
     });
-    if (error) toast.error(error.message); else { setName(""); setDue(""); refetch(); }
+    if (error) toast.error(humanizeError(error, "新增里程碑")); else { setName(""); setDue(""); refetch(); }
   };
   const toggle = async (m: Milestone) => {
     const next = m.status === "done" ? "pending" : "done";
     const { error } = await supabase.from("milestone").update({ status: next, progress: next === "done" ? 100 : m.progress }).eq("id", m.id);
-    if (error) toast.error(error.message); else refetch();
+    if (error) toast.error(humanizeError(error, "更新里程碑")); else refetch();
   };
   const setProgress = async (m: Milestone, v: number) => {
     const { error } = await supabase.from("milestone").update({ progress: v }).eq("id", m.id);
-    if (error) toast.error(error.message); else refetch();
+    if (error) toast.error(humanizeError(error, "更新進度")); else refetch();
   };
   const remove = async (m: Milestone) => {
     const { error } = await supabase.from("milestone").delete().eq("id", m.id);
-    if (error) toast.error(error.message); else refetch();
+    if (error) toast.error(humanizeError(error, "刪除里程碑")); else refetch();
   };
 
   return (
@@ -633,7 +634,7 @@ function NewTaskDialog({
       status_id: statusId, due_date: due || null,
     });
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("已建立任務"); onCreated(); }
+    if (error) toast.error(humanizeError(error, "建立任務")); else { toast.success("已建立任務"); onCreated(); }
   };
 
   return (
@@ -675,7 +676,7 @@ function RisksSection({ projectId, tenantId, risks, canEdit }: { projectId: stri
 
   const remove = async (r: Risk) => {
     const { error } = await supabase.from("project_risk").delete().eq("id", r.id);
-    if (error) toast.error(error.message); else { toast.success("已刪除"); refetch(); }
+    if (error) toast.error(humanizeError(error, "刪除風險")); else { toast.success("已刪除"); refetch(); }
   };
 
   return (
@@ -746,7 +747,7 @@ function RiskDialog({ risk, projectId, tenantId, onClose, onSaved }: { risk: Ris
       ? await supabase.from("project_risk").update(payload).eq("id", risk.id)
       : await supabase.from("project_risk").insert(payload);
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("已儲存"); onSaved(); }
+    if (error) toast.error(humanizeError(error, "儲存風險")); else { toast.success("已儲存"); onSaved(); }
   };
 
   return (
@@ -808,7 +809,7 @@ function MeetingsSection({ projectId, meetings, canEdit }: { projectId: string; 
     setBusy(true);
     const { error } = await supabase.from("meeting").update({ project_id: projectId }).eq("id", selectedId);
     setBusy(false);
-    if (error) { toast.error(`關聯失敗：${error.message}`); return; }
+    if (error) { toast.error(humanizeError(error, "關聯")); return; }
     toast.success("已關聯");
     setSelectedId(""); setLinkOpen(false);
     qc.invalidateQueries({ queryKey: ["eip", "project-meetings", projectId] });
@@ -816,7 +817,7 @@ function MeetingsSection({ projectId, meetings, canEdit }: { projectId: string; 
 
   const unlink = async (mId: string) => {
     const { error } = await supabase.from("meeting").update({ project_id: null }).eq("id", mId);
-    if (error) { toast.error(`取消關聯失敗：${error.message}`); return; }
+    if (error) { toast.error(humanizeError(error, "取消關聯")); return; }
     toast.success("已取消關聯");
     qc.invalidateQueries({ queryKey: ["eip", "project-meetings", projectId] });
   };

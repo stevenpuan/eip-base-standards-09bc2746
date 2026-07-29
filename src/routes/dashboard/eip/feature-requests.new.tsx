@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/feature-requests/new")({
   component: NewFeatureRequestPage,
@@ -67,7 +68,7 @@ function NewFeatureRequestPage() {
         "created_at",
         new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
       );
-    if (mErr) return toast.error(mErr.message);
+    if (mErr) return toast.error(humanizeError(mErr, "查詢本月額度"));
     const used = (monthRows ?? []).reduce(
       (s, r) => s + (r.points_cost ?? 0),
       0,
@@ -108,7 +109,7 @@ function NewFeatureRequestPage() {
         params: { id: inserted.id },
       });
     } catch (e) {
-      toast.error(`失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(humanizeError(e, "送出需求"));
     } finally {
       setBusy(false);
     }

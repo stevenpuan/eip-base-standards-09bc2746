@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Trash2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/assistant-intent")({ component: () => (
     <RequirePerm module="assistant_intent">
@@ -151,7 +152,7 @@ function Page() {
         .update(payload)
         .eq("id", form.id!);
       if (error) {
-        toast.error(error.message);
+        toast.error(humanizeError(error, "更新意圖"));
         return;
       }
       toast.success("已更新");
@@ -164,7 +165,7 @@ function Page() {
         .from("eip_assistant_intent")
         .insert({ ...payload, tenant_id: tenantId });
       if (error) {
-        toast.error(error.message);
+        toast.error(humanizeError(error, "新增意圖"));
         return;
       }
       toast.success("已新增");
@@ -177,7 +178,7 @@ function Page() {
     if (!confirm(`確定刪除「${r.feature}」？`)) return;
     const { error } = await supabase.from("eip_assistant_intent").delete().eq("id", r.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(humanizeError(error, "刪除意圖"));
       return;
     }
     toast.success("已刪除");

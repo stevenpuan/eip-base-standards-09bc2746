@@ -36,6 +36,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/documents")({
   component: () => (
@@ -108,7 +109,7 @@ function humanSize(bytes: number | null | undefined): string {
 async function downloadFromStorage(storagePath: string) {
   const { data, error } = await supabase.storage.from("documents").createSignedUrl(storagePath, 60);
   if (error || !data?.signedUrl) {
-    toast.error(`下載失敗：${error?.message ?? "無法產生連結"}`);
+    toast.error(error ? humanizeError(error, "下載") : "下載失敗：無法產生下載連結，請重新整理頁面再試");
     return;
   }
   window.open(data.signedUrl, "_blank");
@@ -446,7 +447,7 @@ function DocumentsPage() {
                 await supabase.from("eip_document_version").delete().eq("document_id", deleteDoc.id);
                 const { error } = await supabase.from("eip_document").delete().eq("id", deleteDoc.id);
                 setDeleting(false);
-                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                if (error) { toast.error(humanizeError(error, "刪除")); return; }
                 toast.success("文件已刪除");
                 setDeleteDoc(null);
                 qc.invalidateQueries({ queryKey: ["eip_document"] });
@@ -469,7 +470,7 @@ async function promptCreateFolder(parentId: string | null, tenantId: string, qc:
   const { error } = await supabase.from("eip_doc_folder").insert({
     tenant_id: tenantId, name: name.trim(), parent_id: parentId, sort_order: 0,
   });
-  if (error) return toast.error(error.message);
+  if (error) return toast.error(humanizeError(error, "建立資料夾"));
   toast.success("已新增資料夾");
   qc.invalidateQueries({ queryKey: ["eip_doc_folder"] });
 }
@@ -525,14 +526,14 @@ function FolderNode({
     const name = window.prompt("新名稱", folder.name);
     if (!name?.trim() || name === folder.name) return;
     const { error } = await supabase.from("eip_doc_folder").update({ name: name.trim() }).eq("id", folder.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(humanizeError(error, "重新命名"));
     toast.success("已更新");
     qc.invalidateQueries({ queryKey: ["eip_doc_folder"] });
   };
   const remove = async () => {
     if (!window.confirm(`確定刪除資料夾「${folder.name}」?(子資料夾與文件需先移走)`)) return;
     const { error } = await supabase.from("eip_doc_folder").delete().eq("id", folder.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(humanizeError(error, "刪除資料夾"));
     toast.success("已刪除");
     qc.invalidateQueries({ queryKey: ["eip_doc_folder"] });
   };
@@ -644,7 +645,7 @@ function DocDetailDialog({
   const publish = async (status: string) => {
     if (!doc) return;
     const { error } = await supabase.from("eip_document").update({ status }).eq("id", doc.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(humanizeError(error, "更新狀態"));
     toast.success("已更新狀態");
     qc.invalidateQueries({ queryKey: ["eip_document"] });
     qc.invalidateQueries({ queryKey: ["eip_document", doc.id] });
@@ -660,9 +661,9 @@ function DocDetailDialog({
       storage_path: v.storage_path, file_size: v.file_size, mime_type: v.mime_type,
       note: `還原自 v${v.version_no}`,
     });
-    if (vErr) return toast.error(vErr.message);
+    if (vErr) return toast.error(humanizeError(vErr, "還原版本"));
     const { error: dErr } = await supabase.from("eip_document").update({ current_version: newVer }).eq("id", doc.id);
-    if (dErr) return toast.error(dErr.message);
+    if (dErr) return toast.error(humanizeError(dErr, "更新版號"));
     toast.success(`已還原為 v${v.version_no}(產生 v${newVer})`);
     qc.invalidateQueries({ queryKey: ["eip_document"] });
     qc.invalidateQueries({ queryKey: ["eip_document", doc.id] });
@@ -879,7 +880,7 @@ function DocEditorDialog({
     if (!existingStoragePath) return;
     if (!window.confirm("確定刪除目前附檔?")) return;
     const { error } = await supabase.storage.from("documents").remove([existingStoragePath]);
-    if (error) { toast.error(`刪除附檔失敗：${error.message}`); return; }
+    if (error) { toast.error(humanizeError(error, "刪除附檔")); return; }
     setExistingStoragePath(null);
     setExistingFileName(null);
     setExistingFileSize(null);
@@ -901,7 +902,7 @@ function DocEditorDialog({
         upsert: false,
         contentType: pickedFile.type || undefined,
       });
-      if (error) throw new Error(`上傳失敗：${error.message}`);
+      if (error) throw new Error(humanizeError(error, "附檔上傳"));
       return {
         storage_path: path,
         file_name: pickedFile.name,
@@ -975,7 +976,7 @@ function DocEditorDialog({
       qc.invalidateQueries({ queryKey: ["eip_document"] });
       onClose();
     } catch (e) {
-      toast.error(`失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(humanizeError(e, "儲存文件"));
     } finally {
       setBusy(false);
     }

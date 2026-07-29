@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LeaveRequestDialog } from "@/components/eip/LeaveRequestDialog";
+import { humanizeError } from "@/lib/eip-error";
 
 // 本地日期 YYYY-MM-DD（台北）
 const todayStr = () => {
@@ -82,7 +83,7 @@ export function QuickReportButton() {
       detail: lateDetail.trim() || null,
     });
     setBusy(false);
-    if (error) return toast.error(`送出失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "送出"));
     toast.success("遲到回報已送出");
     reset();
     setOpen(false);
@@ -100,7 +101,7 @@ export function QuickReportButton() {
       detail: otherDetail.trim(),
     });
     setBusy(false);
-    if (error) return toast.error(`送出失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "送出"));
     toast.success("事件回報已送出");
     reset();
     setOpen(false);
