@@ -46,17 +46,18 @@ function DashboardHome() {
   const showHandover = pendingHandover > 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">
+    <div className="space-y-8">
+      <div className="border-b border-border/70 pb-5">
+        <h1 className="text-2xl font-bold tracking-tight">
           歡迎回來，{profile?.full_name ?? profile?.email}
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <p className="text-muted-foreground text-sm mt-1.5">
           角色：{roleNames.join("、") || "—"}
         </p>
       </div>
       {(showTodos || showIssues || showHandover) && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
           {showHandover && (
             <StatCard
               title="交接待辦"
