@@ -405,7 +405,7 @@ function TasksPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title="任務看板"
         description="全公司任務看板。支援看板 / 列表 / 行事曆三種視圖,所有篩選共用。"
@@ -662,8 +662,8 @@ function SharedFilters(props: {
   );
 
   return (
-    <Card>
-      <CardContent className="p-3">
+    <Card className="shadow-sm">
+      <CardContent className="p-4">
         {/* < lg：搜尋 + 篩選按鈕(Sheet) */}
         <div className="flex gap-2 lg:hidden">
           <Input placeholder="搜尋標題 / 描述" value={props.keyword}
@@ -686,7 +686,7 @@ function SharedFilters(props: {
         </div>
 
         {/* ≥ lg：grid 完整展開 */}
-        <div className="hidden lg:grid gap-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="hidden lg:grid gap-3 lg:grid-cols-3 xl:grid-cols-5">
           <Input placeholder="搜尋標題 / 描述" value={props.keyword}
             onChange={(e) => props.setKeyword(e.target.value)} className="w-full" />
           <MiniSelect value={props.filterStatus} onChange={props.setFilterStatus}
@@ -1232,10 +1232,10 @@ function ListView({
   const cbCls = "size-[18px] rounded-[6px] border-muted-foreground/30 shadow-none data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-colors";
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {canBulk && selected.size > 0 && (
         <Card>
-          <CardContent className="p-3 flex flex-wrap items-center gap-2">
+          <CardContent className="p-4 flex flex-wrap items-center gap-2.5">
             <span className="text-sm font-medium">已選 {selected.size} 筆</span>
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
               <SelectTrigger className="h-9 w-36"><SelectValue placeholder="改狀態" /></SelectTrigger>
