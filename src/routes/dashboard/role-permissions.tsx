@@ -89,12 +89,13 @@ function RolePermPage() {
     toast.success("模組權限已儲存"); qc.invalidateQueries({ queryKey: ["rmp", roleId] });
   };
 
-  const { data: pp = [] } = useQuery({
+  const { data: ppData } = useQuery({
     queryKey: ["rpp", roleId], enabled: !!roleId,
     queryFn: async () => { const { data, error } = await supabase.from("role_page_permissions").select("*").eq("role_id", roleId); if (error) throw error; return data as any[]; },
   });
+  const pp = ppData ?? EMPTY_ROWS;
   const [pDraft, setPDraft] = useState<Record<string, any>>({});
-  useEffect(() => { const m: Record<string, any> = {}; pp.forEach((p) => (m[p.page_key] = p)); setPDraft(m); }, [pp]);
+  useEffect(() => { const m: Record<string, any> = {}; pp.forEach((p: any) => (m[p.page_key] = p)); setPDraft(m); }, [pp]);
   const pVal = (k: string, a: string): boolean | null => {
     const v = pDraft[k]?.[a];
     return v === true ? true : v === false ? false : null;
