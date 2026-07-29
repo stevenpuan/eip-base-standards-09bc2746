@@ -844,11 +844,10 @@ function LeaveHandoverPanel({
 
   const submitAdd = async () => {
     if (adding) return;
-    // assignee 留空時 DB 會自動掛給請假單的代理人；兩邊都空會沒有負責人，先擋下來
-    if (assignee === FOLLOW_DEPUTY && !report.deputy_id) {
-      toast.error("尚未指定本次代理人，請先指定代理人或直接選擇這一項的負責人");
-      return;
-    }
+    // 選「同本次代理人」而本次代理人還沒指定時，assignee_id 會是 null＝未指派。
+    // 這是合法狀態（定案：請假可以先送出，代理人與代辦事後補登），所以不擋新增 ——
+    // eip_leave_handover_item.assignee_id 允許 null，之後指定代理人時 DB 會自動
+    // 回填這些未指派的項目。未指派的項目在清單上會標「未指派」。
     setAdding(true);
     const ok = await onAdd(report.id, {
       title,
@@ -934,7 +933,17 @@ function LeaveHandoverPanel({
                     {it.title}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
-                    <span>指派：{nameOf(it.assignee_id)}</span>
+                    <span>
+                      指派：
+                      {it.assignee_id ? (
+                        nameOf(it.assignee_id)
+                      ) : (
+                        // 未指派：代理人事後補登時 DB 會自動回填，這裡只提示目前還沒有人接
+                        <span className="text-amber-700" title="尚未指派；指定本次代理人後會自動接手">
+                          未指派
+                        </span>
+                      )}
+                    </span>
                     {it.url &&
                       (isLocalPath(it.url) ? (
                         // NAS／file:// 不能當 <a href> 開：瀏覽器會把 \ 正規化成 /，

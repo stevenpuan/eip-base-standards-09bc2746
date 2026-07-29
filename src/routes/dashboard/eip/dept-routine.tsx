@@ -48,6 +48,7 @@ type Row = {
 };
 
 const RANGES = [
+  { v: "1", label: "今天" },
   { v: "7", label: "近 7 天" },
   { v: "14", label: "近 14 天" },
   { v: "30", label: "近 30 天" },
@@ -88,7 +89,9 @@ function DeptRoutinePage() {
   // 催填會發通知給同仁，是寫入動作，不能跟「看得到這頁」共用同一個旗標
   const canNudge = can("eip_dept_routine", "edit");
 
-  const [days, setDays] = useState("14");
+  // 預設「今天」：主管打開這頁最常問的是「今天大家做了沒」，
+  // 預設 14 天累計會讓磚上的項次（項目數 × 天數）被誤讀成範本數量
+  const [days, setDays] = useState("1");
   const [deptFilter, setDeptFilter] = useState("all");
   const [tab, setTab] = useState<"person" | "day">("person");
   const [pickedDate, setPickedDate] = useState("");
@@ -99,7 +102,9 @@ function DeptRoutinePage() {
   const to = dayStr(0);
 
   const listQ = useQuery({
-    queryKey: ["eip", "dept-routine", days],
+    // from / to 必須進 key：它們由「今天」推導，跨午夜時值會變但 days 不變，
+    // 只用 days 當 key 會讓過夜開著的頁面繼續吃到昨天區間的快取
+    queryKey: ["eip", "dept-routine", from, to],
     enabled: !!appUser && canView,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("eip_dept_routine_summary", {
@@ -197,6 +202,24 @@ function DeptRoutinePage() {
     };
   }, [rows]);
 
+  // 期間天數從 from/to 推導（兩端都含），不要把 days 字串直接當天數，避免又踩一次 off-by-one
+  const periodDays = useMemo(
+    () =>
+      Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1,
+    [from, to],
+  );
+
+  // 磚的副標：把「項次」的組成攤開講，避免「我只建 2 個範本，怎麼跑出 30」這種誤讀。
+  // 刻意不寫成「N 天 × 平均 M 項/天」：期間內有空白天數時那個乘法乘不回應做項次，
+  // 讀者拿計算機驗完只會更確信系統算錯——這正是這次客訴的成因。
+  // 改成把兩個天數分開講，並明說平均的分母是「有例行的天數」，就不會誘人去乘期間天數。
+  const expectedHint = useMemo(() => {
+    const dataDays = byDay.length;
+    if (dataDays === 0) return `期間 ${periodDays} 天，尚無例行資料`;
+    const avg = (total.expected / dataDays).toFixed(1);
+    return `期間 ${periodDays} 天，其中 ${dataDays} 天有例行；平均每天 ${avg} 項`;
+  }, [byDay, periodDays, total.expected]);
+
   // 未提交名單預設看區間最後一天；只提供資料裡真的出現過的日期，避免主管選到一片空白
   const dateOptions = useMemo(() => {
     const s = new Set<string>([to]);
@@ -281,6 +304,9 @@ function DeptRoutinePage() {
   };
 
   const handleExport = () => {
+    // 每列是一個人日，單看一列看不出「項次 = 項目數 × 天數」，
+    // 所以帶上這個人在區間內的列數（＝天數），跟「依人」分頁的天數欄一致
+    const daysByUser = new Map(byPerson.map((p) => [p.id, p.days]));
     exportToExcel({
       filename: `部門例行彙總_${from}_${to}`,
       sheetName: "例行明細",
@@ -289,8 +315,9 @@ function DeptRoutinePage() {
         { header: "日期", key: "log_date" },
         { header: "部門", key: "department_name", map: (r) => r.department_name ?? "" },
         { header: "姓名", key: "user_name", map: (r) => r.user_name ?? "" },
-        { header: "應做", key: "expected", map: (r) => Number(r.expected ?? 0) },
-        { header: "已做", key: "done", map: (r) => Number(r.done ?? 0) },
+        { header: "天數", key: "user_id", map: (r) => daysByUser.get(r.user_id) ?? 0 },
+        { header: "應做項次", key: "expected", map: (r) => Number(r.expected ?? 0) },
+        { header: "已做項次", key: "done", map: (r) => Number(r.done ?? 0) },
         {
           header: "達成率",
           key: "expected",
@@ -309,7 +336,7 @@ function DeptRoutinePage() {
     <div className="space-y-4">
       <PageHeader
         title="部門例行彙總"
-        description="「應做」＝當日到期的個人例行範本項數；「已做」＝工作日誌上午／下午區裡勾選完成的例行項。分母只算當日真的有範本到期的人日，沒建立範本的同仁不會被算進來。"
+        description="這份彙總是「一人一天一列」的明細累計，所以磚與表格上的數字是項次（項目數 × 天數），不是例行範本的數量。「應做」＝那一天到期的個人例行範本；「已做」＝當天工作日誌上勾選完成的例行項。達成率＝已做項次 ÷ 應做項次，是整體加總相除，不是各列比率再平均。沒建立例行範本的同仁不會列入分母。"
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -377,17 +404,19 @@ function DeptRoutinePage() {
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Tile label="應做項數" value={total.expected} />
-          <Tile label="已做項數" value={total.done} />
+          <Tile label="應做項次" value={total.expected} hint={expectedHint} />
+          <Tile label="已做項次" value={total.done} hint="當天日誌上勾選完成的例行項累計" />
           <Tile
             label="例行達成率"
             value={fmtRate(rate(total.done, total.expected))}
             tone={rateTone(rate(total.done, total.expected))}
+            hint={`已做 ${total.done} ÷ 應做 ${total.expected}`}
           />
           <Tile
             label="未提交人日"
             value={`${total.unsubmitted} / ${total.rows}`}
             tone={total.unsubmitted > 0 ? "text-destructive" : "text-emerald-600"}
+            hint="未提交列數 ÷ 有例行的人日列數（一人一天算一列）"
           />
         </div>
       )}
@@ -421,6 +450,7 @@ function DeptRoutinePage() {
                 <TableRow>
                   <TableHead>姓名</TableHead>
                   <TableHead>部門</TableHead>
+                  <TableHead className="text-right">天數</TableHead>
                   <TableHead className="text-right">應做</TableHead>
                   <TableHead className="text-right">已做</TableHead>
                   <TableHead className="text-right">達成率</TableHead>
@@ -434,6 +464,7 @@ function DeptRoutinePage() {
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{p.dept}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{p.days}</TableCell>
                       <TableCell className="text-right">{p.expected}</TableCell>
                       <TableCell className="text-right">{p.done}</TableCell>
                       <TableCell className={`text-right font-medium ${rateTone(r)}`}>
@@ -591,11 +622,22 @@ function DeptRoutinePage() {
   );
 }
 
-function Tile({ label, value, tone }: { label: string; value: number | string; tone?: string }) {
+function Tile({
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  label: string;
+  value: number | string;
+  tone?: string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-md border px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`text-2xl font-semibold ${tone ?? ""}`}>{value}</div>
+      {hint && <div className="text-[12.5px] text-muted-foreground">{hint}</div>}
     </div>
   );
 }

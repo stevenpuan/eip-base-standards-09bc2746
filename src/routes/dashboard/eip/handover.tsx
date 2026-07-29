@@ -1,21 +1,42 @@
 import { EipUserPending } from "@/components/eip/EipUserPending";
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { UserMinus, ArrowRight, Check, Inbox } from "lucide-react";
+import {
+  UserMinus,
+  ArrowRight,
+  Check,
+  Inbox,
+  CalendarOff,
+  Plus,
+  Pencil,
+  Trash2,
+  ExternalLink,
+  FolderOpen,
+} from "lucide-react";
 
-// eip_handover_item 尚未進 src/integrations/supabase/types.ts，
-// 這裡用 any 形式的 client，型別在本檔自行宣告。
+// eip_handover_item、eip_leave_handover_item 與 eip_quick_report.deputy_id
+// 都尚未進 src/integrations/supabase/types.ts，
+// 這裡用寬鬆型別的 client，型別在本檔自行宣告。
 import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
-import { useAllUsers } from "@/hooks/useUsers";
+import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
+import { isLocalPath, validateExternalUrl, copyPath } from "@/lib/eip-url";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -108,6 +129,8 @@ function HandoverPage() {
   // RLS 已限定可見範圍（指派給我／我是離職者／我管轄部門／管理者看全部），前端不再過濾
   const listQ = useQuery({
     queryKey: ["eip", "handover", tab],
+    // 沒有交接待辦檢視權的人只看得到自己的請假交接，不要白打這支查詢
+    enabled: allowed,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("eip_handover_item")
@@ -203,15 +226,29 @@ function HandoverPage() {
   if (!appUser) return <EipUserPending />;
   // 權限還沒載入完就判斷 allowed 會把有權限的人踢走（重新整理／書籤必中）
   if (!permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
-  if (!allowed) return <Navigate to="/dashboard/eip/my-tasks" replace />;
+  // 這頁原本沒有「交接待辦」檢視權就整頁導走。現在最上面那塊是「自己送出的請假」，
+  // 那是每個人都該能補登的東西（RLS 也只會回自己的單），所以不再整頁踢人，
+  // 只把離職／異動佇列那一段藏起來。
 
   return (
     <div>
       <PageHeader
         title="交接待辦"
-        description="同仁停用（離職）後，仍指向他且尚未結案的項目會列在這裡，由建立者或主管重新指派。改好負責人後系統隔天會自動結案，也可以直接按「我已處理完成」。"
+        description="上半部是你自己請假期間要交接的事：代理人與代辦事項都可以事後在這裡補登。下半部是同仁停用（離職）後仍指向他、尚未結案的項目，由建立者或主管重新指派。"
       />
 
+      <MyLeaveHandoverSection meId={appUser.id} />
+
+      {!allowed ? (
+        <p className="text-xs text-muted-foreground mt-4">
+          離職／異動的交接佇列需要「交接待辦」模組的檢視權限，你這個角色沒有開，所以只顯示上面自己的請假交接。
+        </p>
+      ) : (
+        <>
+      <div className="text-sm font-semibold mt-5 flex items-center gap-2">
+        <UserMinus className="w-4 h-4 text-muted-foreground" />
+        離職／異動交接
+      </div>
       <Tabs value={tab} onValueChange={setTab} className="mt-2">
         <TabsList>
           {STATUS_TABS.map((t) => (
@@ -312,6 +349,8 @@ function HandoverPage() {
           任務類的項目可以在「任務」頁開啟「待重新指派」篩選，用批次改負責人一次處理多筆。
         </p>
       )}
+        </>
+      )}
     </div>
   );
 }
@@ -351,6 +390,757 @@ function EmptyState({ tab }: { tab: string }) {
     <div className="text-center py-12 px-6">
       <Icon className="w-8 h-8 mx-auto text-muted-foreground/50 mb-3" />
       <div className="text-sm text-muted-foreground max-w-md mx-auto">{msg}</div>
+    </div>
+  );
+}
+
+/* ==================== 我的請假交接 ==================== */
+
+/**
+ * 「我自己送出的請假單」的交接補登區。
+ *
+ * 為什麼在這裡而不是在請假表單裡：臨時請假的人常常在外面、趕時間，
+ * 當場登打不完整份交接清單。請假送出只要區間（LeaveRequestDialog），
+ * **代理人與代辦事項一律事後在這一區補**。
+ *
+ * 三條硬規則：
+ *  ・**不寫 status**：請假單的 status 由 DB trigger 依代辦完成度推導
+ *    （全部完成 → done，任一項取消完成 → 退回 open）。這裡只寫
+ *    deputy_id 與代辦內容，勾完成是代理人在工作區做的。
+ *  ・**每個 UPDATE / DELETE 都看筆數**：PostgREST 被 RLS 擋住時是
+ *    0 筆 ＋ error 為 null，只看 error 會跳假成功。
+ *  ・已完成（done_at 不是 null）的項目不給改標題也不給刪 ——
+ *    那是代理人做完的紀錄，改掉等於把別人的完成紀錄改掉。
+ */
+
+/** eip_quick_report 中的請假單（deputy_id 尚未進 types.ts） */
+type MyLeaveReport = {
+  id: string;
+  status: string;
+  report_date: string | null;
+  leave_from: string | null;
+  leave_to: string | null;
+  deputy_id: string | null;
+  created_at: string;
+};
+
+/** eip_leave_handover_item：一張請假單底下的逐項代辦 */
+type LeaveItem = {
+  id: string;
+  quick_report_id: string;
+  title: string;
+  assignee_id: string | null;
+  url: string | null;
+  sort_order: number | null;
+  done_at: string | null;
+  done_by: string | null;
+};
+
+type UserOpt = { id: string; name: string };
+
+/** shadcn Select 不接受空字串當值，「未指派」用 sentinel */
+const NO_ASSIGNEE = "__none__";
+
+// 2026-07-28 起請假不簽核，status 由完成度 trigger 推導。
+// acknowledged 是舊制「主管已確認」留下的值，與 done / closed 同樣視為已結案。
+const LEAVE_CLOSED = new Set(["done", "acknowledged", "closed"]);
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const hhmm = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+/** 本地（台北）日期字串；toISOString() 在 UTC+8 會退回前一天，不能用 */
+const localDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE");
+
+/** 請假區間：同一天顯示時段並標「全天／N 小時」，跨日標天數 */
+function leaveSpan(from: string | null, to: string | null, fallbackDate: string | null) {
+  if (!from || !to) {
+    return { text: fallbackDate ?? "未填區間", tag: null as string | null };
+  }
+  const a = new Date(from);
+  const b = new Date(to);
+  const da = localDate(from);
+  const db = localDate(to);
+  if (da === db) {
+    const hours = (b.getTime() - a.getTime()) / 3600000;
+    return {
+      text: `${da} ${hhmm(a)}～${hhmm(b)}`,
+      // 8:00–17:30 這種整日班算全天，其餘照實顯示時數，半天請假才看得出來
+      tag: hours >= 7 ? "全天" : `${Math.round(hours * 10) / 10} 小時`,
+    };
+  }
+  const days =
+    Math.round((Date.parse(`${db}T00:00:00`) - Date.parse(`${da}T00:00:00`)) / 86400000) + 1;
+  return { text: `${da} ${hhmm(a)} ～ ${db} ${hhmm(b)}`, tag: `${days} 天` };
+}
+
+/**
+ * 目前掛著的人若不在選單清單裡（已停用，或是自己 —— 選單刻意排除自己），
+ * 要把他補進選項，否則 shadcn Select 會顯示一片空白，看起來像沒指派。
+ * 只有真的不在「在職名單」裡才標（已停用）。
+ */
+function withCurrent(
+  list: UserOpt[],
+  current: string | null,
+  nameOf: (id: string | null) => string,
+  activeIds: Set<string>,
+): UserOpt[] {
+  if (!current || list.some((u) => u.id === current)) return list;
+  const suffix = activeIds.has(current) ? "" : "（已停用）";
+  return [{ id: current, name: `${nameOf(current)}${suffix}` }, ...list];
+}
+
+function MyLeaveHandoverSection({ meId }: { meId: string }) {
+  const qc = useQueryClient();
+  const [showClosed, setShowClosed] = useState(false);
+  const [deputyBusy, setDeputyBusy] = useState<Set<string>>(new Set());
+
+  // 選人一律只給在職同仁（避免指派給離職帳號）；顯示姓名要用含停用的對照
+  const activeUsersQ = useActiveUsers();
+  const allUsersQ = useAllUsers();
+  const nameOf = useMemo(() => {
+    const m = new Map<string, string>();
+    (allUsersQ.data ?? []).forEach((u) => m.set(u.id, u.name ?? u.id));
+    return (id: string | null) => (id ? (m.get(id) ?? id) : "未指派");
+  }, [allUsersQ.data]);
+  const others = useMemo<UserOpt[]>(
+    () =>
+      (activeUsersQ.data ?? [])
+        .filter((u) => u.id !== meId)
+        .map((u) => ({ id: u.id, name: u.name ?? u.id })),
+    [activeUsersQ.data, meId],
+  );
+  const activeIds = useMemo(
+    () => new Set((activeUsersQ.data ?? []).map((u) => u.id)),
+    [activeUsersQ.data],
+  );
+
+  // 只抓自己送出的請假單。已結案的也一起抓回來，「顯示已結案」只是前端切換，
+  // 不必為了一個開關再打一次 API。
+  const reportsQ = useQuery({
+    queryKey: ["eip", "my-leave-handover", "reports", meId],
+    enabled: !!meId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("eip_quick_report")
+        .select("id,status,report_date,leave_from,leave_to,deputy_id,created_at")
+        .eq("type", "leave")
+        .eq("submitter_id", meId)
+        .is("deleted_at", null)
+        .order("leave_from", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []) as MyLeaveReport[];
+    },
+  });
+
+  const allReports = reportsQ.data ?? [];
+  const openReports = allReports.filter((r) => !LEAVE_CLOSED.has(r.status));
+  const closedCount = allReports.length - openReports.length;
+  const reports = showClosed ? allReports : openReports;
+
+  // 代辦一次撈完（含已結案的單），列表要顯示 x/y；用 id 集合當 key，切換開關不重打
+  const reportIds = useMemo(() => allReports.map((r) => r.id).sort(), [allReports]);
+  const itemsKey = useMemo(
+    () => ["eip", "my-leave-handover", "items", reportIds.join(",")] as const,
+    [reportIds],
+  );
+  const itemsQ = useQuery({
+    queryKey: itemsKey,
+    enabled: reportIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("eip_leave_handover_item")
+        .select("id,quick_report_id,title,assignee_id,url,sort_order,done_at,done_by")
+        .in("quick_report_id", reportIds)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as LeaveItem[];
+    },
+  });
+  const itemsByReport = useMemo(() => {
+    const m = new Map<string, LeaveItem[]>();
+    (itemsQ.data ?? []).forEach((it) => {
+      const arr = m.get(it.quick_report_id);
+      if (arr) arr.push(it);
+      else m.set(it.quick_report_id, [it]);
+    });
+    return m;
+  }, [itemsQ.data]);
+
+  /** 寫入成功後：本區、臨時回報頁、代理人的工作區代辦卡都要重讀 */
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["eip", "my-leave-handover"] });
+    void qc.invalidateQueries({ queryKey: ["eip", "quick-reports"] });
+    void qc.invalidateQueries({ queryKey: ["eip", "leave-handover-items"] });
+    void qc.invalidateQueries({ queryKey: ["eip", "leave-handover-inbox"] });
+  };
+
+  /** 指定／清除這次請假的代理人。只寫 deputy_id，status 一律交給 DB trigger */
+  const setDeputy = async (reportId: string, next: string | null) => {
+    if (deputyBusy.has(reportId)) return;
+    setDeputyBusy((p) => new Set(p).add(reportId));
+    const { data, error } = await supabase
+      .from("eip_quick_report")
+      .update({ deputy_id: next })
+      .eq("id", reportId)
+      .select("id");
+    setDeputyBusy((p) => {
+      const n = new Set(p);
+      n.delete(reportId);
+      return n;
+    });
+    if (error) {
+      toast.error(`代理人更新失敗：${error.message}`);
+      return;
+    }
+    if (!data?.length) {
+      // 0 筆 ＋ error 為 null＝被 RLS 擋掉（例如這張單已結案）或資料已被改過
+      toast.error("代理人更新失敗：沒有權限或資料已變更（單已結案時不能再改），畫面已重新整理");
+      refresh();
+      return;
+    }
+    toast.success(next ? "已指定代理人" : "已清除代理人");
+    refresh();
+  };
+
+  /** 新增代辦。sort_order 取現有最大值 +1 */
+  const addItem = async (
+    report: MyLeaveReport,
+    input: { title: string; assigneeId: string | null; url: string | null },
+  ) => {
+    const title = input.title.trim();
+    if (!title) {
+      toast.error("請填寫代辦事項");
+      return false;
+    }
+    if (input.url) {
+      const bad = validateExternalUrl(input.url);
+      if (bad) {
+        toast.error(bad);
+        return false;
+      }
+    }
+    const existing = itemsByReport.get(report.id) ?? [];
+    const nextSort = existing.reduce((m, x) => Math.max(m, x.sort_order ?? 0), 0) + 1;
+    // INSERT 被 RLS 擋掉是真的回 error（42501），不像 UPDATE/DELETE 靜默 0 筆
+    const { error } = await supabase.from("eip_leave_handover_item").insert({
+      quick_report_id: report.id,
+      title,
+      // null＝沒指定：DB 的 eip_fill_lhi_defaults 會補成這張單的 deputy_id，
+      // deputy 也是 null 就留 null（未指派），這是允許的狀態
+      assignee_id: input.assigneeId,
+      url: input.url,
+      sort_order: nextSort,
+    });
+    if (error) {
+      toast.error(`新增失敗：${error.message}`);
+      return false;
+    }
+    toast.success("已新增代辦事項");
+    refresh();
+    return true;
+  };
+
+  /** 修改代辦（標題／指派／連結）。已完成的項目不會走到這裡 */
+  const saveItem = async (
+    item: LeaveItem,
+    patch: { title: string; assignee_id: string | null; url: string | null },
+  ) => {
+    const { data, error } = await supabase
+      .from("eip_leave_handover_item")
+      .update(patch)
+      .eq("id", item.id)
+      .select("id");
+    if (error) {
+      toast.error(`修改失敗：${error.message}`);
+      return false;
+    }
+    if (!data?.length) {
+      toast.error("修改失敗：沒有權限或資料已變更（可能已被刪除或已被勾完成）");
+      refresh();
+      return false;
+    }
+    toast.success("已更新代辦事項");
+    refresh();
+    return true;
+  };
+
+  const removeItem = async (item: LeaveItem) => {
+    if (!window.confirm(`刪除代辦「${item.title}」？`)) return;
+    const { data, error } = await supabase
+      .from("eip_leave_handover_item")
+      .delete()
+      .eq("id", item.id)
+      .select("id");
+    if (error) {
+      toast.error(`刪除失敗：${error.message}`);
+      return;
+    }
+    if (!data?.length) {
+      toast.error("刪除失敗：沒有權限或資料已變更（已完成的項目不能刪除）");
+      refresh();
+      return;
+    }
+    toast.success("已刪除代辦事項");
+    refresh();
+  };
+
+  return (
+    <Card className="mt-3">
+      <CardContent className="p-3 sm:p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <CalendarOff className="w-4 h-4 text-accent shrink-0" />
+          <span className="text-sm font-semibold">我的請假交接</span>
+          {openReports.length > 0 && (
+            <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+              {openReports.length}
+            </span>
+          )}
+          <div className="flex-1" />
+          {closedCount > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => setShowClosed((v) => !v)}
+            >
+              {showClosed ? "隱藏已結案" : `顯示已結案（${closedCount}）`}
+            </Button>
+          )}
+        </div>
+
+        <p className="text-[12.5px] text-muted-foreground">
+          請假送出後不需主管核准。代理人與代辦事項可以隨時在這裡補登或修改，
+          代理人勾完成後完成度會自動回傳；已完成的項目只能檢視，不能改標題或刪除。
+        </p>
+
+        {(activeUsersQ.isError || allUsersQ.isError) && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-destructive">人員清單載入失敗，姓名與選人清單可能不完整</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={() => {
+                void activeUsersQ.refetch();
+                void allUsersQ.refetch();
+              }}
+            >
+              重試
+            </Button>
+          </div>
+        )}
+
+        {reportsQ.isLoading ? (
+          <div className="text-xs text-muted-foreground py-2">載入中…</div>
+        ) : reportsQ.isError ? (
+          /* 載入失敗不能退化成「沒有請假單」，否則使用者會以為假沒送出去 */
+          <div className="flex items-center gap-2 text-xs py-2">
+            <span className="text-destructive">
+              請假單載入失敗：
+              {reportsQ.error instanceof Error ? reportsQ.error.message : "請稍後再試"}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={() => void reportsQ.refetch()}
+            >
+              重試
+            </Button>
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="text-xs text-muted-foreground py-2">
+            {allReports.length === 0
+              ? "你目前沒有請假紀錄。請假請到「我的工作」按「我要請假」，只填區間就能送出。"
+              : "沒有未結案的請假單。按上面的「顯示已結案」可以查看過去的紀錄。"}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reports.map((r) => {
+              const items = itemsByReport.get(r.id) ?? [];
+              const done = items.filter((i) => i.done_at).length;
+              const unassigned = items.filter((i) => !i.assignee_id).length;
+              const closed = LEAVE_CLOSED.has(r.status);
+              const span = leaveSpan(r.leave_from, r.leave_to, r.report_date);
+              const deputyOptions = withCurrent(others, r.deputy_id, nameOf, activeIds);
+              return (
+                <div key={r.id} className="rounded-md border overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-muted/40 border-b">
+                    <span className="text-sm font-medium">{span.text}</span>
+                    {span.tag && (
+                      <Badge variant="secondary" className="text-[11.5px]">
+                        {span.tag}
+                      </Badge>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className={
+                        closed
+                          ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                          : "bg-amber-100 text-amber-700 border-amber-300"
+                      }
+                    >
+                      {closed ? "已結案" : "待處理"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {itemsQ.isLoading ? (
+                        "代辦載入中…"
+                      ) : itemsQ.isError ? (
+                        <span className="text-destructive">代辦載入失敗</span>
+                      ) : (
+                        `代辦 ${done}/${items.length}`
+                      )}
+                    </span>
+                    <div className="flex-1" />
+                    <span className="text-xs text-muted-foreground">代理人</span>
+                    {closed ? (
+                      <span className="text-xs font-medium">{nameOf(r.deputy_id)}</span>
+                    ) : (
+                      <Select
+                        value={r.deputy_id ?? NO_ASSIGNEE}
+                        disabled={deputyBusy.has(r.id)}
+                        onValueChange={(v) =>
+                          void setDeputy(r.id, v === NO_ASSIGNEE ? null : v)
+                        }
+                      >
+                        <SelectTrigger
+                          className={`w-44 h-8 text-xs ${r.deputy_id ? "" : "text-amber-700"}`}
+                        >
+                          <SelectValue placeholder="選擇代理人" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_ASSIGNEE}>未指定</SelectItem>
+                          {deputyOptions.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
+                  {itemsQ.isError ? (
+                    <div className="flex items-center gap-2 px-3 py-2 text-xs">
+                      <span className="text-destructive">代辦事項載入失敗</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs"
+                        onClick={() => void itemsQ.refetch()}
+                      >
+                        重試
+                      </Button>
+                    </div>
+                  ) : items.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      還沒有代辦事項{closed ? "。" : "，可在下方新增。"}
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {items.map((it) => (
+                        <LeaveItemRow
+                          key={it.id}
+                          item={it}
+                          users={withCurrent(others, it.assignee_id, nameOf, activeIds)}
+                          nameOf={nameOf}
+                          hasDeputy={!!r.deputy_id}
+                          canEdit={!closed}
+                          onSave={saveItem}
+                          onDelete={removeItem}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {unassigned > 0 && !itemsQ.isError && (
+                    <div className="px-3 py-1.5 text-[12.5px] text-amber-700 bg-amber-50">
+                      有 {unassigned} 項還沒有指派對象，指定代理人或逐項指派後對方才會收到通知。
+                    </div>
+                  )}
+
+                  {!closed && !itemsQ.isError && (
+                    <AddLeaveItemRow
+                      users={others}
+                      hasDeputy={!!r.deputy_id}
+                      onAdd={(input) => addItem(r, input)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** 連結顯示：UNC／file:// 一律做成「複製路徑」，瀏覽器不能從 https 頁面開 \\伺服器\… */
+function ItemUrl({ url }: { url: string }) {
+  if (isLocalPath(url)) {
+    return (
+      <button
+        type="button"
+        onClick={() => void copyPath(url, toast.success, toast.info)}
+        title={`${url}（點擊複製路徑）`}
+        className="inline-flex items-center text-primary hover:underline break-all"
+      >
+        複製路徑
+        <FolderOpen className="w-3 h-3 ml-0.5" />
+      </button>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={url}
+      className="inline-flex items-center text-primary hover:underline break-all"
+    >
+      開啟連結
+      <ExternalLink className="w-3 h-3 ml-0.5" />
+    </a>
+  );
+}
+
+/**
+ * 一列代辦。編輯是明確進出「編輯模式」而不是常駐輸入框 ——
+ * 常駐 input 的本地狀態會在背景 refetch 後跟 server 值不一致，
+ * 使用者會以為自己看到的是最新內容。
+ */
+function LeaveItemRow({
+  item,
+  users,
+  nameOf,
+  hasDeputy,
+  canEdit,
+  onSave,
+  onDelete,
+}: {
+  item: LeaveItem;
+  users: UserOpt[];
+  nameOf: (id: string | null) => string;
+  hasDeputy: boolean;
+  canEdit: boolean;
+  onSave: (
+    item: LeaveItem,
+    patch: { title: string; assignee_id: string | null; url: string | null },
+  ) => Promise<boolean>;
+  onDelete: (item: LeaveItem) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(item.title);
+  const [assignee, setAssignee] = useState(item.assignee_id ?? NO_ASSIGNEE);
+  const [url, setUrl] = useState(item.url ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const done = !!item.done_at;
+  // 已完成＝代理人做完的紀錄，只能看：不給改標題、不給刪
+  const editable = canEdit && !done;
+
+  const startEdit = () => {
+    setTitle(item.title);
+    setAssignee(item.assignee_id ?? NO_ASSIGNEE);
+    setUrl(item.url ?? "");
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (busy) return;
+    const t = title.trim();
+    if (!t) {
+      toast.error("代辦事項不能空白");
+      return;
+    }
+    const u = url.trim();
+    if (u) {
+      const bad = validateExternalUrl(u);
+      if (bad) {
+        toast.error(bad);
+        return;
+      }
+    }
+    setBusy(true);
+    const ok = await onSave(item, {
+      title: t,
+      assignee_id: assignee === NO_ASSIGNEE ? null : assignee,
+      url: u || null,
+    });
+    setBusy(false);
+    if (ok) setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="px-3 py-2 space-y-2 bg-muted/20">
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="代辦事項"
+          className="h-8 text-sm"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={assignee} onValueChange={setAssignee}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {/* 沒選人時 DB 會補成這張單的代理人；沒有代理人就留成未指派 */}
+              <SelectItem value={NO_ASSIGNEE}>{hasDeputy ? "同代理人" : "未指派"}</SelectItem>
+              {users.map((u) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="連結（選填）https:// 或 \\NAS\品保\…"
+            className="h-8 text-xs font-mono flex-1 min-w-[12rem]"
+          />
+          <Button size="sm" className="h-8" disabled={busy} onClick={() => void save()}>
+            {busy ? "儲存中…" : "儲存"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8"
+            disabled={busy}
+            onClick={() => setEditing(false)}
+          >
+            取消
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 px-3 py-2 text-sm">
+      <div className="flex-1 min-w-0">
+        <div className={done ? "line-through text-muted-foreground break-words" : "break-words"}>
+          {item.title}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs mt-0.5">
+          {item.assignee_id ? (
+            <span className="text-muted-foreground">指派：{nameOf(item.assignee_id)}</span>
+          ) : (
+            <span className="text-amber-700">未指派</span>
+          )}
+          {item.url && <ItemUrl url={item.url} />}
+          {item.done_at && (
+            <span className="text-muted-foreground">
+              已完成 {fmt(item.done_at)}
+              {item.done_by && ` ・${nameOf(item.done_by)}`}
+            </span>
+          )}
+        </div>
+      </div>
+      {editable && (
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2"
+            onClick={startEdit}
+            title="編輯這項代辦"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-muted-foreground hover:text-destructive"
+            onClick={() => void onDelete(item)}
+            title="刪除這項代辦"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )}
+      {done && !editable && (
+        <span className="text-[12.5px] text-muted-foreground shrink-0 inline-flex items-center gap-1">
+          <Check className="w-3 h-3" />
+          已完成
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** 新增一列代辦：事項必填，指派與連結選填 */
+function AddLeaveItemRow({
+  users,
+  hasDeputy,
+  onAdd,
+}: {
+  users: UserOpt[];
+  hasDeputy: boolean;
+  onAdd: (input: { title: string; assigneeId: string | null; url: string | null }) => Promise<boolean>;
+}) {
+  const [title, setTitle] = useState("");
+  const [assignee, setAssignee] = useState(NO_ASSIGNEE);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (busy) return; // INSERT 連按兩次會真的插兩筆
+    setBusy(true);
+    const ok = await onAdd({
+      title,
+      assigneeId: assignee === NO_ASSIGNEE ? null : assignee,
+      url: url.trim() || null,
+    });
+    setBusy(false);
+    if (ok) {
+      setTitle("");
+      setUrl("");
+      setAssignee(NO_ASSIGNEE);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t bg-muted/10">
+      <Input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void submit();
+          }
+        }}
+        placeholder="新增代辦事項（例：追蹤 A 客戶報價回覆）"
+        className="h-8 text-sm flex-1 min-w-[12rem]"
+      />
+      <Select value={assignee} onValueChange={setAssignee}>
+        <SelectTrigger className="w-36 h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NO_ASSIGNEE}>{hasDeputy ? "同代理人" : "未指派"}</SelectItem>
+          {users.map((u) => (
+            <SelectItem key={u.id} value={u.id}>
+              {u.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="連結（選填）https:// 或 \\NAS\品保\…"
+        className="h-8 text-xs font-mono w-56"
+      />
+      <Button size="sm" className="h-8" disabled={busy || !title.trim()} onClick={() => void submit()}>
+        <Plus className="w-3.5 h-3.5 mr-1" />
+        {busy ? "新增中…" : "新增"}
+      </Button>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { RequirePerm } from "@/components/RequirePerm";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, GripVertical, Download, Paperclip, ListChecks, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2, UserMinus, UserPen } from "lucide-react";
+import { Plus, GripVertical, Download, Paperclip, ListChecks, Link2, Repeat, SlidersHorizontal, MoreHorizontal, Pencil, Trash2, UserMinus, UserPen } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,8 @@ import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID, PRIORITY_COLOR, PRIORITY_LABEL } from "@/lib/eip-constants";
 import { exportToExcel } from "@/lib/eip-export";
+// 建立對話框的「相關連結」跟 UrlLinks 元件共用同一份格式判定，不要各寫一套
+import { validateExternalUrl } from "@/lib/eip-url";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -119,6 +121,10 @@ type Project = Database["public"]["Tables"]["project"]["Row"];
 type Priority = Database["public"]["Enums"]["task_priority"];
 
 const ALL_PRIORITIES: Priority[] = ["low", "normal", "high", "urgent"];
+
+// moveMutation 用的哨兵：把「PostgREST 回 0 列」跟真正的連線／SQL 錯誤分開報。
+// 訊息不會直接顯示給使用者（onError 會換成看得懂的說明），只是用來辨識來源。
+const MOVE_BLOCKED = "__move_blocked_0_rows__";
 
 function TasksPage() {
   const qc = useQueryClient();
@@ -346,8 +352,13 @@ function TasksPage() {
       } else {
         patch.completed_at = null;
       }
-      const { error } = await supabase.from("task").update(patch).eq("id", vars.taskId);
+      // UPDATE 被 RLS 擋掉時 PostgREST 回 0 列而且 error 是 null，看起來像成功：
+      // 卡片停在原欄、沒有任何訊息，使用者只會一直重拖。一定要 .select("id") 看筆數，
+      // 0 列就 throw 出去讓 onError 統一提示並把看板拉回伺服器狀態。
+      const { data: moved, error } = await supabase
+        .from("task").update(patch).eq("id", vars.taskId).select("id");
       if (error) throw error;
+      if (!moved?.length) throw new Error(MOVE_BLOCKED);
       // 狀態已經改成功了，歷程寫不進去不該讓整個動作看起來失敗，
       // 但也不能完全不講 —— 否則「執行歷程」缺一筆而且沒人知道。
       const { error: le } = await supabase.from("task_update").insert({
@@ -361,7 +372,16 @@ function TasksPage() {
       if (le) toast.warning("狀態已更新，但執行歷程未寫入");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] }),
-    onError: (e) => toast.error(`更新失敗：${formatErr(e)}`),
+    onError: (e) => {
+      // 失敗時也要 invalidate：看板是直接畫 tasks-full 的資料，重新載入才會把卡片
+      // 放回它在伺服器上真正的欄位與位置（有樂觀更新時這一步就是回滾）。
+      void qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+      if (e instanceof Error && e.message === MOVE_BLOCKED) {
+        toast.error("移動失敗：你沒有變更這筆任務的權限，或這筆任務已被他人變更／刪除。卡片已回到原本的位置。");
+        return;
+      }
+      toast.error(`更新失敗：${formatErr(e)}`);
+    },
   });
 
   const handleExport = () => {
@@ -505,7 +525,13 @@ function TasksPage() {
           departments={deptsQ.data ?? []}
           projects={projectsQ.data ?? []}
           types={typesQ.data ?? []}
-          onCreated={() => qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] })}
+          onCreated={() => {
+            void qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+            // 建立時就能填協作者與子項，這兩份快取不刷的話卡片上的
+            // 協作者標記與「3/5」會停在舊值
+            void qc.invalidateQueries({ queryKey: ["eip", "task_collaborators-all"] });
+            void qc.invalidateQueries({ queryKey: ["eip", "tasks-subcount"] });
+          }}
         />
       )}
 
@@ -546,15 +572,29 @@ function TasksPage() {
                 e.preventDefault();
                 if (!deleteTask) return;
                 setDeleting(true);
-                const { error } = await supabase.from("task").delete().eq("id", deleteTask.id);
+                // 走 eip_soft_delete RPC，跟 ListView.bulkDelete 一致。
+                // 不能用 .delete()：task 上的軟刪除 guard 是 BEFORE DELETE ... RETURN NULL，
+                // ROW_COUNT 一律 0，所以「列數檢查」在這張表上不能用（會把成功報成失敗），
+                // 而只看 error 又會把被 RLS 擋掉的情況報成成功。只有 RPC 會回明確結果。
+                const { data, error } = await supabaseAny.rpc("eip_soft_delete", {
+                  p_module: "eip_tasks",
+                  p_id: deleteTask.id,
+                });
                 setDeleting(false);
                 if (error) {
+                  // 後端的訊息原封不動顯示：purge_guard 之類的拒絕理由帶了
+                  // 協作者／變更紀錄／進度回報的筆數，是刻意寫給使用者看的。
                   toast.error(`刪除失敗：${error.message}`);
+                  return;
+                }
+                if ((data as { ok?: boolean } | null)?.ok !== true) {
+                  // 呼叫成功但後端明確拒絕（ok 不為 true）＝權限不足，不是連線問題
+                  toast.error("刪除失敗：僅本人 / 本部門主管 / 管理者可刪除這筆任務");
                   return;
                 }
                 toast.success("任務已刪除");
                 setDeleteTask(null);
-                qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
+                void qc.invalidateQueries({ queryKey: ["eip", "tasks-full"] });
               }}
             >
               {deleting ? "刪除中…" : "確認刪除"}
@@ -1469,6 +1509,24 @@ function CalendarView({ tasks, statusMap, userMap }: {
 }
 
 /* ============ 建立任務對話框 ============ */
+
+// 建立時還沒有 task id，子項與連結只能先放在本地 state，任務建好才寫進 DB。
+// key 只是 React 的 list key（用陣列 index 當 key 時刪掉中間一列會讓後面幾列的
+// 輸入焦點與 IME 組字跑掉），不會送到後端。
+type DraftChecklistRow = { key: string; title: string };
+type DraftLinkRow = { key: string; label: string; url: string };
+const draftKey = () => crypto.randomUUID();
+
+// task_checklist / eip_url_link 都還沒進 types.ts，寫入用寬鬆 client（supabaseAny），
+// 型別在這裡自己宣告，不要灑 any。
+type TaskChecklistInsert = { task_id: string; title: string; sort_order: number };
+type UrlLinkInsert = {
+  entity_type: "task";
+  entity_id: string;
+  label: string | null;
+  url: string;
+};
+
 function CreateTaskDialog({
   open, onClose, appUser, statuses, users, departments, projects, types, onCreated,
 }: {
@@ -1487,12 +1545,26 @@ function CreateTaskDialog({
   const [priority, setPriority] = useState<Priority>("normal");
   const [dueDate, setDueDate] = useState("");
   const [collaborators, setCollaborators] = useState<string[]>([]);
+  // 使用者回報「一開始建立畫面沒有連結、檔案、子項目清單欄位，要建立後再按編輯才能登打」
+  const [checklist, setChecklist] = useState<DraftChecklistRow[]>([]);
+  const [links, setLinks] = useState<DraftLinkRow[]>([]);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (!title.trim()) return toast.error("請輸入標題");
     const v = validateVisibility(scope, deptId);
     if (!v.ok) return toast.error(v.error);
+    // 空白列直接丟掉，使用者按了「新增一列」又沒填不該擋住建立
+    const checklistTitles = checklist.map((r) => r.title.trim()).filter(Boolean);
+    const linkRows = links
+      .map((r) => ({ label: r.label.trim(), url: r.url.trim() }))
+      .filter((r) => r.label || r.url);
+    // 連結格式在送出前就驗完：等 DB 回 23514（check constraint）時任務已經建好了，
+    // 而且訊息看不出是哪一列有問題。判定沿用 UrlLinks 的 validateExternalUrl()。
+    for (let i = 0; i < linkRows.length; i++) {
+      const bad = validateExternalUrl(linkRows[i].url);
+      if (bad) return toast.error(`相關連結第 ${i + 1} 列：${bad}`);
+    }
     setBusy(true);
     try {
       const { data: created, error } = await supabase.from("task").insert({
@@ -1512,13 +1584,30 @@ function CreateTaskDialog({
       }).select("*").single();
       if (error) throw error;
       const parentId = (created as Task).id;
-      // 這兩段是「附帶寫入」：失敗不該讓任務建立整個回滾（DB 沒有交易可用），
-      // 但也絕對不能照樣跳成功 toast —— 使用者會以為協作者/子步驟都進去了。
+      // 以下幾段是「附帶寫入」：失敗不該讓任務建立整個回滾（DB 沒有交易可用），
+      // 但也絕對不能照樣跳成功 toast —— 使用者會以為協作者/子項/連結都進去了。
       const partial: string[] = [];
       if (collaborators.length) {
         const { error: ce } = await supabase.from("task_collaborator")
           .insert(collaborators.map((uid) => ({ task_id: parentId, user_id: uid })));
         if (ce) partial.push("協作者未加入");
+      }
+      if (checklistTitles.length) {
+        // tenant_id / created_by 由 trg_task_checklist_defaults 補（見 TaskChecklist.tsx）。
+        // sort_order 這裡明確給 1..n：批次 insert 交給 trigger 逐列補時，
+        // 順序不保證跟畫面上排的一樣。
+        const rows: TaskChecklistInsert[] = checklistTitles.map((t2, i) => ({
+          task_id: parentId, title: t2, sort_order: i + 1,
+        }));
+        const { error: kle } = await supabaseAny.from("task_checklist").insert(rows);
+        if (kle) partial.push("子項清單未建立");
+      }
+      if (linkRows.length) {
+        const rows: UrlLinkInsert[] = linkRows.map((r) => ({
+          entity_type: "task", entity_id: parentId, label: r.label || null, url: r.url,
+        }));
+        const { error: ue } = await supabaseAny.from("eip_url_link").insert(rows);
+        if (ue) partial.push("相關連結未建立");
       }
       const t = types.find((x) => x.id === typeId);
       const steps = Array.isArray(t?.default_steps) ? (t!.default_steps as unknown as string[]) : [];
@@ -1602,6 +1691,11 @@ function CreateTaskDialog({
           />
 
           <Field label="協作者">
+            {/* 負責人預設就是自己，清單裡看不到自己時要講清楚原因，
+                否則使用者會以為是「不能選我自己」的錯誤 */}
+            <p className="text-[12.5px] text-muted-foreground">
+              負責人（{users.find((u) => u.id === ownerId)?.name ?? "未指定"}）不需要重複加為協作者
+            </p>
             <div className="flex flex-wrap gap-2 p-2 border rounded-md max-h-32 overflow-y-auto">
               {users.filter((u) => u.id !== ownerId).map((u) => {
                 const on = collaborators.includes(u.id);
@@ -1615,6 +1709,90 @@ function CreateTaskDialog({
               })}
             </div>
           </Field>
+
+          {/* 子項清單：建立時就能登打，不用先建立再進編輯（勾選要等建立後在詳情裡做） */}
+          <div className="mt-1 border-t pt-3 space-y-2">
+            <div className="text-sm font-medium flex items-center gap-1.5">
+              <ListChecks className="w-3.5 h-3.5" />
+              子項清單
+            </div>
+            {checklist.length === 0 ? (
+              <p className="text-[12.5px] text-muted-foreground">
+                子項用來拆解這個任務要做的幾件事；建立後可在任務詳情裡勾選與排序。
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {checklist.map((row, i) => (
+                  <div key={row.key} className="flex items-center gap-2">
+                    <Input
+                      value={row.title}
+                      placeholder={`子項 ${i + 1}`}
+                      className="h-8 text-sm"
+                      onChange={(e) =>
+                        setChecklist((s) => s.map((x) => (x.key === row.key ? { ...x, title: e.target.value } : x)))
+                      }
+                    />
+                    <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0"
+                      onClick={() => setChecklist((s) => s.filter((x) => x.key !== row.key))}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Button type="button" size="sm" variant="outline" className="h-8"
+              onClick={() => setChecklist((s) => [...s, { key: draftKey(), title: "" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              新增子項
+            </Button>
+          </div>
+
+          {/* 相關連結：使用者說的「檔案」就是 NAS 上的路徑，用連結涵蓋。
+              真正的檔案上傳屬文件中心，這裡不做。 */}
+          <div className="mt-1 border-t pt-3 space-y-2">
+            <div className="text-sm font-medium flex items-center gap-1.5">
+              <Link2 className="w-3.5 h-3.5" />
+              相關連結（檔案／NAS／網址）
+            </div>
+            {links.length === 0 ? (
+              <p className="text-[12.5px] text-muted-foreground">
+                可以放 NAS 資料夾路徑（\\伺服器\分享資料夾\…）或網址。NAS 路徑瀏覽器不能直接開，
+                之後在任務詳情點擊會複製路徑。
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {links.map((row) => (
+                  <div key={row.key} className="flex items-center gap-2">
+                    <Input
+                      value={row.label}
+                      placeholder="標籤（選填）"
+                      className="h-8 text-sm w-40 shrink-0"
+                      onChange={(e) =>
+                        setLinks((s) => s.map((x) => (x.key === row.key ? { ...x, label: e.target.value } : x)))
+                      }
+                    />
+                    <Input
+                      value={row.url}
+                      placeholder="\\NAS\品保\2026\ 或 https://…"
+                      className="h-8 text-sm font-mono"
+                      onChange={(e) =>
+                        setLinks((s) => s.map((x) => (x.key === row.key ? { ...x, url: e.target.value } : x)))
+                      }
+                    />
+                    <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0"
+                      onClick={() => setLinks((s) => s.filter((x) => x.key !== row.key))}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Button type="button" size="sm" variant="outline" className="h-8"
+              onClick={() => setLinks((s) => [...s, { key: draftKey(), label: "", url: "" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              新增連結
+            </Button>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>取消</Button>
@@ -1667,11 +1845,42 @@ export function EditTaskDialog({
   onChecklistChange?: () => void;
 }) {
   const { appUser } = useEipUser();
+  const qc = useQueryClient();
   const userMap = useMemo(() => {
     const m = new Map<string, string>();
     users.forEach((u) => m.set(u.id, u.name));
     return m;
   }, [users]);
+
+  /* ---- 協作者 ----
+   * 原本編輯畫面完全沒有這個欄位，指派協作者只能在建立時做一次，之後要改沒有入口。
+   * collabInitial 保留載入時的原狀，儲存時做差集（新增 insert / 移除 delete）——
+   * 不能「先整批刪除再重新插入」：task_collaborator 上的 trg_task_collab_change
+   * 會寫變更紀錄，全刪全插會在「執行歷程」時間軸上製造一堆假的移除／加入事件。
+   */
+  const [collabIds, setCollabIds] = useState<string[]>([]);
+  const [collabInitial, setCollabInitial] = useState<string[]>([]);
+  const [collabLoading, setCollabLoading] = useState(true);
+  const [collabErr, setCollabErr] = useState<string | null>(null);
+  // 跟 summaryLoaded 同一個道理：沒讀成功就不准算差集寫回去，
+  // 否則會拿空的 collabInitial 當基準，把現有協作者當成「使用者移除的」全刪掉。
+  const [collabLoaded, setCollabLoaded] = useState(false);
+
+  const loadCollaborators = async () => {
+    setCollabLoading(true);
+    const { data, error } = await supabase
+      .from("task_collaborator")
+      .select("user_id")
+      .eq("task_id", task.id);
+    setCollabLoading(false);
+    if (error) { setCollabErr(formatErr(error)); setCollabLoaded(false); return; }
+    setCollabErr(null);
+    const ids = (data ?? []).map((r) => r.user_id);
+    setCollabInitial(ids);
+    setCollabIds(ids);
+    setCollabLoaded(true);
+  };
+  useEffect(() => { void loadCollaborators(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [task.id]);
 
   const [notes, setNotes] = useState<TaskUpdateRow[]>([]);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -1694,19 +1903,28 @@ export function EditTaskDialog({
     const text = editingNoteText.trim();
     if (!text) return;
     setSavingNoteEdit(true);
-    const { error } = await supabase
+    // 補充說明的 RLS 只讓本人改。被擋掉時 PostgREST 回 0 列且 error 為 null，
+    // 不看筆數會變成「按了儲存、畫面關掉、內容其實沒變」。
+    // （task_update 沒有軟刪除 guard，所以這張表的列數是可信的）
+    const { data, error } = await supabase
       .from("task_update")
       .update({ comment: text })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     setSavingNoteEdit(false);
     if (error) { toast.error("修改失敗：" + formatErr(error)); return; }
+    if (!data?.length) { toast.error("修改失敗：只有這則補充說明的作者可以修改"); return; }
     cancelEditNote();
     void loadNotes();
   };
   const deleteNote = async (id: string) => {
     if (!confirm("確定要刪除這則補充說明？")) return;
-    const { error } = await supabase.from("task_update").delete().eq("id", id);
+    // 同上：DELETE 被 RLS 擋掉也是 0 列 + error 為 null，只看 error 會變成
+    // 「按了沒反應也沒訊息」，使用者只會一直重按
+    const { data, error } = await supabase
+      .from("task_update").delete().eq("id", id).select("id");
     if (error) { toast.error("刪除失敗：" + formatErr(error)); return; }
+    if (!data?.length) { toast.error("刪除失敗：只有這則補充說明的作者可以刪除"); return; }
     void loadNotes();
   };
 
@@ -1831,13 +2049,61 @@ export function EditTaskDialog({
     // 從已完成退回進行中時摘要保留，不無聲清掉使用者寫過的內容。
     // summaryLoaded 為 false（還在補讀或補讀失敗）時，整個欄位不進 patch，
     // 寧可這次不存摘要，也不要用空值蓋掉既有內容。
-    const { error } = await supabaseAny
+    // UPDATE 被 RLS 擋掉時 PostgREST 回 0 列且 error 為 null，看起來像成功。
+    // 一定要 .select("id") 看筆數，否則使用者會拿到「已儲存」卻什麼都沒變。
+    const { data: updated, error } = await supabaseAny
       .from("task")
       .update(summaryLoaded ? { ...patch, closing_summary: closingSummary.trim() || null } : patch)
-      .eq("id", task.id);
+      .eq("id", task.id)
+      .select("id");
+    if (error) { setBusy(false); setErr(error.message); return; }
+    if (!(updated as { id: string }[] | null)?.length) {
+      setBusy(false);
+      // 0 列的兩種可能：被 RLS 擋掉（沒有編輯權限），或改完可見範圍後這筆已經不在
+      // 自己的可見範圍內（RETURNING 也受 SELECT 政策限制）。訊息兩種都涵蓋。
+      setErr(
+        "資料庫回傳 0 列，這次儲存可能沒有生效：多半是沒有編輯這筆任務的權限（限負責人、建立者、協作者或管理者），" +
+        "或是可見範圍改成你看不到的部門。請重新開啟這筆任務確認。",
+      );
+      return;
+    }
+
+    // 協作者是「附帶寫入」：任務本體已經存好了，這段失敗不該讓整個儲存看起來失敗，
+    // 但也不能照樣跳成功 toast —— 沿用 CreateTaskDialog 的 partial 模式列出沒進去的項目。
+    const partial: string[] = [];
+    if (collabLoaded) {
+      // 負責人用「當前表單值」判斷：編輯中可能剛把負責人改成原本的協作者，
+      // 那個人就該從協作者名單移除，而不是同時掛兩個角色。
+      const target = collabIds.filter((id) => id !== ownerId);
+      const toAdd = target.filter((id) => !collabInitial.includes(id));
+      const toRemove = collabInitial.filter((id) => !target.includes(id));
+      if (toAdd.length) {
+        const { error: ae } = await supabase
+          .from("task_collaborator")
+          .insert(toAdd.map((uid) => ({ task_id: task.id, user_id: uid })));
+        if (ae) partial.push("協作者未加入");
+      }
+      if (toRemove.length) {
+        // 同樣要看筆數才知道有沒有真的刪掉。task_collaborator 沒有 id 欄位
+        // （PK 是 task_id + user_id），所以這裡 select("user_id")。
+        const { data: removed, error: de } = await supabase
+          .from("task_collaborator")
+          .delete()
+          .eq("task_id", task.id)
+          .in("user_id", toRemove)
+          .select("user_id");
+        if (de) partial.push("協作者未移除");
+        else if ((removed?.length ?? 0) < toRemove.length) partial.push("部分協作者未移除（權限不足）");
+      }
+      if (toAdd.length || toRemove.length) {
+        // 看板卡片的協作者標記讀這支 query，不刷新的話畫面會停在舊名單
+        void qc.invalidateQueries({ queryKey: ["eip", "task_collaborators-all"] });
+      }
+    }
+
     setBusy(false);
-    if (error) { setErr(error.message); return; }
-    toast.success("已儲存");
+    if (partial.length) toast.warning(`任務已儲存，但${partial.join("、")}，請重新確認`);
+    else toast.success("已儲存");
     onSaved();
   };
 
@@ -1912,6 +2178,53 @@ export function EditTaskDialog({
             departments={departments}
             disabled={readOnly}
           />
+
+          <Field label="協作者">
+            {/* 這一行小字是給「為什麼協作者清單裡沒有我自己」的答案：
+                負責人預設就是自己，本來就不必再加一次。 */}
+            {!readOnly && (
+              <p className="text-[12.5px] text-muted-foreground">
+                負責人（{ownerId ? (userMap.get(ownerId) ?? "已停用帳號") : "未指定"}）不需要重複加為協作者
+              </p>
+            )}
+            {collabLoading ? (
+              <div className="text-xs text-muted-foreground">載入中…</div>
+            ) : collabErr ? (
+              // 載入失敗不能只留空清單：那看起來像「這筆任務沒有協作者」，
+              // 而且這種狀態下按儲存不會去動協作者（collabLoaded 為 false）
+              <div className="text-xs">
+                <span className="text-destructive">協作者載入失敗：{collabErr}</span>
+                <Button size="sm" variant="ghost" className="h-6 ml-1 text-xs"
+                  onClick={() => void loadCollaborators()}>重試</Button>
+              </div>
+            ) : readOnly ? (
+              collabIds.length === 0 ? (
+                <div className="text-xs text-muted-foreground">無協作者</div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {collabIds.map((id) => (
+                    <Badge key={id} variant="secondary" className="text-xs font-normal">
+                      {userMap.get(id) ?? "已停用帳號"}
+                    </Badge>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="flex flex-wrap gap-2 p-2 border rounded-md max-h-32 overflow-y-auto">
+                {users.filter((u) => u.id !== ownerId).map((u) => {
+                  const on = collabIds.includes(u.id);
+                  return (
+                    <button key={u.id} type="button"
+                      onClick={() => setCollabIds((s) => on ? s.filter((x) => x !== u.id) : [...s, u.id])}
+                      className={`text-xs px-2 py-1 rounded border ${on ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent"}`}>
+                      {u.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Field>
+
           {err && <div className="text-sm text-destructive">{err}</div>}
 
           {(willBeDone || (wasDone && closingSummary)) && (
