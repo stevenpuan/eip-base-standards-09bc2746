@@ -90,7 +90,7 @@ export function NotificationBell() {
         >
           <Bell className="w-4 h-4" />
           {unread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[11.5px] font-semibold flex items-center justify-center">
               {unread > 99 ? "99+" : unread}
             </span>
           )}
@@ -120,7 +120,7 @@ export function NotificationBell() {
                       {!n.is_read && <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mr-1.5 align-middle" />}
                       {n.message}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                    <div className="text-[12.5px] text-muted-foreground mt-0.5">
                       {new Date(n.created_at).toLocaleString("zh-TW")}
                     </div>
                   </button>

@@ -119,7 +119,7 @@ function RolePermPage() {
         {roles.map((r) => (
           <button key={r.id} onClick={() => setRoleId(r.id)}
             className={"rounded-md border px-3 py-1.5 text-sm transition-colors " + (r.id === roleId ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent")}>
-            {r.name}{r.is_system && <span className="ml-1 text-[10px] opacity-70">內建</span>}
+            {r.name}{r.is_system && <span className="ml-1 text-[11.5px] opacity-70">內建</span>}
           </button>
         ))}
       </div>

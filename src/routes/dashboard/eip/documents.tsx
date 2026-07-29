@@ -343,18 +343,18 @@ function DocumentsPage() {
                           <div className="min-w-0 flex-1 pr-10">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium truncate">{d.title}</span>
-                              <Badge variant="secondary" className="text-[10px]">v{d.current_version}</Badge>
-                              <span className={cn("text-[10px] px-2 py-0.5 rounded-full", STATUS_COLOR[d.status])}>
+                              <Badge variant="secondary" className="text-[11.5px]">v{d.current_version}</Badge>
+                              <span className={cn("text-[11.5px] px-2 py-0.5 rounded-full", STATUS_COLOR[d.status])}>
                                 {STATUS_LABEL[d.status] ?? d.status}
                               </span>
-                              <span className="text-[10px] text-muted-foreground">
+                              <span className="text-[11.5px] text-muted-foreground">
                                 {DOC_TYPE_LABEL[d.doc_type] ?? d.doc_type}
                               </span>
                             </div>
                             {d.summary && (
                               <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.summary}</div>
                             )}
-                            <div className="text-[11px] text-muted-foreground mt-1">
+                            <div className="text-[12.5px] text-muted-foreground mt-1">
                               負責人:{userMap.get(d.owner_id ?? "") ?? "—"} · 更新於 {new Date(d.updated_at).toLocaleString()}
                             </div>
                           </div>
@@ -556,7 +556,7 @@ function FolderNode({
         </button>
         {active ? <FolderOpen className="w-4 h-4 text-primary" /> : <Folder className="w-4 h-4 text-muted-foreground" />}
         <span className="truncate flex-1">{folder.name}</span>
-        <span className="text-[10px] text-muted-foreground">{docCount}</span>
+        <span className="text-[11.5px] text-muted-foreground">{docCount}</span>
         {isManager && (
           <span className="lg:opacity-0 lg:group-hover:opacity-100 flex items-center gap-0.5">
             <button title="新增子資料夾" className="p-0.5 hover:text-foreground" onClick={(e) => { e.stopPropagation(); void promptCreateFolder(folder.id, tenantId, qc); }}>
@@ -593,7 +593,7 @@ function FolderRow({
       <span className="inline-block w-3" />
       <Folder className="w-4 h-4 text-muted-foreground" />
       <span className="flex-1">{folder?.name ?? "全部文件"}</span>
-      <span className="text-[10px] text-muted-foreground">{count}</span>
+      <span className="text-[11.5px] text-muted-foreground">{count}</span>
     </div>
   );
 }
@@ -684,11 +684,11 @@ function DocDetailDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 flex-wrap">
                 <span>{doc.title}</span>
-                <Badge variant="secondary" className="text-[10px]">v{doc.current_version}</Badge>
-                <span className={cn("text-[10px] px-2 py-0.5 rounded-full", STATUS_COLOR[doc.status])}>
+                <Badge variant="secondary" className="text-[11.5px]">v{doc.current_version}</Badge>
+                <span className={cn("text-[11.5px] px-2 py-0.5 rounded-full", STATUS_COLOR[doc.status])}>
                   {STATUS_LABEL[doc.status]}
                 </span>
-                <span className="text-[10px] text-muted-foreground font-normal">
+                <span className="text-[11.5px] text-muted-foreground font-normal">
                   {DOC_TYPE_LABEL[doc.doc_type]}
                 </span>
               </DialogTitle>
@@ -747,8 +747,8 @@ function DocDetailDialog({
                 <div className="mt-2 border rounded-md divide-y text-sm">
                   {versions.map((v) => (
                     <div key={v.id} className="p-2 flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px]">v{v.version_no}</Badge>
-                      {v.version_no === doc.current_version && <span className="text-[10px] text-emerald-700">(目前)</span>}
+                      <Badge variant="secondary" className="text-[11.5px]">v{v.version_no}</Badge>
+                      {v.version_no === doc.current_version && <span className="text-[11.5px] text-emerald-700">(目前)</span>}
                       <span className="text-xs text-muted-foreground flex-1 truncate">
                         {v.note ?? "—"} · {userMap.get(v.created_by ?? "") ?? "—"} · {new Date(v.created_at).toLocaleString()}
                       </span>

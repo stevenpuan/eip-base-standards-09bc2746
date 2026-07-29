@@ -158,14 +158,14 @@ function Page() {
             <BellRing className="w-3.5 h-3.5 text-muted-foreground" />
             {prefix && <span className="text-primary">{prefix}</span>}
             {EVENT_LABEL[r.event_code] ?? r.event_code}
-            {inactive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border">已停用</span>}
+            {inactive && <span className="text-[11.5px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border">已停用</span>}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {SCOPES.map((s) => {
               const on = d.recipient_scopes.includes(s.key);
               return (
                 <button key={s.key} disabled={!canInteract} onClick={() => toggleScope(r.id, s.key)}
-                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${on ? "bg-primary/10 text-primary border-primary/40" : "bg-card text-muted-foreground hover:bg-accent/50"} ${canInteract ? "" : "opacity-70 cursor-not-allowed"}`}>
+                  className={`text-[12.5px] px-2.5 py-1 rounded-full border transition-colors ${on ? "bg-primary/10 text-primary border-primary/40" : "bg-card text-muted-foreground hover:bg-accent/50"} ${canInteract ? "" : "opacity-70 cursor-not-allowed"}`}>
                   {s.label}
                 </button>
               );
@@ -173,10 +173,10 @@ function Page() {
           </div>
           {/* 指定人員（除層級外，額外指定特定同仁也會收到） */}
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            <span className="text-[11px] text-muted-foreground shrink-0">指定人員：</span>
-            {userTokens.length === 0 && <span className="text-[11px] text-muted-foreground/50">（無）</span>}
+            <span className="text-[12.5px] text-muted-foreground shrink-0">指定人員：</span>
+            {userTokens.length === 0 && <span className="text-[12.5px] text-muted-foreground/50">（無）</span>}
             {userTokens.map((tok) => (
-              <span key={tok} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-accent/50 bg-accent/20 text-foreground">
+              <span key={tok} className="inline-flex items-center gap-1 text-[12.5px] px-2 py-1 rounded-full border border-accent/50 bg-accent/20 text-foreground">
                 {userName(tok.slice(5))}
                 {canInteract && (
                   <button onClick={() => removeScope(r.id, tok)} className="text-muted-foreground hover:text-destructive" aria-label="移除">
@@ -187,7 +187,7 @@ function Page() {
             ))}
             {canInteract && (
               <select value="" onChange={(e) => { if (e.target.value) { addUserScope(r.id, e.target.value); } }}
-                className="h-6 rounded-md border bg-card px-1 text-[11px] text-muted-foreground">
+                className="h-6 rounded-md border bg-card px-1 text-[12.5px] text-muted-foreground">
                 <option value="">＋加入人員…</option>
                 {users.filter((u) => !d.recipient_scopes.includes(`user:${u.id}`)).map((u) => (
                   <option key={u.id} value={u.id}>{u.name}</option>

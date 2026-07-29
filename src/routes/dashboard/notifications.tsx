@@ -149,11 +149,11 @@ function NotificationsPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>
+                        <span className={`text-[12.5px] px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>
                         {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                       </div>
                       <div className={`text-sm leading-snug ${n.is_read ? "" : "font-medium"}`}>{n.message}</div>
-                      <div className="text-[11px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString("zh-TW")}</div>
+                      <div className="text-[12.5px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString("zh-TW")}</div>
                     </div>
                   </div>
                 </button>

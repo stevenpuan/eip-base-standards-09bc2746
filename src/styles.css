@@ -84,7 +84,7 @@
   --secondary: 210 18% 62%;
   --secondary-foreground: 213 40% 22%;
   --muted: 38 14% 91%;
-  --muted-foreground: 213 12% 50%;
+  --muted-foreground: 213 14% 42%;
   --accent: 37 58% 52%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 72% 55%;
@@ -186,4 +186,15 @@
 .overflow-x-auto > table th,
 .overflow-x-auto > table td {
   white-space: nowrap;
+}
+
+/* 表格：加大列高與表頭辨識度 */
+table th {
+  font-size: var(--text-xs);
+  letter-spacing: 0.03em;
+  color: hsl(var(--muted-foreground));
+}
+table td {
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
 }

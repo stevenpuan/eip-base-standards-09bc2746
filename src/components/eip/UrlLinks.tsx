@@ -152,7 +152,7 @@ export function UrlLinks({
                   >
                     {r.label || r.url}
                   </button>
-                  <span className="text-[10px] text-muted-foreground shrink-0">本機路徑</span>
+                  <span className="text-[11.5px] text-muted-foreground shrink-0">本機路徑</span>
                 </>
               ) : (
                 <>
@@ -220,7 +220,7 @@ export function UrlLinks({
               取消
             </Button>
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[12.5px] text-muted-foreground">
             NAS 路徑（\\伺服器\…）瀏覽器不能直接開，點擊會複製路徑，貼到檔案總管即可。
           </p>
         </div>

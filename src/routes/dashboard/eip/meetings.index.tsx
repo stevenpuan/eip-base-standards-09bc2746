@@ -606,7 +606,7 @@ function ActionItemsTracker({ meetings, users, userMap }: { meetings: Meeting[];
                       )}
                       <span>負責：{it.owner_id ? userMap.get(it.owner_id)?.name ?? "—" : "未指派"}</span>
                       {it.due_date && <span>期限 {it.due_date}{overdue && " ⚠ 逾期"}</span>}
-                      <Badge variant="outline" className="text-[10px]">{ACTION_LABEL[it.status]}</Badge>
+                      <Badge variant="outline" className="text-[11.5px]">{ACTION_LABEL[it.status]}</Badge>
                       {it.linked_task_id && (
                         <Link to="/dashboard/eip/tasks" className="text-primary hover:underline">→ 已連結任務</Link>
                       )}

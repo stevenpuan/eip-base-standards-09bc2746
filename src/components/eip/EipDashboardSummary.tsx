@@ -280,7 +280,7 @@ export function EipDashboardSummary() {
                           >
                             {p.name}
                           </Link>
-                          <Badge variant="secondary" className="text-[10px]">{pct}%</Badge>
+                          <Badge variant="secondary" className="text-[11.5px]">{pct}%</Badge>
                         </div>
                         <div className="h-1.5 rounded-full bg-muted mt-1 overflow-hidden">
                           <div

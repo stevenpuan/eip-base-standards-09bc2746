@@ -582,7 +582,7 @@ function TaskList({
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                   {status ? (
-                    <Badge className={`text-[10px] ${statusTone(status)}`}>{status.name}</Badge>
+                    <Badge className={`text-[11.5px] ${statusTone(status)}`}>{status.name}</Badge>
                   ) : (
                     <span>—</span>
                   )}
@@ -600,11 +600,11 @@ function TaskList({
                     style={{ width: `${t.progress}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-0.5 text-right">
+                <div className="text-[11.5px] text-muted-foreground mt-0.5 text-right">
                   {t.progress}%
                 </div>
               </div>
-              <Badge className={`text-[10px] ${PRIORITY_COLOR[t.priority]}`} variant="secondary">
+              <Badge className={`text-[11.5px] ${PRIORITY_COLOR[t.priority]}`} variant="secondary">
                 {PRIORITY_LABEL[t.priority]}
               </Badge>
               {removable && (

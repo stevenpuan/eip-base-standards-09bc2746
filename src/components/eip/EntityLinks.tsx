@@ -252,7 +252,7 @@ export function EntityLinks({
             const title = titles[`${otherType}:${otherId}`];
             return (
               <div key={row.id} className="flex items-center gap-2 rounded-md border px-2 py-1.5">
-                <span className="text-[11px] text-muted-foreground shrink-0">
+                <span className="text-[12.5px] text-muted-foreground shrink-0">
                   {t?.label ?? otherType}・{relLabel(row.relation)}
                 </span>
                 <span className="text-sm flex-1 min-w-0 truncate">
@@ -390,7 +390,7 @@ export function EntityLinks({
 function TargetLink({ type, id, known }: { type: string; id: string; known: boolean }) {
   if (!known) {
     return (
-      <span className="text-[11px] text-muted-foreground shrink-0" title="沒有檢視權限或已被刪除">
+      <span className="text-[12.5px] text-muted-foreground shrink-0" title="沒有檢視權限或已被刪除">
         無法開啟
       </span>
     );

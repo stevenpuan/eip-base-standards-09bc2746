@@ -906,7 +906,7 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
             />
             {source
               ? <TaskSourceBadge source={source} />
-              : <span className="text-[10px] font-bold tracking-[0.14em] text-muted-foreground uppercase">一般</span>}
+              : <span className="text-[11.5px] font-bold tracking-[0.14em] text-muted-foreground uppercase">一般</span>}
           </div>
           {showMenu && (
             <DropdownMenu>
@@ -946,18 +946,18 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
 
         {/* Badges */}
         <div className="flex flex-wrap gap-1.5">
-          <Badge className={`text-[10px] rounded-md px-2 py-0.5 border-none ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
+          <Badge className={`text-[11.5px] rounded-md px-2 py-0.5 border-none ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
             {PRIORITY_LABEL[task.priority]}
           </Badge>
           {task.recurring_rule_id && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] font-semibold bg-muted text-muted-foreground border border-border">
               <Repeat className="w-2.5 h-2.5" /> 週期
             </span>
           )}
           <VisibilityBadge scope={task.visibility_scope} departmentId={task.department_id} deptMap={deptMap} />
-          {isDone && <Badge variant="secondary" className="text-[10px] rounded-md">已完成</Badge>}
+          {isDone && <Badge variant="secondary" className="text-[11.5px] rounded-md">已完成</Badge>}
           {subtask && subtask.total > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-muted/60 text-muted-foreground border border-border">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] font-semibold bg-muted/60 text-muted-foreground border border-border">
               <ListChecks className="w-2.5 h-2.5" /> {subtask.done}/{subtask.total}
             </span>
           )}
@@ -991,7 +991,7 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
             {canEdit && statuses.length > 0 ? (
               <div onClick={(e) => e.stopPropagation()} className="relative shrink-0">
                 <Select value={task.status_id} onValueChange={onChangeStatus}>
-                  <SelectTrigger className={`h-8 min-w-[92px] w-auto rounded-md text-[11px] font-bold border-none px-3 gap-1 ${statusTone}`}>
+                  <SelectTrigger className={`h-8 min-w-[92px] w-auto rounded-md text-[12.5px] font-bold border-none px-3 gap-1 ${statusTone}`}>
                     <SelectValue placeholder="狀態" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1004,7 +1004,7 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
                 </Select>
               </div>
             ) : (
-              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${statusTone}`}>{currentStatus?.name}</span>
+              <span className={`text-[12.5px] font-bold px-2.5 py-1 rounded-md ${statusTone}`}>{currentStatus?.name}</span>
             )}
           </div>
         </div>
@@ -1226,7 +1226,7 @@ function ListView({
   const arrow = (kk: SortKey) => (sortKey === kk ? (sortDir === "asc" ? " \u25B2" : " \u25BC") : "");
   const Hd = ({ label, kk }: { label: string; kk: SortKey }) => (
     <button type="button" onClick={() => toggleSort(kk)} className="flex items-center hover:text-foreground truncate">
-      {label}<span className="text-[10px]">{arrow(kk)}</span>
+      {label}<span className="text-[11.5px]">{arrow(kk)}</span>
     </button>
   );
   const cbCls = "size-[18px] rounded-[6px] border-muted-foreground/30 shadow-none data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-colors";
@@ -1330,7 +1330,7 @@ function ListView({
                   <div className="truncate">{userMap.get(t.owner_id)?.name ?? "—"}</div>
                   <div className="truncate">{statusMap.get(t.status_id)?.name ?? "—"}</div>
                   <div>
-                    <Badge variant="secondary" className={`text-[10px] rounded-full px-2 ${PRIORITY_COLOR[t.priority]}`}>
+                    <Badge variant="secondary" className={`text-[11.5px] rounded-full px-2 ${PRIORITY_COLOR[t.priority]}`}>
                       {PRIORITY_LABEL[t.priority]}
                     </Badge>
                   </div>
@@ -1442,18 +1442,18 @@ function CalendarView({ tasks, statusMap, userMap }: {
             return (
               <div key={i}
                 className={`bg-background min-h-[100px] p-1.5 ${inMonth ? "" : "text-muted-foreground/50"}`}>
-                <div className={`text-[11px] mb-1 ${isToday ? "font-bold text-primary" : ""}`}>
+                <div className={`text-[12.5px] mb-1 ${isToday ? "font-bold text-primary" : ""}`}>
                   {date.getDate()}
                 </div>
                 <div className="space-y-1">
                   {dayTasks.slice(0, 3).map((t) => (
                     <div key={t.id} title={`${t.title} - ${userMap.get(t.owner_id)?.name ?? ""}`}
-                      className={`text-[10px] truncate px-1 py-0.5 rounded ${PRIORITY_COLOR[t.priority]}`}>
+                      className={`text-[11.5px] truncate px-1 py-0.5 rounded ${PRIORITY_COLOR[t.priority]}`}>
                       {t.title}
                     </div>
                   ))}
                   {dayTasks.length > 3 && (
-                    <div className="text-[10px] text-muted-foreground">+{dayTasks.length - 3} 更多</div>
+                    <div className="text-[11.5px] text-muted-foreground">+{dayTasks.length - 3} 更多</div>
                   )}
                 </div>
               </div>
@@ -1969,7 +1969,7 @@ export function EditTaskDialog({
                   const isEditing = editingNoteId === n.id;
                   return (
                     <div key={n.id} className="rounded-md border bg-muted/30 p-2">
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <div className="flex items-center justify-between text-[12.5px] text-muted-foreground">
                         <span className="font-medium text-foreground">{userMap.get(n.user_id) ?? "使用者"}</span>
                         <div className="flex items-center gap-2">
                           <span>{new Date(n.created_at).toLocaleString("zh-TW")}</span>
@@ -2057,10 +2057,10 @@ export function EditTaskDialog({
                     return (
                       <div key={`${e.kind}-${e.at}-${i}`} className="rounded-lg border bg-muted/30 p-2">
                         <div className="text-sm">
-                          <span className="text-[11px] text-muted-foreground mr-1.5">[{tag}]</span>
+                          <span className="text-[12.5px] text-muted-foreground mr-1.5">[{tag}]</span>
                           {desc}
                         </div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
+                        <div className="flex items-center justify-between text-[12.5px] text-muted-foreground mt-1">
                           <span className="font-medium text-foreground">{actor}</span>
                           <span>{new Date(e.at).toLocaleString("zh-TW")}</span>
                         </div>

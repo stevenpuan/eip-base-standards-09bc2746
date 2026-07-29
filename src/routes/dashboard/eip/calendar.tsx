@@ -418,7 +418,7 @@ function CalendarPage() {
                       <div className={`text-xs font-medium mb-1 ${isToday ? "text-primary" : "text-muted-foreground"}`}>{d.getDate()}</div>
                       <div className="space-y-1">
                         {evs.slice(0, 4).map((e) => {
-                          const cls = `block text-[11px] truncate px-1.5 py-0.5 rounded border ${TYPE_COLOR[e.type]}`;
+                          const cls = `block text-[12.5px] truncate px-1.5 py-0.5 rounded border ${TYPE_COLOR[e.type]}`;
                           const displayTitle = (e.type === "personal" && e.personal && fmtTime(e.personal.start_time))
                             ? `${fmtTime(e.personal.start_time)} ${e.title}`
                             : e.title;
@@ -481,7 +481,7 @@ function CalendarPage() {
                             <div key={e.id} className={cls} title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}>{displayTitle}</div>
                           );
                         })}
-                        {evs.length > 4 && <div className="text-[10px] text-muted-foreground px-1">+{evs.length - 4}</div>}
+                        {evs.length > 4 && <div className="text-[11.5px] text-muted-foreground px-1">+{evs.length - 4}</div>}
                       </div>
                     </>
                   )}

@@ -328,7 +328,7 @@ function PerformancePage() {
                   <Legend />
                   {/* 直接標數字：紅/藍雖然通過色盲檢核，仍給第二層編碼 */}
                   <Bar dataKey="done" name="完成" fill={C_DONE} radius={[0, 4, 4, 0]} barSize={10}>
-                    <LabelList dataKey="done" position="right" className="text-[11px]" />
+                    <LabelList dataKey="done" position="right" className="text-[12.5px]" />
                   </Bar>
                   <Bar
                     dataKey="overdue"
@@ -337,13 +337,13 @@ function PerformancePage() {
                     radius={[0, 4, 4, 0]}
                     barSize={10}
                   >
-                    <LabelList dataKey="overdue" position="right" className="text-[11px]" />
+                    <LabelList dataKey="overdue" position="right" className="text-[12.5px]" />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
             {hiddenInChart > 0 && (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[12.5px] text-muted-foreground">
                 圖中已隱去 {hiddenInChart} 個沒有任務完成或逾期紀錄的部門；下方表格仍會列出。
               </p>
             )}
@@ -563,7 +563,7 @@ function StatTile({
       <div className={`text-2xl font-semibold ${tone === "bad" ? "text-destructive" : ""}`}>
         {value}
       </div>
-      {hint && <div className="text-[11px] text-muted-foreground mt-0.5">{hint}</div>}
+      {hint && <div className="text-[12.5px] text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   );
 }
