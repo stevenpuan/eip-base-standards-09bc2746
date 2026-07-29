@@ -1056,6 +1056,76 @@ export type Database = {
         }
         Relationships: []
       }
+      eip_dept_supervisor: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          department_id: string
+          note: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          department_id: string
+          note?: string | null
+          tenant_id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          department_id?: string
+          note?: string | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eip_dept_supervisor_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_dept_supervisor_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "eip_dept_supervisor_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_dept_supervisor_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "eip_dept_supervisor_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_dept_supervisor_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       eip_doc_folder: {
         Row: {
           created_at: string
@@ -4806,6 +4876,7 @@ export type Database = {
         }
         Returns: Json
       }
+      eip_cron_guarded: { Args: { p_job: string }; Returns: undefined }
       eip_deleted_items: {
         Args: { p_module?: string }
         Returns: {
@@ -4818,6 +4889,10 @@ export type Database = {
           purge_block: string
           title: string
         }[]
+      }
+      eip_dept_effective_manager: {
+        Args: { p_dept: string; p_exclude?: string }
+        Returns: string
       }
       eip_dept_in_subtree: {
         Args: { p_dept: string; p_root: string }
@@ -4839,6 +4914,10 @@ export type Database = {
       eip_derive_app_role: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      eip_document_file_access: {
+        Args: { p_path: string; p_write: boolean }
+        Returns: boolean
       }
       eip_emit_notification: {
         Args: {
@@ -4870,6 +4949,21 @@ export type Database = {
         Args: { p_task_id: string }
         Returns: boolean
       }
+      eip_leave_roster: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          department_name: string
+          end_date: string
+          end_time: string
+          handover_done: boolean
+          id: string
+          is_full_day: boolean
+          start_date: string
+          start_time: string
+          user_id: string
+          user_name: string
+        }[]
+      }
       eip_line_push_now: {
         Args: { p_message: string; p_user_id: string }
         Returns: number
@@ -4888,12 +4982,12 @@ export type Database = {
         Args: { p_date?: string }
         Returns: {
           done: boolean
+          idx: number
           link: string
           note: string
           ref_id: string
-          require_content: boolean
+          req: boolean
           section: string
-          sort_order: number
           source: string
           text: string
         }[]
@@ -5079,6 +5173,10 @@ export type Database = {
         }
         Returns: Json
       }
+      eip_topup_routine_log: {
+        Args: { p_date: string; p_user_id: string }
+        Returns: number
+      }
       eip_try_jsonb: { Args: { t: string }; Returns: Json }
       eip_url_link_visible: {
         Args: { p_entity_id: string; p_entity_type: string }
@@ -5143,6 +5241,7 @@ export type Database = {
         | "anomaly_confirmed"
         | "anomaly_closed"
         | "anomaly_overdue"
+        | "system_alert"
       project_health: "on_track" | "at_risk" | "off_track"
       project_status: "planning" | "active" | "on_hold" | "done"
       task_priority: "low" | "normal" | "high" | "urgent"
@@ -5324,6 +5423,7 @@ export const Constants = {
         "anomaly_confirmed",
         "anomaly_closed",
         "anomaly_overdue",
+        "system_alert",
       ],
       project_health: ["on_track", "at_risk", "off_track"],
       project_status: ["planning", "active", "on_hold", "done"],
