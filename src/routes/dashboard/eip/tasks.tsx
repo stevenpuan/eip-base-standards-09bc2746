@@ -58,17 +58,15 @@ import { EntityLinks } from "@/components/eip/EntityLinks";
 import { UrlLinks } from "@/components/eip/UrlLinks";
 import { TaskSourceBadge, useTaskSources, type TaskSource } from "@/components/eip/TaskSourceBadge";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
+import { humanizeError } from "@/lib/eip-error";
 
+/**
+ * 保留這個函式名以縮小 diff，但內容改成轉呼叫集中的 humanizeError。
+ * 舊版是 `message / details / hint / code` 直接串起來丟給使用者看 —— 那正是老闆
+ * 抱怨的那種畫面。判斷邏輯只留一份在 src/lib/eip-error.ts，這裡不要再長出第二套。
+ */
 function formatErr(e: unknown): string {
-  if (!e) return "未知錯誤";
-  if (e instanceof Error) return e.message;
-  if (typeof e === "object") {
-    const o = e as Record<string, unknown>;
-    const parts = [o.message, o.details, o.hint, o.code].filter(Boolean);
-    if (parts.length) return parts.join(" / ");
-    try { return JSON.stringify(e); } catch { return String(e); }
-  }
-  return String(e);
+  return humanizeError(e);
 }
 
 type CanFn = (key: string, action?: "view" | "create" | "edit" | "delete" | "export") => boolean;
@@ -349,7 +347,7 @@ function TasksPage() {
     void (async () => {
       const { data, error } = await supabase.from("task").select("*").eq("id", id).maybeSingle();
       if (!alive) return;
-      if (error) toast.error(`開啟任務失敗：${formatErr(error)}`);
+      if (error) toast.error(humanizeError(error, "開啟任務"));
       else if (data) setDetailTask(data as Task);
       else toast.error("找不到該任務，或你沒有檢視權限");
       clear();
@@ -400,7 +398,7 @@ function TasksPage() {
         toast.error("移動失敗：你沒有變更這筆任務的權限，或這筆任務已被他人變更／刪除。卡片已回到原本的位置。");
         return;
       }
-      toast.error(`更新失敗：${formatErr(e)}`);
+      toast.error(humanizeError(e, "更新"));
     },
   });
 
@@ -602,9 +600,10 @@ function TasksPage() {
                 });
                 setDeleting(false);
                 if (error) {
-                  // 後端的訊息原封不動顯示：purge_guard 之類的拒絕理由帶了
-                  // 協作者／變更紀錄／進度回報的筆數，是刻意寫給使用者看的。
-                  toast.error(`刪除失敗：${error.message}`);
+                  // purge_guard 之類的拒絕理由帶了協作者／變更紀錄／進度回報的筆數，
+                  // 是後端刻意寫給使用者看的中文（SQLSTATE P0001）。humanizeError 對
+                  // P0001 會原樣透出、連前綴都不加，所以這裡照樣是原訊息。
+                  toast.error(humanizeError(error, "刪除"));
                   return;
                 }
                 if ((data as { ok?: boolean } | null)?.ok !== true) {
@@ -1226,7 +1225,7 @@ function ListView({
     setBulkBusy(true);
     const { data, error } = await supabase.from("task").update(patch).in("id", ids).select("id");
     setBulkBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(humanizeError(error, "批次更新"));
     const n = data?.length ?? 0;
     // 全部被 RLS 擋掉時 data 是空陣列而不是 error —— 這時候報成功會讓人以為是畫面沒刷新
     if (n === 0) return toast.error("沒有任何任務被更新（可能是權限不足）");
@@ -1649,7 +1648,7 @@ function CreateTaskDialog({
       else toast.success("任務已建立");
       onCreated(); onClose();
     } catch (e) {
-      toast.error(`建立失敗：${formatErr(e)}`);
+      toast.error(humanizeError(e, "建立"));
 
     } finally {
       setBusy(false);
@@ -1936,7 +1935,7 @@ export function EditTaskDialog({
       .eq("id", id)
       .select("id");
     setSavingNoteEdit(false);
-    if (error) { toast.error("修改失敗：" + formatErr(error)); return; }
+    if (error) { toast.error(humanizeError(error, "修改")); return; }
     if (!data?.length) { toast.error("修改失敗：只有這則補充說明的作者可以修改"); return; }
     cancelEditNote();
     void loadNotes();
@@ -1947,7 +1946,7 @@ export function EditTaskDialog({
     // 「按了沒反應也沒訊息」，使用者只會一直重按
     const { data, error } = await supabase
       .from("task_update").delete().eq("id", id).select("id");
-    if (error) { toast.error("刪除失敗：" + formatErr(error)); return; }
+    if (error) { toast.error(humanizeError(error, "刪除")); return; }
     if (!data?.length) { toast.error("刪除失敗：只有這則補充說明的作者可以刪除"); return; }
     void loadNotes();
   };
@@ -2000,7 +1999,7 @@ export function EditTaskDialog({
       status_changed_to_id: null,
     });
     setPostingNote(false);
-    if (error) { toast.error("補充失敗：" + formatErr(error)); return; }
+    if (error) { toast.error(humanizeError(error, "補充")); return; }
     setNewNote("");
     void loadNotes();
   };
@@ -2080,7 +2079,7 @@ export function EditTaskDialog({
       .update(summaryLoaded ? { ...patch, closing_summary: closingSummary.trim() || null } : patch)
       .eq("id", task.id)
       .select("id");
-    if (error) { setBusy(false); setErr(error.message); return; }
+    if (error) { setBusy(false); setErr(humanizeError(error, "儲存")); return; }
     if (!(updated as { id: string }[] | null)?.length) {
       setBusy(false);
       // RETURNING 也受 SELECT 政策限制。把自己負責的任務可見範圍從「全公司」改成

@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { humanizeError } from "@/lib/eip-error";
 
 export type ChecklistItem = {
   id: string;
@@ -53,7 +54,7 @@ export function TaskChecklist({
       .eq("task_id", taskId)
       .order("sort_order");
     if (error) {
-      toast.error(`子項載入失敗：${error.message}`);
+      toast.error(humanizeError(error, "子項載入"));
       setLoading(false);
       return false;   // 呼叫端要知道「重讀失敗」，否則樂觀值會留在畫面上不被更正
     }
@@ -74,7 +75,7 @@ export function TaskChecklist({
     // tenant_id / created_by / sort_order 由 trg_task_checklist_defaults 補
     const { error } = await supabase.from("task_checklist").insert({ task_id: taskId, title });
     setBusy(false);
-    if (error) return toast.error(`新增失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "新增"));
     setNewTitle("");
     await load();
     onCountChange?.();
@@ -90,7 +91,7 @@ export function TaskChecklist({
       .update({ is_done: !it.is_done })
       .eq("id", it.id);
     if (error) {
-      toast.error(`更新失敗：${error.message}`);
+      toast.error(humanizeError(error, "更新"));
       // 重讀也失敗時要自己把樂觀值翻回來，不能留著假的勾選狀態
       if (!(await load())) {
         setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, is_done: it.is_done } : x)));
@@ -106,7 +107,7 @@ export function TaskChecklist({
   const remove = async (it: ChecklistItem) => {
     if (!window.confirm(`刪除子項「${it.title}」？`)) return;
     const { error } = await supabase.from("task_checklist").delete().eq("id", it.id);
-    if (error) return toast.error(`刪除失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "刪除"));
     await load();
     onCountChange?.();
   };
@@ -135,7 +136,7 @@ export function TaskChecklist({
       p_ids: next.map((x) => x.id),
     });
     if (error) {
-      toast.error(`排序失敗：${error.message}`);
+      toast.error(humanizeError(error, "排序"));
       await load();
     }
   };

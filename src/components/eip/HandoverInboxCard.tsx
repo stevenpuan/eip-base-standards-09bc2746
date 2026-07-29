@@ -12,6 +12,7 @@ import { LeaveRequestDialog } from "@/components/eip/LeaveRequestDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { humanizeError } from "@/lib/eip-error";
 
 const ENTITY_LABEL: Record<string, string> = {
   task: "任務",
@@ -242,7 +243,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
       );
     if (error) {
       rollback();
-      return toast.error(`更新失敗：${error.message}`);
+      return toast.error(humanizeError(error, "更新"));
     }
     if (!data?.length) {
       // 0 筆＝樂觀鎖沒過或被 RLS 擋掉，兩者 PostgREST 都是 error=null

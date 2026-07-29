@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/calendar")({ component: () => (
     <RequirePerm module="eip_calendar">
@@ -403,7 +404,7 @@ function CalendarPage() {
         end_time: peEndTime || null,
         note: peNote.trim() || null,
       } as any).eq("id", peEditing.id);
-      if (error) { setPeSubmitting(false); toast.error(error.message); return; }
+      if (error) { setPeSubmitting(false); toast.error(humanizeError(error, "儲存行程")); return; }
       await supabase.from("personal_event_share").delete().eq("event_id", peEditing.id);
     } else {
       const { data, error } = await supabase.from("personal_event").insert({
@@ -414,13 +415,13 @@ function CalendarPage() {
         end_time: peEndTime || null,
         note: peNote.trim() || null,
       } as any).select("id").single();
-      if (error) { setPeSubmitting(false); toast.error(error.message); return; }
+      if (error) { setPeSubmitting(false); toast.error(humanizeError(error, "建立行程")); return; }
       eventId = data.id;
     }
     if (eventId && peShares.length > 0) {
       const rows = peShares.map((uid) => ({ event_id: eventId!, shared_with_user_id: uid }));
       const { error } = await supabase.from("personal_event_share").insert(rows);
-      if (error) { setPeSubmitting(false); toast.error(error.message); return; }
+      if (error) { setPeSubmitting(false); toast.error(humanizeError(error, "分享行程")); return; }
     }
     setPeSubmitting(false);
     setPeOpen(false);
@@ -436,7 +437,7 @@ function CalendarPage() {
     await supabase.from("personal_event_share").delete().eq("event_id", peEditing.id);
     const { error } = await supabase.from("personal_event").delete().eq("id", peEditing.id);
     setPeSubmitting(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "刪除行程")); return; }
     setPeOpen(false);
     toast.success("已刪除");
     qc.invalidateQueries({ queryKey: ["cal", "personal"] });

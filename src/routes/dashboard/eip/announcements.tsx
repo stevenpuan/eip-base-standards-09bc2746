@@ -29,6 +29,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/announcements")({ component: () => (
     <RequirePerm module="eip_announcements">
@@ -113,7 +114,7 @@ function AnnouncementsPage() {
     await supabase.from("announcement_read").delete().eq("announcement_id", deleting.id);
     const { error } = await supabase.from("announcement").delete().eq("id", deleting.id);
     setDeleteBusy(false);
-    if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+    if (error) { toast.error(humanizeError(error, "刪除")); return; }
     toast.success("公告已刪除");
     setExpandedIds((prev) => { const n = new Set(prev); n.delete(deleting.id); return n; });
     setDeleting(null);
@@ -302,7 +303,7 @@ function AnnouncementFormDialog({
       }
       toast.success(isEdit ? "已儲存" : (publish ? "已發布" : "已存為草稿"));
       onSaved(); onClose();
-    } catch (e) { toast.error(`失敗：${e instanceof Error ? e.message : String(e)}`); }
+    } catch (e) { toast.error(humanizeError(e, "儲存公告")); }
     finally { setBusy(false); }
   };
 
@@ -440,14 +441,14 @@ function AnnouncementRow({
     setOpErr(null);
     const { error } = await supabase.from("announcement")
       .update({ is_pinned: !a.is_pinned }).eq("id", a.id);
-    if (error) { setOpErr(error.message); toast.error(error.message); return; }
+    if (error) { const msg = humanizeError(error, "更新"); setOpErr(msg); toast.error(msg); return; }
     toast.success("已更新"); qc.invalidateQueries({ queryKey: ["eip", "announcements"] }); onChanged();
   };
   const publish = async () => {
     setOpErr(null);
     const { error } = await supabase.from("announcement")
       .update({ published_at: new Date().toISOString() }).eq("id", a.id);
-    if (error) { setOpErr(error.message); toast.error(error.message); return; }
+    if (error) { const msg = humanizeError(error, "發布"); setOpErr(msg); toast.error(msg); return; }
     toast.success("已發布"); qc.invalidateQueries({ queryKey: ["eip", "announcements"] }); onChanged();
   };
 

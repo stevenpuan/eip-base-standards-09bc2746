@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { humanizeError } from "@/lib/eip-error";
 
 const NO_ASSIGNEE = "__none__";
 
@@ -151,7 +152,7 @@ export function LeaveRequestDialog({
 
     if (error || !rep?.id) {
       setBusy(false);
-      return toast.error(`送出失敗：${error?.message ?? "沒有取得單號，請重試"}`);
+      return toast.error(error ? humanizeError(error, "送出") : "送出失敗：沒有取得單號，請重試");
     }
 
     // 代辦項目是附帶寫入：失敗不該讓請假單消失，但也絕對不能照跳成功

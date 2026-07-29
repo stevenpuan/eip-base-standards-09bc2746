@@ -34,6 +34,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Database } from "@/integrations/supabase/types";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
+import { humanizeError } from "@/lib/eip-error";
 
 type Department = { id: string; name: string; parent_id: string | null; sort_order: number | null };
 
@@ -337,7 +338,7 @@ function MeetingsPage() {
                 setDeleting(true);
                 const { error } = await supabase.from("meeting").delete().eq("id", deleteMeeting.id);
                 setDeleting(false);
-                if (error) { toast.error(`刪除失敗：${error.message}`); return; }
+                if (error) { toast.error(humanizeError(error, "刪除")); return; }
                 toast.success("會議已刪除");
                 setDeleteMeeting(null);
                 qc.invalidateQueries({ queryKey: ["eip", "meetings"] });
@@ -410,7 +411,7 @@ function CreateMeetingDialog({
       toast.success("會議已建立");
       onCreated(); onClose();
     } catch (e) {
-      toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(humanizeError(e, "建立"));
     } finally { setBusy(false); }
   };
 
@@ -551,7 +552,7 @@ function ActionItemsTracker({ meetings, users, userMap }: { meetings: Meeting[];
 
   const setStatus = async (id: string, status: ActionStatus) => {
     const { error } = await supabase.from("meeting_action_item").update({ status }).eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(humanizeError(error, "更新狀態"));
     else qc.invalidateQueries({ queryKey: ["eip", "action-items-all"] });
   };
 

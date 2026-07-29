@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/projects/")({ component: ProjectsPage });
 
@@ -280,7 +281,7 @@ function ProjectsPage() {
                 setDeleting(true);
                 const { error } = await supabase.from("project").delete().eq("id", deleteProject.id);
                 setDeleting(false);
-                if (error) { toast.error(`刪除失敗:${error.message}`); return; }
+                if (error) { toast.error(humanizeError(error, "刪除")); return; }
                 toast.success("專案已刪除");
                 setDeleteProject(null);
                 qc.invalidateQueries({ queryKey: ["eip", "projects-full"] });
@@ -476,7 +477,7 @@ function EditProjectDialog({
       department_id: v.payload.department_id,
     }).eq("id", project.id);
     setBusy(false);
-    if (error) { toast.error(`儲存失敗：${error.message}`); return; }
+    if (error) { toast.error(humanizeError(error, "儲存")); return; }
     toast.success("已儲存"); onSaved();
   };
 
@@ -573,7 +574,7 @@ function CreateProjectDialog({
       if (error) throw error;
       toast.success("專案已建立");
       onCreated(); onClose();
-    } catch (e) { toast.error(`建立失敗：${e instanceof Error ? e.message : String(e)}`); }
+    } catch (e) { toast.error(humanizeError(e, "建立")); }
     finally { setBusy(false); }
   };
 

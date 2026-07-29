@@ -577,7 +577,7 @@ function DeptFormDialog({
         toast.success("已更新"); onSaved(dept.id);
       }
     } catch (e: any) {
-      toast.error(e?.message?.includes("policy") ? "僅管理者可編輯組織" : (e?.message ?? "儲存失敗"));
+      toast.error(isOrgPolicyError(e) ? "僅管理者可編輯組織" : humanizeError(e, "儲存"));
     } finally { setSaving(false); }
   };
 
@@ -680,7 +680,7 @@ function ManagerDialog({
     }
     const ids = Array.from(new Set([...(mine ?? []).map((r) => r.role_id), dm.id]));
     const { error } = await supabase.rpc("eip_set_user_roles", { p_user_id: uid, p_role_ids: ids });
-    if (error) toast.error(`角色更新失敗：${error.message}`);
+    if (error) toast.error(humanizeError(error, "角色更新"));
     else toast.success("已同步設為部門主管");
     onSaved();
   };
@@ -768,7 +768,7 @@ function MemberFormDialog({
       toast.success("已更新成員資料");
       onSaved();
     } catch (e: any) {
-      toast.error(e?.message?.includes("policy") ? "僅管理者可編輯組織" : (e?.message ?? "儲存失敗"));
+      toast.error(isOrgPolicyError(e) ? "僅管理者可編輯組織" : humanizeError(e, "儲存"));
     } finally { setSaving(false); }
   };
 
@@ -834,6 +834,18 @@ function MemberFormDialog({
 }
 
 import { Switch } from "@/components/ui/switch";
+import { humanizeError } from "@/lib/eip-error";
+
+/**
+ * 組織頁的寫入被 RLS 擋住時要講「僅管理者可編輯組織」，比通用的「沒有權限執行這個動作」
+ * 具體。42501 是 RLS 的 SQLSTATE；舊寫法只比對訊息含 "policy"，經過 RPC 包裝後
+ * 訊息會變成別的字樣，所以兩個訊號都收。
+ */
+function isOrgPolicyError(e: unknown): boolean {
+  const o = (e ?? {}) as { code?: unknown; message?: unknown };
+  if (o.code === "42501") return true;
+  return typeof o.message === "string" && o.message.includes("policy");
+}
 
 function AddMemberDialog({
   open, defaultDeptId, depts, onClose, onSaved,
@@ -872,7 +884,7 @@ function AddMemberDialog({
       toast.success(`已新增 ${name.trim()}` + (d?.with_login ? `(帳號 ${d.email},初始密碼為員工編號)` : "(未建登入帳號)"));
       onSaved();
     } catch (e: any) {
-      toast.error(e?.message?.includes("policy") ? "僅管理者可編輯組織" : (e?.message ?? "新增失敗"));
+      toast.error(isOrgPolicyError(e) ? "僅管理者可編輯組織" : humanizeError(e, "新增"));
     } finally { setSaving(false); }
   };
 

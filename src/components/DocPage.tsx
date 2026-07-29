@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DocRenderer } from "@/components/DocRenderer";
+import { humanizeError } from "@/lib/eip-error";
 
 export function DocPage({ docKey, title, description }: { docKey: string; title: string; description?: string }) {
   const { can } = useAuth();
@@ -28,7 +29,7 @@ export function DocPage({ docKey, title, description }: { docKey: string; title:
 
   const save = async () => {
     const { error } = await supabase.from("doc_pages").update({ content }).eq("key", docKey);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "儲存")); return; }
     toast.success("已儲存");
     setEditing(false);
     qc.invalidateQueries({ queryKey: ["doc", docKey] });

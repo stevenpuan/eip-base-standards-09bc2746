@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { humanizeError } from "@/lib/eip-error";
 
 /** eip_link 支援的實體類別（與 DB 的 CHECK constraint 一致） */
 export type LinkEntity =
@@ -105,7 +106,7 @@ export function EntityLinks({
       )
       .order("created_at", { ascending: false });
     if (error) {
-      toast.error(`連結載入失敗：${error.message}`);
+      toast.error(humanizeError(error, "連結載入"));
       setLoading(false);
       return;
     }
@@ -211,7 +212,7 @@ export function EntityLinks({
     if (error) {
       // 唯一索引擋重複連結
       if (error.code === "23505") return toast.error("這個連結已經建立過了");
-      return toast.error(`建立連結失敗：${error.message}`);
+      return toast.error(humanizeError(error, "建立連結"));
     }
     toast.success("已建立連結");
     setPicked(null);
@@ -223,7 +224,7 @@ export function EntityLinks({
   const remove = async (r: Row) => {
     if (!window.confirm("移除這個連結？（只移除關聯，不會刪除任何資料）")) return;
     const { error } = await supabase.from("eip_link").delete().eq("id", r.id);
-    if (error) return toast.error(`移除失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "移除"));
     void load();
   };
 

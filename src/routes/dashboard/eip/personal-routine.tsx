@@ -50,6 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/personal-routine")({
   component: PersonalRoutinePage,
@@ -180,7 +181,7 @@ function PersonalRoutinePage() {
       .update({ is_active: !r.is_active })
       .eq("id", r.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(humanizeError(error, "更新狀態"));
       return;
     }
     toast.success(r.is_active ? "已停用" : "已啟用");
@@ -194,7 +195,7 @@ function PersonalRoutinePage() {
     const { error } = await supabase.from("personal_routine").delete().eq("id", deleting.id);
     setRemoving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(humanizeError(error, "刪除"));
       return;
     }
     toast.success("已刪除");
@@ -231,7 +232,7 @@ function PersonalRoutinePage() {
     setReordering(false);
     const failed = results.find((r) => r.error);
     if (failed?.error) {
-      toast.error(failed.error.message);
+      toast.error(humanizeError(failed.error, "排序"));
     }
     refresh();
   };
@@ -500,7 +501,7 @@ function RoutineDialog({
     setSaving(false);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(humanizeError(error, "儲存"));
       return;
     }
     toast.success(isEdit ? "已更新" : "已新增");

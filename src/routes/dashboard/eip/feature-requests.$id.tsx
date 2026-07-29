@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { Database } from "@/integrations/supabase/types";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/feature-requests/$id")({
   component: FeatureRequestDetailPage,
@@ -135,7 +136,7 @@ function FeatureRequestDetailPage() {
       toast.success("AI 分析完成");
       qc.invalidateQueries({ queryKey: ["eip", "feature-analysis", id] });
     },
-    onError: (e) => toast.error(`AI 分析失敗:${e instanceof Error ? e.message : String(e)}`),
+    onError: (e) => toast.error(humanizeError(e, "AI 分析")),
   });
 
   if (frQ.isLoading)

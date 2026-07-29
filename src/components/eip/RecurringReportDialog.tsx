@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { humanizeError } from "@/lib/eip-error";
 
 export type ReportField = {
   label: string;
@@ -76,7 +77,7 @@ export function RecurringReportDialog({
       onDone?.();
       onClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "回報失敗");
+      toast.error(humanizeError(e, "回報"));
     } finally {
       setBusy(false);
     }

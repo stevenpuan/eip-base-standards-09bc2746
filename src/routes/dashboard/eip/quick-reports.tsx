@@ -42,6 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/quick-reports")({
   component: QuickReportsPage,
@@ -304,7 +305,7 @@ function QuickReportsPage() {
     markBusy(item.id, false);
     if (error) {
       rollbackItem(item);
-      toast.error(`更新失敗：${error.message}`);
+      toast.error(humanizeError(error, "更新"));
       return;
     }
     if (!data?.length) {
@@ -343,7 +344,7 @@ function QuickReportsPage() {
       sort_order: 0,
     });
     if (error) {
-      toast.error(`新增失敗：${error.message}`);
+      toast.error(humanizeError(error, "新增"));
       return false;
     }
     toast.success("已新增代辦事項");
@@ -359,7 +360,7 @@ function QuickReportsPage() {
       .from("eip_leave_handover_item").delete().eq("id", deleting.id).select("id");
     setDeleteBusy(false);
     if (error) {
-      toast.error(`刪除失敗：${error.message}`);
+      toast.error(humanizeError(error, "刪除"));
       return;
     }
     if (!data?.length) {
@@ -386,7 +387,7 @@ function QuickReportsPage() {
       return next;
     });
     if (error) {
-      toast.error(`代理人更新失敗：${error.message}`);
+      toast.error(humanizeError(error, "代理人更新"));
       return;
     }
     if (!data?.length) {
@@ -432,7 +433,7 @@ function QuickReportsPage() {
       .update({ status: "done", done_at: nowWithOffset(), done_by: appUser.id })
       .eq("id", id)
       .select("id");
-    if (error) return toast.error(`更新失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "更新"));
     if (!data?.length) {
       // RLS 只讓「本人（且未結案）／管轄主管／管理者」改。顯示條件是模組編輯權，
       // 兩者不同軸，所以一定要看筆數，不能跳假成功。
@@ -457,7 +458,7 @@ function QuickReportsPage() {
     setClosingId(id);
     const { error } = await supabase.rpc("eip_close_leave_handover", { p_report_id: id });
     setClosingId(null);
-    if (error) return toast.error(`結案失敗：${error.message}`);
+    if (error) return toast.error(humanizeError(error, "結案"));
     toast.success("已結案");
     refreshAll();
   };

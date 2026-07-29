@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/dev-todos")({ component: () => (
     <RequirePerm module="dev_todos">
@@ -40,7 +41,7 @@ function Page() {
   const create = async () => {
     if (!title) { toast.error("請輸入標題"); return; }
     const { error } = await supabase.from("dev_todos").insert({ title, description: desc || null, created_by: user?.id ?? null });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "新增待辦")); return; }
     toast.success("已新增");
     setOpen(false); setTitle(""); setDesc("");
     qc.invalidateQueries({ queryKey: ["dev_todos"] });
@@ -49,7 +50,7 @@ function Page() {
   const toggle = async (r: any) => {
     const done = r.status === "done";
     const { error } = await supabase.from("dev_todos").update({ status: done ? "todo" : "done", done_at: done ? null : new Date().toISOString() }).eq("id", r.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "更新狀態")); return; }
     qc.invalidateQueries({ queryKey: ["dev_todos"] });
   };
 

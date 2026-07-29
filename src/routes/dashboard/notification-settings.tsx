@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/notification-settings")({ component: () => (
     <RequirePerm module="eip_notification_settings">
@@ -121,7 +122,7 @@ function Page() {
       }).eq("id", r.id);
     }));
     const err = results.find((x) => x.error);
-    if (err?.error) { toast.error(err.error.message); return; }
+    if (err?.error) { toast.error(humanizeError(err.error, "儲存通知設定")); return; }
     toast.success("已儲存"); qc.invalidateQueries({ queryKey: ["notification_setting_all"] });
   };
 
@@ -137,12 +138,12 @@ function Page() {
       in_app_enabled: base?.in_app_enabled ?? true,
       line_enabled: base?.line_enabled ?? false, is_active: true,
     });
-    if (error) { toast.error(error.message.includes("duplicate") ? "此部門＋事件的覆寫已存在" : error.message); return; }
+    if (error) { toast.error(error.code === "23505" ? "此部門＋事件的覆寫已存在，請直接編輯那一筆" : humanizeError(error, "新增覆寫")); return; }
     toast.success("已新增覆寫"); qc.invalidateQueries({ queryKey: ["notification_setting_all"] });
   };
   const removeOverride = async (id: string) => {
     const { error } = await supabase.from("notification_setting").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(humanizeError(error, "移除覆寫")); return; }
     toast.success("已刪除"); qc.invalidateQueries({ queryKey: ["notification_setting_all"] });
   };
 

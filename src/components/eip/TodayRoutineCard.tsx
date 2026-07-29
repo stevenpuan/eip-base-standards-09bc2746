@@ -18,6 +18,7 @@ import { isLocalPath, copyPath } from "@/lib/eip-url";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { humanizeError } from "@/lib/eip-error";
 
 const keyOf = (r: RoutineRow) => `${r.section}:${r.source ?? ""}:${r.ref_id ?? r.text}`;
 
@@ -101,7 +102,7 @@ export function TodayRoutineCard() {
       });
     } catch (e) {
       patchLocal(k, { done: r.done });
-      toast.error(`更新失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(humanizeError(e, "更新"));
       await reload();
     } finally {
       unlock(k);
@@ -135,7 +136,7 @@ export function TodayRoutineCard() {
         text: r.text,
       });
     } catch (e) {
-      toast.error(`移除失敗：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(humanizeError(e, "移除"));
       await reload();
     } finally {
       unlock(k);
@@ -162,9 +163,7 @@ export function TodayRoutineCard() {
     } catch (e) {
       // 這裡刻意不 reload：reload 會用 server 舊值蓋掉使用者剛打的字，
       // 等於一個網路錯誤就把他寫的執行內容清空。留在畫面上讓他能再存一次。
-      toast.error(
-        `執行內容儲存失敗：${e instanceof Error ? e.message : String(e)}（內容還在，請再試一次）`,
-      );
+      toast.error(`${humanizeError(e, "執行內容儲存")}（內容還在，請再試一次）`);
     } finally {
       setSavingNote((s) => {
         const n = new Set(s);
@@ -199,7 +198,7 @@ export function TodayRoutineCard() {
       patchLocal(k, { link: link || null });
       void qc.invalidateQueries({ queryKey: ["eip", "routine-today", date] });
     } catch (e) {
-      toast.error(`連結儲存失敗：${e instanceof Error ? e.message : String(e)}（內容還在，請再試一次）`);
+      toast.error(`${humanizeError(e, "連結儲存")}（內容還在，請再試一次）`);
     } finally {
       setSavingNote((s2) => {
         const n = new Set(s2);
