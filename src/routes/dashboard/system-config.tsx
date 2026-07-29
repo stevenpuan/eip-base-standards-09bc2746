@@ -20,12 +20,14 @@ export const Route = createFileRoute("/dashboard/system-config")({ component: ()
 
 interface Config { id: string; key: string; value: string | null; group_name: string | null; description: string | null; }
 
+const EMPTY_CONFIGS: Config[] = [];
+
 function Page() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const editable = can("system_config", "edit");
 
-  const { data: rows = [] } = useQuery({
+  const { data: rowsData } = useQuery({
     queryKey: ["system_configs"],
     queryFn: async () => {
       const { data, error } = await supabase.from("system_configs").select("*").order("group_name");
@@ -33,6 +35,10 @@ function Page() {
       return data as Config[];
     },
   });
+  // 穩定參考，避免下方 useEffect 無限重跑
+  const rows = rowsData ?? EMPTY_CONFIGS;
+
+
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   useEffect(() => {

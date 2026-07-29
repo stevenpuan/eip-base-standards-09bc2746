@@ -5159,6 +5159,10 @@ export type Database = {
         Args: { p_id: string; p_module: string }
         Returns: Json
       }
+      eip_supervised_departments_of: {
+        Args: { p_user: string }
+        Returns: string[]
+      }
       eip_sweep_anomaly_overdue: { Args: never; Returns: number }
       eip_sweep_handover: { Args: never; Returns: number }
       eip_task_purge_guard: { Args: { p_id: string }; Returns: string }
@@ -5242,6 +5246,7 @@ export type Database = {
         | "anomaly_closed"
         | "anomaly_overdue"
         | "system_alert"
+        | "worklog_reviewed"
       project_health: "on_track" | "at_risk" | "off_track"
       project_status: "planning" | "active" | "on_hold" | "done"
       task_priority: "low" | "normal" | "high" | "urgent"
@@ -5424,6 +5429,7 @@ export const Constants = {
         "anomaly_closed",
         "anomaly_overdue",
         "system_alert",
+        "worklog_reviewed",
       ],
       project_health: ["on_track", "at_risk", "off_track"],
       project_status: ["planning", "active", "on_hold", "done"],

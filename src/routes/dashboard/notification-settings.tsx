@@ -60,12 +60,14 @@ const SCOPES: { key: string; label: string }[] = [
   { key: "all_company", label: "全公司" },
 ];
 
+const EMPTY_SETTINGS: Setting[] = [];
+
 function Page() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const editable = can("eip_notification_settings", "edit");
 
-  const { data: rows = [] } = useQuery({
+  const { data: rowsData } = useQuery({
     queryKey: ["notification_setting_all"],
     queryFn: async () => {
       const { data, error } = await supabase.from("notification_setting").select("*").order("event_code");
@@ -89,6 +91,8 @@ function Page() {
       return data as UserLite[];
     },
   });
+  // 注意：rows 必須是穩定參考，否則下方的 useEffect 會無限重跑（Maximum update depth exceeded）
+  const rows = rowsData ?? EMPTY_SETTINGS;
   const userName = (id: string) => users.find((u) => u.id === id)?.name ?? "未知人員";
 
   const defaults = useMemo(() => rows.filter((r) => !r.department_id), [rows]);

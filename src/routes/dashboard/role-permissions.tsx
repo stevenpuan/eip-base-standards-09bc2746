@@ -30,6 +30,8 @@ const ACTIONS: [string, string][] = [
 
 interface Role { id: string; code: string; name: string; is_system: boolean; }
 
+const EMPTY_ROWS: any[] = [];
+
 function RolePermPage() {
   const { can } = useAuth();
   const qc = useQueryClient();
@@ -63,12 +65,14 @@ function RolePermPage() {
   const role = roles.find((r) => r.id === roleId);
   const isAdminRole = role?.code === "admin";
 
-  const { data: perms = [] } = useQuery({
+  const { data: permsData } = useQuery({
     queryKey: ["rmp", roleId], enabled: !!roleId,
     queryFn: async () => { const { data, error } = await supabase.from("role_module_permissions").select("*").eq("role_id", roleId); if (error) throw error; return data as any[]; },
   });
+  // 穩定參考，避免 useEffect 無限重跑
+  const perms = permsData ?? EMPTY_ROWS;
   const [draft, setDraft] = useState<Record<string, any>>({});
-  useEffect(() => { const m: Record<string, any> = {}; perms.forEach((p) => (m[p.module_key] = p)); setDraft(m); }, [perms]);
+  useEffect(() => { const m: Record<string, any> = {}; perms.forEach((p: any) => (m[p.module_key] = p)); setDraft(m); }, [perms]);
   const mFlag = (k: string, a: string) => (isAdminRole ? true : !!draft[k]?.[a]);
   const mToggle = (k: string, a: string) => {
     if (!editable || isAdminRole) return;
@@ -85,12 +89,13 @@ function RolePermPage() {
     toast.success("模組權限已儲存"); qc.invalidateQueries({ queryKey: ["rmp", roleId] });
   };
 
-  const { data: pp = [] } = useQuery({
+  const { data: ppData } = useQuery({
     queryKey: ["rpp", roleId], enabled: !!roleId,
     queryFn: async () => { const { data, error } = await supabase.from("role_page_permissions").select("*").eq("role_id", roleId); if (error) throw error; return data as any[]; },
   });
+  const pp = ppData ?? EMPTY_ROWS;
   const [pDraft, setPDraft] = useState<Record<string, any>>({});
-  useEffect(() => { const m: Record<string, any> = {}; pp.forEach((p) => (m[p.page_key] = p)); setPDraft(m); }, [pp]);
+  useEffect(() => { const m: Record<string, any> = {}; pp.forEach((p: any) => (m[p.page_key] = p)); setPDraft(m); }, [pp]);
   const pVal = (k: string, a: string): boolean | null => {
     const v = pDraft[k]?.[a];
     return v === true ? true : v === false ? false : null;
