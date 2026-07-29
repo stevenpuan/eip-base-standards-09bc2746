@@ -46,17 +46,18 @@ function DashboardHome() {
   const showHandover = pendingHandover > 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">
+    <div className="space-y-8">
+      <div className="border-b border-border/70 pb-5">
+        <h1 className="text-2xl font-bold tracking-tight">
           歡迎回來，{profile?.full_name ?? profile?.email}
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <p className="text-muted-foreground text-sm mt-1.5">
           角色：{roleNames.join("、") || "—"}
         </p>
       </div>
       {(showTodos || showIssues || showHandover) && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
           {showHandover && (
             <StatCard
               title="交接待辦"
@@ -106,18 +107,19 @@ function StatCard({
         ? "bg-destructive/10 text-destructive"
         : "bg-primary/10 text-primary";
   const card = (
-    <Card className={cn("border-l-4 transition-all duration-200", to && "hover:-translate-y-0.5 hover:shadow-md cursor-pointer", borderClass)}>
-      <CardContent className="p-5 flex items-center gap-4">
-        <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0", iconWrap)}>
-          <Icon className="h-5 w-5" />
+    <Card className={cn("h-full border-l-4 shadow-sm transition-all duration-200", to && "hover:-translate-y-0.5 hover:shadow-lg cursor-pointer", borderClass)}>
+      <CardContent className="p-6 flex items-center gap-5">
+        <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center shrink-0", iconWrap)}>
+          <Icon className="h-6 w-6" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-muted-foreground">{title}</div>
-          <div className="text-3xl font-bold mt-0.5 leading-tight">{value ?? "—"}</div>
+          <div className="text-3xl font-bold mt-1 leading-none tabular">{value ?? "—"}</div>
         </div>
       </CardContent>
     </Card>
   );
+
   if (to) return <Link to={to as any} className="block">{card}</Link>;
   return card;
 }

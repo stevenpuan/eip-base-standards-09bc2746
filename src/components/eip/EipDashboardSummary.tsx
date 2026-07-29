@@ -160,15 +160,16 @@ export function EipDashboardSummary() {
   if (!user) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">EIP 工作概況</h2>
-        <Link to="/dashboard/eip/my-tasks" className="text-xs text-primary hover:underline">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold tracking-tight">EIP 工作概況</h2>
+        <Link to="/dashboard/eip/my-tasks" className="text-sm text-primary hover:underline shrink-0">
           前往我的任務 →
         </Link>
       </div>
 
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+
         <MiniCard
           to="/dashboard/eip/my-tasks"
           icon={<ListTodo className="w-4 h-4" />}
@@ -199,30 +200,30 @@ export function EipDashboardSummary() {
         />
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-medium flex items-center gap-2">
+      <Card className="shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="text-sm font-semibold flex items-center gap-2">
               <Megaphone className="w-4 h-4 text-muted-foreground" /> 最新公告
             </div>
-            <Link to="/dashboard/eip/announcements" className="text-xs text-primary hover:underline">
+            <Link to="/dashboard/eip/announcements" className="text-sm text-primary hover:underline shrink-0">
               全部公告 →
             </Link>
           </div>
           {(annQ.data ?? []).length === 0 ? (
-            <div className="text-xs text-muted-foreground py-6 text-center">尚無公告</div>
+            <div className="text-sm text-muted-foreground py-8 text-center">尚無公告</div>
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-border/70">
               {(annQ.data ?? []).map((a: any) => (
-                <li key={a.id} className="py-2 flex items-center gap-2 text-sm">
-                  {a.is_pinned && <Pin className="w-3 h-3 text-amber-600 shrink-0" />}
+                <li key={a.id} className="py-2.5 flex items-center gap-2.5 text-sm">
+                  {a.is_pinned && <Pin className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
                   <Link
                     to="/dashboard/eip/announcements"
                     className="flex-1 truncate hover:text-primary hover:underline"
                   >
                     {a.title}
                   </Link>
-                  <span className="text-xs text-muted-foreground shrink-0">
+                  <span className="text-xs text-muted-foreground shrink-0 tabular">
                     {a.published_at ? new Date(a.published_at).toLocaleDateString("zh-TW") : ""}
                   </span>
                 </li>
@@ -232,25 +233,26 @@ export function EipDashboardSummary() {
         </CardContent>
       </Card>
 
+
       {managerLevel && mgrStats && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm font-medium mb-2">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="shadow-sm">
+            <CardContent className="p-5">
+              <div className="text-sm font-semibold mb-3">
                 {appUser?.role === "dept_manager" ? "部門任務分佈" : "全公司任務分佈"}
               </div>
               <div className="flex flex-wrap gap-2">
                 {statuses.length === 0 && (
-                  <span className="text-xs text-muted-foreground">無資料</span>
+                  <span className="text-sm text-muted-foreground">無資料</span>
                 )}
                 {statuses.map((s: any) => (
                   <Link
                     key={s.id}
                     to="/dashboard/eip/tasks"
-                    className="px-2.5 py-1 rounded-md bg-muted text-xs hover:bg-accent"
+                    className="px-3 py-1.5 rounded-lg border bg-muted/60 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     {s.name}
-                    <span className="ml-1.5 font-semibold">
+                    <span className="ml-1.5 font-semibold tabular">
                       {mgrStats.byStatus[s.id] ?? 0}
                     </span>
                   </Link>
@@ -258,13 +260,13 @@ export function EipDashboardSummary() {
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm font-medium mb-2">進行中專案</div>
+          <Card className="shadow-sm">
+            <CardContent className="p-5">
+              <div className="text-sm font-semibold mb-3">進行中專案</div>
               {mgrStats.projects.length === 0 ? (
-                <div className="text-xs text-muted-foreground">尚無進行中專案</div>
+                <div className="text-sm text-muted-foreground">尚無進行中專案</div>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="space-y-3">
                   {mgrStats.projects.slice(0, 5).map((p: any) => {
                     const t = (tasksQ.data ?? []).filter((x: any) =>
                       (x as any).project_id === p.id,
@@ -272,19 +274,19 @@ export function EipDashboardSummary() {
                     const done = t.filter((x: any) => doneStatusIds.includes(x.status_id)).length;
                     const pct = t.length ? Math.round((done / t.length) * 100) : 0;
                     return (
-                      <li key={p.id} className="text-xs">
-                        <div className="flex items-center justify-between">
+                      <li key={p.id} className="text-sm">
+                        <div className="flex items-center justify-between gap-3">
                           <Link
                             to="/dashboard/eip/projects"
                             className="truncate hover:text-primary hover:underline"
                           >
                             {p.name}
                           </Link>
-                          <Badge variant="secondary" className="text-[11.5px]">{pct}%</Badge>
+                          <Badge variant="secondary" className="text-[11.5px] tabular shrink-0">{pct}%</Badge>
                         </div>
-                        <div className="h-1.5 rounded-full bg-muted mt-1 overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-muted mt-1.5 overflow-hidden">
                           <div
-                            className="h-full bg-primary"
+                            className="h-full bg-primary transition-all"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -311,13 +313,14 @@ function MiniCard({
   tone: string;
 }) {
   return (
-    <Link to={to as any} className="block">
-      <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-        <CardContent className="p-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {icon} {label}
+    <Link to={to as any} className="block h-full">
+      <Card className="h-full shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+            {icon} <span className="truncate">{label}</span>
           </div>
-          <div className={`text-2xl font-semibold mt-1 ${tone}`}>{value}</div>
+          <div className={`text-2xl sm:text-3xl font-bold mt-2 leading-none tabular ${tone}`}>{value}</div>
+
         </CardContent>
       </Card>
     </Link>
