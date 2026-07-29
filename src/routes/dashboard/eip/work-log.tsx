@@ -98,11 +98,20 @@ function WorkLogPage() {
       routine_morning: log.morning, routine_afternoon: log.afternoon, special_items: log.special,
       status: log.status, ...patch, updated_at: new Date().toISOString(),
     };
+    // 這一天可能已被別的路徑（我的工作區勾選、eip_set_routine_item）建立過，
+    // 前端 state 沒有 id 就直接 insert 會撞 work_log_tenant_id_user_id_log_date_key。
+    let targetId = log.id;
+    if (!targetId) {
+      const { data: exist } = await supabase.from("work_log").select("id")
+        .eq("user_id", appUser.id).eq("log_date", date).maybeSingle();
+      targetId = exist?.id;
+    }
     let res;
-    if (log.id) res = await supabase.from("work_log").update(body).eq("id", log.id).select("*").maybeSingle();
+    if (targetId) res = await supabase.from("work_log").update(body).eq("id", targetId).select("*").maybeSingle();
     else res = await supabase.from("work_log").insert(body).select("*").maybeSingle();
     setSaving(false);
     if (res.error) { toast.error(res.error.message); return undefined; }
+
     if (res.data) setLog((l) => (l ? { ...l, id: res.data.id, status: res.data.status } : l));
     setRefreshKey((k) => k + 1);
     if (msg) toast.success(msg);
