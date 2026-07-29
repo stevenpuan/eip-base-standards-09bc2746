@@ -63,10 +63,12 @@ function RolePermPage() {
   const role = roles.find((r) => r.id === roleId);
   const isAdminRole = role?.code === "admin";
 
-  const { data: perms = [] } = useQuery({
+  const { data: permsData } = useQuery({
     queryKey: ["rmp", roleId], enabled: !!roleId,
     queryFn: async () => { const { data, error } = await supabase.from("role_module_permissions").select("*").eq("role_id", roleId); if (error) throw error; return data as any[]; },
   });
+  // 穩定參考，避免 useEffect 無限重跑
+  const perms = permsData ?? EMPTY_ROWS;
   const [draft, setDraft] = useState<Record<string, any>>({});
   useEffect(() => { const m: Record<string, any> = {}; perms.forEach((p) => (m[p.module_key] = p)); setDraft(m); }, [perms]);
   const mFlag = (k: string, a: string) => (isAdminRole ? true : !!draft[k]?.[a]);
