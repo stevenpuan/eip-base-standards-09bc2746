@@ -628,7 +628,8 @@ function QuickReportsPage() {
                             <div className="text-xs text-muted-foreground mt-0.5">
                               代理人：{nameOf(r.deputy_id)}
                             </div>
-                            {/* 假別與事由已從請假流程移除，只有舊資料才會出現 */}
+                            {/* 假別已從請假流程移除，只有舊資料才會出現；
+                                事由 2026-07-30 隨「快速回報 → 請假」一起回歸，是現行欄位 */}
                             {r.leave_type && (
                               <div className="text-xs text-muted-foreground mt-0.5">
                                 假別（舊資料）：{r.leave_type}
@@ -636,7 +637,7 @@ function QuickReportsPage() {
                             )}
                             {r.detail && (
                               <div className="text-muted-foreground text-xs mt-0.5">
-                                事由（舊資料）：{r.detail}
+                                事由：{r.detail}
                               </div>
                             )}
                             {r.handover_note && (

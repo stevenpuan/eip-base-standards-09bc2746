@@ -98,8 +98,12 @@ const formatDoneAt = (iso: string) => {
  *    多繞一頁反而沒人打勾。請假單的 status 由 DB trigger 依完成度回寫，
  *    前端只寫 done_at。
  *
- * 這張卡同時是「請假申請」的入口（定案第 15 條：從快速回報獨立，併入我的工作區），
+ * 這張卡同時是「請假＋交接一次填完」的**選填**入口（LeaveRequestDialog），
  * 所以即使沒有任何待辦也會顯示那顆按鈕。主管不核准、不簽核，只收通知。
+ *
+ * 2026-07-30 定案調整：臨時請假的主路徑改回「快速回報 → 請假」（只填區間＋事由、
+ * 一鍵送出），代理人與交接代辦一律在「交接代辦」頁補登。這裡的完整版表單留給
+ * 有時間一次填完的人用，不是必經路徑。
  */
 export function HandoverInboxCard({ meId }: { meId: string }) {
   const qc = useQueryClient();
@@ -277,7 +281,8 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
             <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
               <Link to="/dashboard/eip/handover">補登交接代辦</Link>
             </Button>
-            {/* 定案第 15 條：請假從快速回報獨立，入口併進我的工作區 */}
+            {/* 選填的完整版入口：請假＋代理人＋代辦一次填完。
+                只想快點把假報掉的人走右下角「快速回報 → 請假」。 */}
             <Button
               size="sm"
               variant="outline"
@@ -285,7 +290,7 @@ export function HandoverInboxCard({ meId }: { meId: string }) {
               onClick={() => setLeaveOpen(true)}
             >
               <CalendarOff className="w-3.5 h-3.5 mr-1" />
-              我要請假
+              請假＋交接一次填
             </Button>
           </div>
 

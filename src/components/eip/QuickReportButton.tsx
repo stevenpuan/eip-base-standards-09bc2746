@@ -16,8 +16,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { LeaveRequestDialog } from "@/components/eip/LeaveRequestDialog";
 import { humanizeError } from "@/lib/eip-error";
+import { useQueryClient } from "@tanstack/react-query";
 
 // 本地日期 YYYY-MM-DD（台北）
 const todayStr = () => {
@@ -38,8 +38,24 @@ const TYPE_COLOR: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = { open: "待處理", acknowledged: "處理中", done: "已完成", closed: "已完成" };
 const DONE_STATUSES = new Set(["done", "closed"]);
 
+/**
+ * 快速回報（右下角浮動按鈕）。
+ *
+ * 請假這一頁刻意「只收區間＋事由，按送出就成立」：
+ *  ・臨時請假的當下不一定有時間把交接登打仔細，強迫填代理人與代辦會讓人乾脆不回報。
+ *  ・**代理人與交接代辦一律在「交接代辦」頁補登**（那一頁的「我的請假交接」區塊
+ *    可以指定／更換代理人、新增／編輯／刪除代辦、逐項指派）。
+ *  ・有時間一次填完的人走「我的工作區」交接卡片上的 LeaveRequestDialog，
+ *    那是選填的完整版入口，不是必經路徑。
+ *  ・假別與正式假單仍走 EZ9（定案第 13 條），這裡不出現假別欄位。
+ *
+ * DB 端已確認可承受 deputy_id / 代辦皆為空的請假單：
+ * `eip_quick_report.deputy_id` 可為 null，`eip_notify_quick_report` 仍會以
+ * `leave_handover_created` 通知單位主管，沒代理人時只是少發那一份副本。
+ */
 export function QuickReportButton() {
   const { appUser } = useEipUser();
+  const qc = useQueryClient();
 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"late" | "leave" | "other">("late");
@@ -50,14 +66,20 @@ export function QuickReportButton() {
   const [lateEnd, setLateEnd] = useState("");
   const [lateDetail, setLateDetail] = useState("");
 
-  // 請假走 LeaveRequestDialog（區間＋代理人＋代辦清單），這裡不再自己收欄位
-  const [leaveOpen, setLeaveOpen] = useState(false);
+  // 請假：日期起訖（必填）＋時間起訖（選填）＋事由（選填）。不含假別、不含代理人／代辦
+  const [leaveFromDate, setLeaveFromDate] = useState("");
+  const [leaveToDate, setLeaveToDate] = useState("");
+  const [leaveFromTime, setLeaveFromTime] = useState("");
+  const [leaveToTime, setLeaveToTime] = useState("");
+  const [leaveDetail, setLeaveDetail] = useState("");
 
   // 事件
   const [otherDetail, setOtherDetail] = useState("");
 
   const reset = () => {
     setLateStart(""); setLateEnd(""); setLateDetail("");
+    setLeaveFromDate(""); setLeaveToDate("");
+    setLeaveFromTime(""); setLeaveToTime(""); setLeaveDetail("");
     setOtherDetail("");
   };
 
@@ -85,6 +107,34 @@ export function QuickReportButton() {
     setBusy(false);
     if (error) return toast.error(humanizeError(error, "送出"));
     toast.success("遲到回報已送出");
+    reset();
+    setOpen(false);
+  };
+
+  const submitLeave = async () => {
+    if (!appUser) return;
+    if (!leaveFromDate || !leaveToDate) return toast.error("請選擇請假日期（起訖）");
+    if (leaveToDate < leaveFromDate) return toast.error("迄日不可早於起日");
+    if (leaveFromDate === leaveToDate && leaveFromTime && leaveToTime && leaveToTime < leaveFromTime) {
+      return toast.error("同一天的迄時不可早於起時");
+    }
+    setBusy(true);
+    // 只寫區間與事由。deputy_id 與代辦一律留給「交接代辦」頁補登（DB 允許為空）
+    const { error } = await supabase.from("eip_quick_report").insert({
+      tenant_id: tenantId,
+      submitter_id: appUser.id,
+      type: "leave",
+      report_date: leaveFromDate,
+      leave_from: ts(leaveFromDate, leaveFromTime || "00:00"),
+      leave_to: ts(leaveToDate, leaveToTime || "23:59"),
+      detail: leaveDetail.trim() || null,
+    });
+    setBusy(false);
+    if (error) return toast.error(humanizeError(error, "送出"));
+    toast.success("請假已送出。代理人與交接代辦可稍後到「交接代辦」補登");
+    // 「交接代辦」頁的「我的請假交接」要立刻看得到這張新單
+    void qc.invalidateQueries({ queryKey: ["eip", "my-leave-handover"] });
+    void qc.invalidateQueries({ queryKey: ["eip", "leave-handover-inbox"] });
     reset();
     setOpen(false);
   };
@@ -157,26 +207,61 @@ export function QuickReportButton() {
               </DialogFooter>
             </TabsContent>
 
-            {/* 請假：定案第 13、15 條 —— 移除假別與事由（EZ9 已有正式假單），
-                改用「請假申請＋代辦事項清單」單一表單，主入口在我的工作區 */}
+            {/* 請假：只收區間＋事由，一鍵送出。
+                代理人與交接代辦不在這裡填 —— 臨時請假來不及登打，改到「交接代辦」頁補。
+                假別仍走 EZ9 正式假單（定案第 13 條），這裡不出現假別欄位。 */}
             <TabsContent value="leave" className="space-y-3 pt-2">
-              <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-2">
-                <p className="font-medium">請假改成「區間 ＋ 代理人 ＋ 代辦清單」一次填完</p>
-                <p className="text-xs text-muted-foreground">
-                  假別與事由請走 EZ9 正式假單，EIP 只處理請假期間的工作交接。
-                  送出後不需主管核准，系統會直接通知單位主管與代理人。
-                </p>
+              <div>
+                <Label>請假日期（起訖）</Label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <span className="text-xs text-muted-foreground">起日</span>
+                    <Input
+                      type="date"
+                      value={leaveFromDate}
+                      onChange={(e) => {
+                        setLeaveFromDate(e.target.value);
+                        // 只補空值，不覆蓋使用者已經選好的迄日
+                        if (!leaveToDate) setLeaveToDate(e.target.value);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">迄日</span>
+                    <Input type="date" value={leaveToDate} onChange={(e) => setLeaveToDate(e.target.value)} />
+                  </div>
+                </div>
               </div>
+              <div>
+                <Label>時間（選填，不填視為整日）</Label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <span className="text-xs text-muted-foreground">起時</span>
+                    <Input type="time" value={leaveFromTime} onChange={(e) => setLeaveFromTime(e.target.value)} />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">迄時</span>
+                    <Input type="time" value={leaveToTime} onChange={(e) => setLeaveToTime(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <Label>事由</Label>
+                <Textarea
+                  rows={3}
+                  value={leaveDetail}
+                  onChange={(e) => setLeaveDetail(e.target.value)}
+                  placeholder="(選填)"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground rounded-md border bg-muted/30 p-2">
+                送出即成立，不需主管核准，系統會通知單位主管。
+                <span className="font-medium">代理人與交接代辦事項請到「交接代辦」頁登打</span>
+                ，臨時請假可以先送出、事後再補。
+              </p>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
-                <Button
-                  onClick={() => {
-                    setOpen(false);
-                    setLeaveOpen(true);
-                  }}
-                >
-                  填寫請假與代辦
-                </Button>
+                <Button disabled={busy} onClick={submitLeave}>送出</Button>
               </DialogFooter>
             </TabsContent>
 
@@ -201,9 +286,6 @@ export function QuickReportButton() {
           </Tabs>
         </DialogContent>
       </Dialog>
-
-      {/* 請假的實際表單。放在這裡而不是 Dialog 內，避免兩個 Dialog 疊在一起 */}
-      <LeaveRequestDialog open={leaveOpen} onClose={() => setLeaveOpen(false)} />
     </>
   );
 }
