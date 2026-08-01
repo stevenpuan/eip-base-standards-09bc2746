@@ -503,7 +503,6 @@ function CalendarPage() {
                   <span className="font-medium">{lv.user_name}</span>
                   <span className="text-muted-foreground">{lv.department_name ?? "未設部門"}</span>
                   <span className="text-muted-foreground">{leaveTimeLabel(lv)}</span>
-                  {!lv.handover_done && <span className="text-muted-foreground/70">代辦未完成</span>}
                 </div>
               ))}
             </div>
@@ -541,9 +540,8 @@ function CalendarPage() {
                             // 一般成員沒有權限看請假詳情，所以不做連結，資訊放 tooltip
                             const tip = `請假：${lv.userName}（${lv.departmentName ?? "未設部門"}）${lv.timeLabel}`;
                             return (
-                              <div key={e.id} className={cls} title={lv.handoverDone ? tip : `${tip}／代辦未完成`}>
+                              <div key={e.id} className={cls} title={tip}>
                                 {lv.userName}
-                                {!lv.handoverDone && <span className="ml-1 opacity-60">代辦未完成</span>}
                               </div>
                             );
                           }
