@@ -1001,10 +1001,10 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
       draggable
       onDragStart={onDragStart}
       onClick={onOpenDetail}
-      className={`group relative cursor-pointer rounded-2xl border-border/70 bg-card overflow-hidden shadow-[0_10px_30px_-14px_hsl(var(--primary)/0.18)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-16px_hsl(var(--primary)/0.28)] ${task.progress >= 100 ? "opacity-80" : ""}`}
+      className={`group relative cursor-pointer rounded-xl border-border/70 bg-card overflow-hidden shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${task.progress >= 100 ? "opacity-70" : ""}`}
     >
-      {accentBar && <div className={`absolute top-0 left-0 w-1.5 h-full ${accentBar}`} />}
-      <CardContent className="p-5 space-y-4">
+      {accentBar && <div className={`absolute top-0 left-0 w-1 h-full ${accentBar}`} />}
+      <CardContent className="p-3 space-y-2">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -1013,9 +1013,15 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             />
-            {source
-              ? <TaskSourceBadge source={source} />
-              : <span className="text-[11.5px] font-bold tracking-[0.14em] text-muted-foreground uppercase">一般</span>}
+            <Badge className={`text-[11px] rounded px-1.5 py-0 border-none ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
+              {PRIORITY_LABEL[task.priority]}
+            </Badge>
+            {source && <TaskSourceBadge source={source} />}
+            {task.recurring_rule_id && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
+                <Repeat className="w-2.5 h-2.5" /> 週期
+              </span>
+            )}
           </div>
           {showMenu && (
             <DropdownMenu>
@@ -1049,72 +1055,26 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
         </div>
 
         {/* Title */}
-        <h3 className="text-[15px] font-semibold text-primary leading-snug font-[family-name:Outfit,ui-sans-serif] line-clamp-3">
+        <h3 className="text-sm font-semibold text-primary leading-snug font-[family-name:Outfit,ui-sans-serif] line-clamp-2">
           {task.title}
         </h3>
 
-        {/* Badges */}
-        <div className="flex flex-wrap gap-1.5">
-          <Badge className={`text-[11.5px] rounded-md px-2 py-0.5 border-none ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
-            {PRIORITY_LABEL[task.priority]}
-          </Badge>
-          {task.recurring_rule_id && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] font-semibold bg-muted text-muted-foreground border border-border">
-              <Repeat className="w-2.5 h-2.5" /> 週期
-            </span>
-          )}
-          <VisibilityBadge scope={task.visibility_scope} departmentId={task.department_id} deptMap={deptMap} />
-          {isDone && <Badge variant="secondary" className="text-[11.5px] rounded-md">已完成</Badge>}
-          {subtask && subtask.total > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] font-semibold bg-muted/60 text-muted-foreground border border-border">
-              <ListChecks className="w-2.5 h-2.5" /> {subtask.done}/{subtask.total}
-            </span>
-          )}
-        </div>
-
-        {/* Zoned metadata */}
-        <div className="pt-3 border-t border-border/70 space-y-3">
-          <div className="flex justify-between items-start gap-3">
-            <div className="flex flex-col min-w-0">
-              <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70 font-bold">截止日期</span>
-              <span className={`text-xs font-semibold tabular-nums ${overdue ? "text-destructive" : "text-primary"}`}>
-                {task.due_date ? fmtDate(task.due_date) : "—"}
-                {overdue && <span className="ml-1">· 逾期</span>}
+        {/* 精簡底列：截止日期 · 子任務 · 負責人 */}
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          <span className={`text-xs font-medium tabular-nums shrink-0 ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+            {task.due_date ? fmtShort(task.due_date) : "無期限"}{overdue && " · 逾期"}
+          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {subtask && subtask.total > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0">
+                <ListChecks className="w-3 h-3" /> {subtask.done}/{subtask.total}
               </span>
-            </div>
-            <div className="flex flex-col items-end min-w-0">
-              <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70 font-bold">建立者</span>
-              <span className="text-xs text-muted-foreground truncate">
-                {creator?.name ?? "—"} · {fmtShort(task.created_at)}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-[12px] font-semibold flex items-center justify-center shrink-0 border border-border">
-                {initial}
-              </div>
-              <span className="text-sm font-medium text-primary truncate">{owner?.name ?? "未指派"}</span>
-            </div>
-            {canEdit && statuses.length > 0 ? (
-              <div onClick={(e) => e.stopPropagation()} className="relative shrink-0">
-                <Select value={task.status_id} onValueChange={onChangeStatus}>
-                  <SelectTrigger className={`h-8 min-w-[92px] w-auto rounded-md text-[12.5px] font-bold border-none px-3 gap-1 ${statusTone}`}>
-                    <SelectValue placeholder="狀態" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="text-xs">
-                        {s.name}{s.is_done_state ? "（完成）" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <span className={`text-[12.5px] font-bold px-2.5 py-1 rounded-md ${statusTone}`}>{currentStatus?.name}</span>
             )}
+            {isDone && <Badge variant="secondary" className="text-[10px] rounded px-1.5 py-0">已完成</Badge>}
+            <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center shrink-0 border border-border">
+              {initial}
+            </div>
+            <span className="text-xs font-medium text-primary truncate max-w-[84px]">{owner?.name ?? "未指派"}</span>
           </div>
         </div>
 
