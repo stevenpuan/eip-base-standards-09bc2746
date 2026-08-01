@@ -880,6 +880,9 @@ function BoardView({
   return (
     <>
     <div className="flex items-center justify-end gap-2 pb-3">
+      {boardSort !== "manual" && (
+        <span className="text-[11.5px] text-muted-foreground/70 shrink-0">想手動調整順序？切成「手動拖曳」即可拖動卡片</span>
+      )}
       <span className="text-xs text-muted-foreground shrink-0">每欄排序</span>
       <div className="w-[190px]">
         <MiniSelect
@@ -932,7 +935,8 @@ function BoardView({
                     canEdit={canEditTask(t, appUser, can, collabMap)}
                     canDelete={canDeleteTask(t, appUser, can, collabMap)}
 
-                    onDragStart={() => { setDragId(t.id); setBoardSort("manual"); }}
+                    canDrag={boardSort === "manual"}
+                    onDragStart={() => setDragId(t.id)}
                     onOpenDetail={() => onOpenDetail(t)}
                     onAskDelete={() => onAskDelete(t)}
                     onChangeStatus={(sid) => {
@@ -957,13 +961,14 @@ function BoardView({
   );
 }
 
-function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, canEdit, canDelete, onDragStart, onOpenDetail, onAskDelete, onChangeStatus }: {
+function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, canEdit, canDelete, canDrag, onDragStart, onOpenDetail, onAskDelete, onChangeStatus }: {
   task: Task; owner?: AppUser; creator?: AppUser;
   subtask?: { total: number; done: number };
   source?: TaskSource;
   deptMap: Map<string, Department>;
   statuses: Status[];
   canEdit: boolean; canDelete: boolean;
+  canDrag: boolean;
   onDragStart: () => void;
   onOpenDetail: () => void;
   onAskDelete: () => void;
@@ -998,7 +1003,7 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
 
   return (
     <Card
-      draggable
+      draggable={canDrag}
       onDragStart={onDragStart}
       onClick={onOpenDetail}
       className={`group relative cursor-pointer rounded-xl border-border/70 bg-card overflow-hidden shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${task.progress >= 100 ? "opacity-70" : ""}`}
@@ -1008,11 +1013,13 @@ function TaskCard({ task, owner, creator, subtask, source, deptMap, statuses, ca
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
-            <GripVertical
-              className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing group-hover:text-accent transition-colors"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            />
+            {canDrag && (
+              <GripVertical
+                className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing group-hover:text-accent transition-colors"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              />
+            )}
             <Badge className={`text-[11px] rounded px-1.5 py-0 border-none ${PRIORITY_COLOR[task.priority]}`} variant="secondary">
               {PRIORITY_LABEL[task.priority]}
             </Badge>

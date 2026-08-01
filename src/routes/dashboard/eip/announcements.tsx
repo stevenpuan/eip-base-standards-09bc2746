@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequirePerm } from "@/components/RequirePerm";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Pin, Megaphone, Download, MoreHorizontal, Pencil, Trash2, ChevronDown } from "lucide-react";
@@ -110,21 +110,28 @@ function AnnouncementsPage() {
 
   const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
 
-  // 帶 ?open=<id> 進來：展開該公告並捲動、短暫高亮
+  // 帶 ?open=<id> 進來：展開該公告並捲動、短暫高亮。只做一次，之後清掉網址參數，
+  // 避免後續任何列表 refetch（置頂／發布／刪除／編輯）又重複捲動與高亮。
   const { open: openId } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const handledOpenRef = useRef<string | null>(null);
   useEffect(() => {
     if (!openId || !listQ.data) return;
+    if (handledOpenRef.current === openId) return;
     if (!listQ.data.some((a) => a.id === openId)) return;
+    handledOpenRef.current = openId;
     setExpandedIds((prev) => (prev.has(openId) ? prev : new Set(prev).add(openId)));
     const t = setTimeout(() => {
       const el = document.getElementById(`ann-${openId}`);
-      if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("ring-2", "ring-primary", "rounded-lg");
-      setTimeout(() => el.classList.remove("ring-2", "ring-primary", "rounded-lg"), 2200);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-primary", "rounded-lg");
+        setTimeout(() => el.classList.remove("ring-2", "ring-primary", "rounded-lg"), 2200);
+      }
+      void navigate({ search: { open: undefined }, replace: true });
     }, 100);
     return () => clearTimeout(t);
-  }, [openId, listQ.data]);
+  }, [openId, listQ.data, navigate]);
 
   const refetchList = () => qc.invalidateQueries({ queryKey: ["eip", "announcements"] });
 
