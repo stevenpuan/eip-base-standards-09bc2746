@@ -816,9 +816,43 @@ function BoardView({
       return next;
     });
 
+  // 看板每欄的排序方式。預設「智慧」＝急件優先＋期限近的在上，一眼看到最該處理的。
+  // 想手動微調就切「手動」（拖曳）；一拖曳也會自動切回手動，讓拖的結果立刻生效。
+  const [boardSort, setBoardSort] = useState<"smart" | "due" | "priority" | "created" | "manual">("smart");
+
+  // urgent 最高、low 最低（ALL_PRIORITIES = low<normal<high<urgent）
+  const prioRank = (p: Priority) => ALL_PRIORITIES.indexOf(p);
+  const DUE_MAX = "9999-12-31"; // 無期限排最後
+
+  const boardCmp = (a: Task, b: Task) => {
+    switch (boardSort) {
+      case "manual":
+        return a.board_position - b.board_position;
+      case "due": {
+        const av = a.due_date ?? DUE_MAX, bv = b.due_date ?? DUE_MAX;
+        return av !== bv ? (av < bv ? -1 : 1) : a.board_position - b.board_position;
+      }
+      case "priority": {
+        const d = prioRank(b.priority) - prioRank(a.priority);
+        if (d !== 0) return d;
+        const av = a.due_date ?? DUE_MAX, bv = b.due_date ?? DUE_MAX;
+        return av < bv ? -1 : av > bv ? 1 : 0;
+      }
+      case "created":
+        return (b.created_at ?? "").localeCompare(a.created_at ?? ""); // 新的在上
+      case "smart":
+      default: {
+        const d = prioRank(b.priority) - prioRank(a.priority);
+        if (d !== 0) return d;
+        const av = a.due_date ?? DUE_MAX, bv = b.due_date ?? DUE_MAX;
+        if (av !== bv) return av < bv ? -1 : 1;
+        return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+      }
+    }
+  };
+
   const colTasks = (statusId: string) =>
-    tasks.filter((t) => t.status_id === statusId)
-      .sort((a, b) => a.board_position - b.board_position);
+    tasks.filter((t) => t.status_id === statusId).slice().sort(boardCmp);
 
   const handleColumnDrop = (statusId: string, beforeId?: string) => {
     if (!dragId) return;
@@ -838,7 +872,22 @@ function BoardView({
     return "bg-[hsl(var(--muted-foreground))] text-background";
   };
 
+  const SORT_LABEL: Record<typeof boardSort, string> = {
+    smart: "智慧（急件＋期限）", due: "期限近的在上", priority: "優先級高的在上",
+    created: "最新建立在上", manual: "手動拖曳",
+  };
+
   return (
+    <>
+    <div className="flex items-center justify-end gap-2 pb-3">
+      <span className="text-xs text-muted-foreground shrink-0">每欄排序</span>
+      <div className="w-[190px]">
+        <MiniSelect
+          value={boardSort}
+          onChange={(v) => setBoardSort(v as typeof boardSort)}
+          options={(Object.keys(SORT_LABEL) as (typeof boardSort)[]).map((k) => ({ value: k, label: SORT_LABEL[k] }))} />
+      </div>
+    </div>
     <div className="grid gap-6 overflow-x-auto pb-2"
       style={{ gridTemplateColumns: `repeat(${statuses.length}, minmax(280px, 1fr))` }}>
       {statuses.map((s, idx) => {
@@ -883,7 +932,7 @@ function BoardView({
                     canEdit={canEditTask(t, appUser, can, collabMap)}
                     canDelete={canDeleteTask(t, appUser, can, collabMap)}
 
-                    onDragStart={() => setDragId(t.id)}
+                    onDragStart={() => { setDragId(t.id); setBoardSort("manual"); }}
                     onOpenDetail={() => onOpenDetail(t)}
                     onAskDelete={() => onAskDelete(t)}
                     onChangeStatus={(sid) => {
@@ -904,6 +953,7 @@ function BoardView({
         );
       })}
     </div>
+    </>
   );
 }
 
