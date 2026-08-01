@@ -31,11 +31,17 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import { humanizeError } from "@/lib/eip-error";
 
-export const Route = createFileRoute("/dashboard/eip/announcements")({ component: () => (
+export const Route = createFileRoute("/dashboard/eip/announcements")({
+  // 從行事曆等處帶 ?open=<公告id> 進來時，自動展開並捲到該則公告
+  validateSearch: (s: Record<string, unknown>): { open?: string } => ({
+    open: typeof s.open === "string" ? s.open : undefined,
+  }),
+  component: () => (
     <RequirePerm module="eip_announcements">
       <AnnouncementsPage />
     </RequirePerm>
-  ) });
+  ),
+});
 
 type Announcement = Database["public"]["Tables"]["announcement"]["Row"];
 type AppUser = Database["public"]["Tables"]["app_user"]["Row"];
@@ -104,6 +110,22 @@ function AnnouncementsPage() {
 
   const userMap = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
 
+  // 帶 ?open=<id> 進來：展開該公告並捲動、短暫高亮
+  const { open: openId } = Route.useSearch();
+  useEffect(() => {
+    if (!openId || !listQ.data) return;
+    if (!listQ.data.some((a) => a.id === openId)) return;
+    setExpandedIds((prev) => (prev.has(openId) ? prev : new Set(prev).add(openId)));
+    const t = setTimeout(() => {
+      const el = document.getElementById(`ann-${openId}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-primary", "rounded-lg");
+      setTimeout(() => el.classList.remove("ring-2", "ring-primary", "rounded-lg"), 2200);
+    }, 100);
+    return () => clearTimeout(t);
+  }, [openId, listQ.data]);
+
   const refetchList = () => qc.invalidateQueries({ queryKey: ["eip", "announcements"] });
 
   const doDelete = async () => {
@@ -138,8 +160,8 @@ function AnnouncementsPage() {
       />
       <div className="space-y-2">
         {(listQ.data ?? []).map((a) => (
+          <div key={a.id} id={`ann-${a.id}`} className="transition-shadow">
           <AnnouncementRow
-            key={a.id}
             announcement={a}
             appUser={appUser ?? null}
             users={activeUsersQ.data ?? []}
@@ -150,6 +172,7 @@ function AnnouncementsPage() {
             onDelete={() => setDeleting(a)}
             onChanged={refetchList}
           />
+          </div>
         ))}
         {(listQ.data ?? []).length === 0 && (
           <Card>

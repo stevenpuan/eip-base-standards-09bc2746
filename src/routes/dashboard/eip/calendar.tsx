@@ -36,6 +36,7 @@ type CalEvent = {
   meetingId?: string;
   milestoneId?: string;
   projectId?: string;
+  announcementId?: string;
   endDate?: string;
   personal?: PersonalEvent;
   leave?: LeaveInfo;
@@ -258,7 +259,7 @@ function CalendarPage() {
     if (show.announcement) {
       (announcementsQ.data ?? []).forEach((a: any) => {
         const d = toYMD(a.published_at);
-        if (d) list.push({ id: `a-${a.id}`, type: "announcement", title: a.title, date: d, href: `/dashboard/eip/announcements` });
+        if (d) list.push({ id: `a-${a.id}`, type: "announcement", title: a.title, date: d, announcementId: a.id });
       });
     }
     if (show.personal) {
@@ -595,6 +596,19 @@ function CalendarPage() {
                                 key={e.id}
                                 to="/dashboard/eip/meetings/$id"
                                 params={{ id: e.meetingId }}
+                                className={cls + " hover:opacity-80"}
+                                title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
+                              >
+                                {displayTitle}
+                              </Link>
+                            );
+                          }
+                          if (e.type === "announcement" && e.announcementId) {
+                            return (
+                              <Link
+                                key={e.id}
+                                to="/dashboard/eip/announcements"
+                                search={{ open: e.announcementId }}
                                 className={cls + " hover:opacity-80"}
                                 title={`[${TYPE_LABEL[e.type]}] ${displayTitle}`}
                               >
