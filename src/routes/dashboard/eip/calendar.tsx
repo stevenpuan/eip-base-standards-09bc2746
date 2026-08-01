@@ -24,7 +24,7 @@ export const Route = createFileRoute("/dashboard/eip/calendar")({ component: () 
     </RequirePerm>
   ) });
 
-type EventType = "task" | "meeting" | "milestone" | "personal" | "leave";
+type EventType = "task" | "meeting" | "milestone" | "personal" | "leave" | "announcement";
 
 type CalEvent = {
   id: string;
@@ -109,13 +109,14 @@ function leaveTimeLabel(r: LeaveRosterRow) {
   return "時段未填";
 }
 
-const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程", leave: "請假" } as const;
+const TYPE_LABEL = { task: "任務", meeting: "會議", milestone: "里程碑", personal: "個人行程", leave: "請假", announcement: "公告" } as const;
 const TYPE_COLOR: Record<EventType, string> = {
   task: "bg-blue-100 text-blue-700 border-blue-200",
   meeting: "bg-emerald-100 text-emerald-700 border-emerald-200",
   milestone: "bg-amber-100 text-amber-700 border-amber-200",
   personal: "bg-purple-100 text-purple-700 border-purple-200",
   leave: "bg-rose-100 text-rose-700 border-rose-200",
+  announcement: "bg-indigo-100 text-indigo-700 border-indigo-200",
 };
 
 /** 日格未展開時最多顯示幾筆 */
@@ -136,7 +137,7 @@ function CalendarPage() {
   const [cursor, setCursor] = useState(() => {
     const d = new Date(); d.setDate(1); return d;
   });
-  const [show, setShow] = useState({ task: true, meeting: true, milestone: true, personal: true, leave: true });
+  const [show, setShow] = useState({ task: true, meeting: true, milestone: true, personal: true, leave: true, announcement: true });
   // 已展開（顯示全部事項）的日格，key 是該格的 ymd
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
@@ -220,6 +221,19 @@ function CalendarPage() {
       return (data ?? []) as AppUserLite[];
     },
   });
+  // 公告：以發布日期（published_at）落在行事曆上；未發布（草稿）不顯示。
+  // RLS 會依對象自動過濾，使用者只會看到自己看得到的公告，與公告頁一致。
+  const announcementsQ = useQuery({
+    queryKey: ["cal", "announcements"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("announcement")
+        .select("id,title,published_at")
+        .not("published_at", "is", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const events = useMemo<CalEvent[]>(() => {
     const list: CalEvent[] = [];
@@ -239,6 +253,12 @@ function CalendarPage() {
       (milestonesQ.data ?? []).forEach((ms: any) => {
         const d = toYMD(ms.due_date);
         if (d) list.push({ id: `ms-${ms.id}`, type: "milestone", title: ms.name, date: d, projectId: ms.project_id ?? undefined, milestoneId: ms.id });
+      });
+    }
+    if (show.announcement) {
+      (announcementsQ.data ?? []).forEach((a: any) => {
+        const d = toYMD(a.published_at);
+        if (d) list.push({ id: `a-${a.id}`, type: "announcement", title: a.title, date: d, href: `/dashboard/eip/announcements` });
       });
     }
     if (show.personal) {
@@ -291,7 +311,7 @@ function CalendarPage() {
       });
     }
     return list;
-  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, personalQ.data, leaveQ.data, show, myId]);
+  }, [tasksQ.data, meetingsQ.data, milestonesQ.data, personalQ.data, leaveQ.data, announcementsQ.data, show, myId]);
 
   const firstDow = new Date(year, month, 1).getDay();
   const cells: (Date | null)[] = [];
@@ -454,7 +474,7 @@ function CalendarPage() {
     <div>
       <PageHeader
         title="行事曆"
-        description="整合任務、會議、里程碑、個人行程與請假名單於同一視圖。"
+        description="整合任務、會議、里程碑、個人行程、請假名單與公告於同一視圖。"
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={() => setCursor(new Date(year, month - 1, 1))}><ChevronLeft className="w-4 h-4" /></Button>
