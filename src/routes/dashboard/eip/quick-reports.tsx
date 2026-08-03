@@ -91,6 +91,18 @@ type LeaveHandoverItem = {
   created_at: string;
 };
 
+/** eip_deleted_items RPC 回傳（回收區用，通用結構） */
+type DeletedItem = {
+  module_key: string;
+  label: string;
+  item_id: string;
+  title: string | null;
+  deleted_at: string;
+  deleted_by_name: string | null;
+  can_purge: boolean;
+  purge_block: string | null;
+};
+
 // 選單用的 sentinel：shadcn Select 不接受空字串當值
 const FOLLOW_DEPUTY = "__follow_deputy__";
 const NO_DEPUTY = "__none__";
@@ -195,6 +207,19 @@ function QuickReportsPage() {
   const [delReportBusy, setDelReportBusy] = useState(false);
   // 編輯（本人未結案）
   const [editing, setEditing] = useState<Row | null>(null);
+  // 回收區（已刪除）檢視切換
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  // 已刪除項目（回收區）：走 SECURITY DEFINER 的 eip_deleted_items，RLS 已把軟刪除列隱形
+  const deletedQ = useQuery({
+    queryKey: ["eip", "quick-reports-deleted"],
+    enabled: !!appUser && canView,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("eip_deleted_items", { p_module: "eip_quick_reports" });
+      if (error) throw error;
+      return (data ?? []) as DeletedItem[];
+    },
+  });
 
   // 假別選項（編輯請假用）取自 leave_type 字典表，載入失敗退回內建對照表
   const leaveTypesQ = useQuery({
@@ -501,6 +526,7 @@ function QuickReportsPage() {
   };
 
   const hasFilter = typeFilter !== "all" || statusFilter !== "all" || dateFrom || dateTo || keyword;
+  const deletedRows = deletedQ.data ?? [];
   // 是否可標記完成（處理他人回報）：讀臨時回報編輯權
   const canAck = can("eip_quick_reports", "edit");
   const canDeletePerm = can("eip_quick_reports", "delete");
@@ -542,6 +568,31 @@ function QuickReportsPage() {
     toast.success("已刪除回報");
     setDeletingReport(null);
     refreshAll();
+    void deletedQ.refetch();
+  };
+
+  // 回收區：還原
+  const restoreReport = async (item: DeletedItem) => {
+    const { error } = await supabase.rpc("eip_restore_deleted", {
+      p_module: "eip_quick_reports",
+      p_id: item.item_id,
+    });
+    if (error) return toast.error(humanizeError(error, "還原"));
+    toast.success("已還原回報");
+    void deletedQ.refetch();
+    refreshAll();
+  };
+
+  // 回收區：永久刪除（僅 can_purge 者）
+  const purgeReport = async (item: DeletedItem) => {
+    if (!window.confirm(`永久刪除這筆回報？\n${item.title ?? ""}\n此動作無法復原。`)) return;
+    const { error } = await supabase.rpc("eip_purge_deleted", {
+      p_module: "eip_quick_reports",
+      p_id: item.item_id,
+    });
+    if (error) return toast.error(humanizeError(error, "永久刪除"));
+    toast.success("已永久刪除");
+    void deletedQ.refetch();
   };
 
   return (
@@ -552,6 +603,7 @@ function QuickReportsPage() {
       />
 
       <div className="flex flex-wrap items-center gap-2">
+        {!showDeleted && (<>
         <Button
           variant={mineOnly ? "default" : "outline"}
           size="sm"
@@ -622,6 +674,15 @@ function QuickReportsPage() {
             清除
           </Button>
         )}
+        </>)}
+        <Button
+          variant={showDeleted ? "default" : "outline"}
+          size="sm"
+          className="ml-auto"
+          onClick={() => setShowDeleted((v) => !v)}
+        >
+          {showDeleted ? "← 返回清單" : `回收區${deletedRows.length ? ` (${deletedRows.length})` : ""}`}
+        </Button>
       </div>
 
       {/* 人員清單掛掉時姓名會變成 id、代理人／指派選單會是空的，要講清楚而不是讓人以為沒人可選 */}
@@ -642,7 +703,59 @@ function QuickReportsPage() {
         </div>
       )}
 
-      {listQ.isLoading ? (
+      {showDeleted ? (
+        <div className="border rounded-md overflow-hidden">
+          {deletedQ.isLoading ? (
+            <div className="text-muted-foreground py-12 text-center">載入中…</div>
+          ) : deletedQ.isError ? (
+            <div className="py-12 px-6 flex flex-col items-center text-center gap-3">
+              <div className="text-sm text-destructive">回收區載入失敗</div>
+              <Button size="sm" variant="outline" onClick={() => void deletedQ.refetch()}>重試</Button>
+            </div>
+          ) : deletedRows.length === 0 ? (
+            <div className="py-16 px-6 text-center text-sm text-muted-foreground">
+              回收區沒有已刪除的回報。刪除的臨時回報會移到這裡，可還原。
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>內容</TableHead>
+                  <TableHead>刪除時間</TableHead>
+                  <TableHead>刪除人</TableHead>
+                  <TableHead className="text-right">動作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {deletedRows.map((d) => (
+                  <TableRow key={d.item_id}>
+                    <TableCell className="max-w-md text-sm">{d.title ?? "（無內容）"}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{formatStampZh(d.deleted_at)}</TableCell>
+                    <TableCell className="text-sm">{d.deleted_by_name ?? "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button size="sm" variant="outline" onClick={() => void restoreReport(d)}>還原</Button>
+                        {d.can_purge ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => void purgeReport(d)}
+                          >
+                            永久刪除
+                          </Button>
+                        ) : d.purge_block ? (
+                          <span className="text-xs text-muted-foreground" title={d.purge_block}>不可永久刪除</span>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      ) : listQ.isLoading ? (
         <div className="text-muted-foreground py-12 text-center">載入中…</div>
       ) : listQ.isError ? (
         /* 讀取失敗不能退化成空清單，否則使用者會誤以為「本來就沒有回報」 */
