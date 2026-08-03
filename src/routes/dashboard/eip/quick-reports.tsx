@@ -2,7 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, ExternalLink, Inbox, Plus, Trash2, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Inbox, Plus, Trash2, Pencil, FolderOpen } from "lucide-react";
 // eip_quick_report 的 submitted_at / done_at / done_by / handover_note / deputy_id 與
 // eip_leave_handover_item 整張表都尚未進 src/integrations/supabase/types.ts，
 // 故本頁改用 any 版 client（型別在本檔自行宣告）。
@@ -34,6 +34,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -184,6 +193,26 @@ function QuickReportsPage() {
   // 刪除（軟刪除：寫 deleted_at，清單排除、保留於資料庫）
   const [deletingReport, setDeletingReport] = useState<Row | null>(null);
   const [delReportBusy, setDelReportBusy] = useState(false);
+  // 編輯（本人未結案）
+  const [editing, setEditing] = useState<Row | null>(null);
+
+  // 假別選項（編輯請假用）取自 leave_type 字典表，載入失敗退回內建對照表
+  const leaveTypesQ = useQuery({
+    queryKey: ["eip", "leave-types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leave_type")
+        .select("code,name")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as { code: string; name: string }[];
+    },
+  });
+  const leaveTypeOptions =
+    leaveTypesQ.data && leaveTypesQ.data.length
+      ? leaveTypesQ.data
+      : Object.entries(LEAVE_TYPE_LABEL).map(([code, name]) => ({ code, name }));
 
   const listQ = useQuery({
     queryKey: ["eip", "quick-reports"],
@@ -482,6 +511,10 @@ function QuickReportsPage() {
   const canDeleteRow = (r: Row) =>
     (r.submitter_id === appUser?.id && r.status === "open" && !DONE_STATUSES.has(r.status)) ||
     (appUser?.role === "company_admin" && canDeletePerm);
+
+  // 可編輯：本人且未結案(open) —— 對齊 RLS qr_update_own。已結案或他人的不給改
+  const canEditRow = (r: Row) =>
+    r.submitter_id === appUser?.id && r.status === "open" && !DONE_STATUSES.has(r.status);
 
   // 軟刪除：寫 deleted_at（清單以 .is('deleted_at', null) 排除，保留於資料庫可稽核）。
   // 回讀筆數，RLS 擋掉時是 0 列 —— 不看筆數會跳成功但其實沒刪。
@@ -783,6 +816,19 @@ function QuickReportsPage() {
                               標記完成
                             </Button>
                           )}
+                          {/* 編輯：限本人未結案的（改假別/日期/時間/事由）。已結案 RLS 擋，故不給鈕 */}
+                          {canEditRow(r) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8"
+                              onClick={() => setEditing(r)}
+                              aria-label="編輯回報"
+                              title="編輯這筆回報"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           {/* 刪除：管理者任一筆；本人限自己未結案的（銷假／更正）。軟刪除、保留於資料庫 */}
                           {canDeleteRow(r) && (
                             <Button
@@ -892,7 +938,182 @@ function QuickReportsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {editing && (
+        <EditReportDialog
+          report={editing}
+          leaveTypeOptions={leaveTypeOptions}
+          onClose={() => setEditing(null)}
+          onSaved={refreshAll}
+        />
+      )}
     </div>
+  );
+}
+
+/* ---------- 編輯未結案回報（本人；RLS qr_update_own） ---------- */
+const TAIPEI_TZ = "Asia/Taipei";
+/** 把 timestamptz 轉成台北的 { date: YYYY-MM-DD, time: HH:MM } */
+function localParts(iso: string | null): { date: string; time: string } {
+  if (!iso) return { date: "", time: "" };
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { date: "", time: "" };
+  const s = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: TAIPEI_TZ,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).format(d);
+  const [date, time] = s.split(" ");
+  return { date, time: (time ?? "").slice(0, 5) };
+}
+/** date + time 組成帶台北時區位移的 timestamptz（台北固定 +08:00、無日光節約） */
+function tsTaipei(date: string, time: string) {
+  return `${date}T${time || "00:00"}:00+08:00`;
+}
+
+function EditReportDialog({
+  report,
+  leaveTypeOptions,
+  onClose,
+  onSaved,
+}: {
+  report: Row;
+  leaveTypeOptions: { code: string; name: string }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isLeave = report.type === "leave";
+  const isLate = report.type === "late";
+  const isOther = report.type === "other";
+
+  const initFrom = localParts(report.leave_from);
+  const initTo = localParts(report.leave_to);
+
+  const [leaveType, setLeaveType] = useState(report.leave_type ?? "");
+  const [fromDate, setFromDate] = useState(initFrom.date || report.report_date);
+  const [toDate, setToDate] = useState(initTo.date || report.report_date);
+  const [fromTime, setFromTime] = useState(initFrom.time);
+  const [toTime, setToTime] = useState(initTo.time);
+  const [detail, setDetail] = useState(report.detail ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    if (busy) return;
+    let payload: Record<string, unknown> = { detail: detail.trim() || null };
+
+    if (isLeave) {
+      if (!leaveType) return toast.error("請選擇假別");
+      if (!fromDate || !toDate) return toast.error("請選擇請假日期（起訖）");
+      if (toDate < fromDate) return toast.error("迄日不可早於起日");
+      if (fromDate === toDate && fromTime && toTime && toTime < fromTime) {
+        return toast.error("同一天的迄時不可早於起時");
+      }
+      payload = {
+        ...payload,
+        leave_type: leaveType,
+        report_date: fromDate,
+        leave_from: tsTaipei(fromDate, fromTime || "00:00"),
+        leave_to: tsTaipei(toDate, toTime || "23:59"),
+      };
+    } else if (isLate) {
+      if (!fromTime && !toTime && !detail.trim()) return toast.error("請填寫遲到時段或事由");
+      if (fromTime && toTime && toTime < fromTime) return toast.error("迄時不可早於起時");
+      payload = {
+        ...payload,
+        eta: fromTime || toTime ? `${fromTime || "—"} ~ ${toTime || "—"}` : null,
+        leave_from: fromTime ? tsTaipei(report.report_date, fromTime) : null,
+        leave_to: toTime ? tsTaipei(report.report_date, toTime) : null,
+      };
+    } else {
+      if (!detail.trim()) return toast.error("請填寫事件內容");
+    }
+
+    setBusy(true);
+    const { data, error } = await supabase
+      .from("eip_quick_report")
+      .update(payload)
+      .eq("id", report.id)
+      .select("id");
+    setBusy(false);
+    if (error) return toast.error(humanizeError(error, "儲存"));
+    if (!data?.length) return toast.error("儲存失敗：沒有權限，或此筆已結案不可修改");
+    toast.success("已更新回報");
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>編輯{TYPE_LABEL[report.type] ?? "回報"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {isLeave && (
+            <div>
+              <Label>假別 <span className="text-destructive">*</span></Label>
+              <Select value={leaveType} onValueChange={setLeaveType}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="請選擇假別" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leaveTypeOptions.map((lt) => (
+                    <SelectItem key={lt.code} value={lt.code}>{lt.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {isLeave && (
+            <>
+              <div>
+                <Label>請假日期（起訖）</Label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <Input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => {
+                      setFromDate(e.target.value);
+                      if (!toDate || toDate < e.target.value) setToDate(e.target.value);
+                    }}
+                  />
+                  <Input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label>時間（選填，不填視為整日）</Label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <Input type="time" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
+                  <Input type="time" value={toTime} onChange={(e) => setToTime(e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
+          {isLate && (
+            <div>
+              <Label>遲到時段（{report.report_date}）</Label>
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                <Input type="time" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
+                <Input type="time" value={toTime} onChange={(e) => setToTime(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <div>
+            <Label>{isOther ? "事件內容" : "事由"}</Label>
+            <Textarea
+              rows={3}
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              placeholder={isOther ? "描述需要主管知悉或處理的事件" : "(選填)"}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>取消</Button>
+          <Button onClick={() => void save()} disabled={busy}>{busy ? "儲存中…" : "儲存"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
