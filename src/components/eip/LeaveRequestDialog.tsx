@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,8 +58,8 @@ const newKey = () => `d${++seq}`;
  * 填完的人，入口在「我的工作區」的交接卡片，不是必經路徑。
  *
  * 四個刻意的設計決定，對應訪談定案：
- *  ・**沒有假別、沒有事由** —— EZ9 已有正式假單，EIP 只管交接，避免兩套資料
- *    （定案第 13 條）。舊資料的 leave_type 欄位保留但不再有輸入入口。
+ *  ・**假別為必填**（2026-08 依需求回復，選項取自 leave_type 字典表，存代碼）；
+ *    事由不在此表單（如需填走快速回報／正式假單）。
  *  ・**只填請假區間就能送出**：臨時請假常常是人在外面、趕時間，
  *    代理人與代辦清單一律**選填**，事後在「交接代辦」頁補登。
  *    前一版把三者綁成一張必填表單，結果是假送不出去 —— 這裡刻意反過來。
@@ -84,6 +84,21 @@ export function LeaveRequestDialog({
   const qc = useQueryClient();
   const usersQ = useActiveUsers();
 
+  // 假別選項取自 leave_type 字典表（依 is_active／sort_order），存代碼
+  const leaveTypesQ = useQuery({
+    queryKey: ["eip", "leave-types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leave_type")
+        .select("code,name")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as { code: string; name: string }[];
+    },
+  });
+
+  const [leaveType, setLeaveType] = useState("");
   const [fromDate, setFromDate] = useState(todayLocal());
   const [toDate, setToDate] = useState(todayLocal());
   const [fromTime, setFromTime] = useState("08:00");
@@ -112,6 +127,7 @@ export function LeaveRequestDialog({
   };
 
   const reset = () => {
+    setLeaveType("");
     setFromDate(todayLocal());
     setToDate(todayLocal());
     setFromTime("08:00");
@@ -123,6 +139,7 @@ export function LeaveRequestDialog({
 
   const submit = async () => {
     if (!appUser?.id || busy) return;
+    if (!leaveType) return toast.error("請選擇假別");
     if (!fromDate || !toDate) return toast.error("請選擇請假區間");
     if (toDate < fromDate) return toast.error("迄日不可早於起日");
     if (fromDate === toDate && toTime <= fromTime) return toast.error("同一天的迄時要晚於起時");
@@ -145,6 +162,7 @@ export function LeaveRequestDialog({
       .insert({
         type: "leave",
         report_date: fromDate,
+        leave_type: leaveType,
         leave_from: stamp(fromDate, fromTime),
         leave_to: stamp(toDate, toTime),
         // 未指定代理人就寫 null（DB 允許），不要寫 sentinel 字串
@@ -208,17 +226,30 @@ export function LeaveRequestDialog({
           <DialogTitle>請假申請</DialogTitle>
           <DialogDescription>
             <span className="block">
-              只要填請假區間就可以送出。代理人與代辦事項都是選填，臨時請假來不及登打時，
+              只要填假別與請假區間就可以送出。代理人與代辦事項都是選填，臨時請假來不及登打時，
               事後到「交接代辦」頁面補就好。
             </span>
             <span className="block mt-1">
               送出後不需主管核准、不用簽核，系統會直接通知單位主管與代理人。
-              假別與事由請走 EZ9 正式假單，這裡只處理期間的工作交接。
             </span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <div>
+            <Label className="text-xs">假別 <span className="text-destructive">*</span></Label>
+            <Select value={leaveType} onValueChange={setLeaveType}>
+              <SelectTrigger className="h-9 mt-1">
+                <SelectValue placeholder="請選擇假別" />
+              </SelectTrigger>
+              <SelectContent>
+                {(leaveTypesQ.data ?? []).map((lt) => (
+                  <SelectItem key={lt.code} value={lt.code}>{lt.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* 區間 ＋ 代理人 */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

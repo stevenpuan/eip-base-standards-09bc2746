@@ -67,7 +67,7 @@ export function QuickReportButton() {
   const [lateEnd, setLateEnd] = useState("");
   const [lateDetail, setLateDetail] = useState("");
 
-  // 請假：假別（選填）＋日期起訖（必填）＋時間起訖（選填）＋事由（選填）。代理人／代辦走交接代辦頁
+  // 請假：假別（必填）＋日期起訖（必填）＋時間起訖（選填）＋事由（選填）。代理人／代辦走交接代辦頁
   const [leaveType, setLeaveType] = useState("");
   const [leaveFromDate, setLeaveFromDate] = useState("");
   const [leaveToDate, setLeaveToDate] = useState("");
@@ -130,6 +130,7 @@ export function QuickReportButton() {
 
   const submitLeave = async () => {
     if (!appUser) return;
+    if (!leaveType) return toast.error("請選擇假別");
     if (!leaveFromDate || !leaveToDate) return toast.error("請選擇請假日期（起訖）");
     if (leaveToDate < leaveFromDate) return toast.error("迄日不可早於起日");
     if (leaveFromDate === leaveToDate && leaveFromTime && leaveToTime && leaveToTime < leaveFromTime) {
@@ -229,10 +230,10 @@ export function QuickReportButton() {
                 代理人與交接代辦不在這裡填 —— 臨時請假來不及登打，改到「交接代辦」頁補。 */}
             <TabsContent value="leave" className="space-y-3 pt-2">
               <div>
-                <Label>假別</Label>
+                <Label>假別 <span className="text-destructive">*</span></Label>
                 <Select value={leaveType} onValueChange={setLeaveType}>
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="請選擇假別（選填）" />
+                    <SelectValue placeholder="請選擇假別" />
                   </SelectTrigger>
                   <SelectContent>
                     {(leaveTypesQ.data ?? []).map((lt) => (

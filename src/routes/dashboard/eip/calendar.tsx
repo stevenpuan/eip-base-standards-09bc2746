@@ -117,7 +117,7 @@ const TYPE_COLOR: Record<EventType, string> = {
   milestone: "bg-amber-100 text-amber-700 border-amber-200",
   personal: "bg-purple-100 text-purple-700 border-purple-200",
   leave: "bg-rose-100 text-rose-700 border-rose-200",
-  announcement: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  announcement: "bg-orange-100 text-orange-700 border-orange-300",
 };
 
 /** 日格未展開時最多顯示幾筆 */
