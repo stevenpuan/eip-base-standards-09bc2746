@@ -16,8 +16,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { humanizeError } from "@/lib/eip-error";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // 本地日期 YYYY-MM-DD（台北）
 const todayStr = () => {
@@ -66,18 +67,34 @@ export function QuickReportButton() {
   const [lateEnd, setLateEnd] = useState("");
   const [lateDetail, setLateDetail] = useState("");
 
-  // 請假：日期起訖（必填）＋時間起訖（選填）＋事由（選填）。不含假別、不含代理人／代辦
+  // 請假：假別（選填）＋日期起訖（必填）＋時間起訖（選填）＋事由（選填）。代理人／代辦走交接代辦頁
+  const [leaveType, setLeaveType] = useState("");
   const [leaveFromDate, setLeaveFromDate] = useState("");
   const [leaveToDate, setLeaveToDate] = useState("");
   const [leaveFromTime, setLeaveFromTime] = useState("");
   const [leaveToTime, setLeaveToTime] = useState("");
   const [leaveDetail, setLeaveDetail] = useState("");
 
+  // 假別選項取自 leave_type 字典表（依 is_active／sort_order），存代碼
+  const leaveTypesQ = useQuery({
+    queryKey: ["eip", "leave-types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leave_type")
+        .select("code,name")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as { code: string; name: string }[];
+    },
+  });
+
   // 事件
   const [otherDetail, setOtherDetail] = useState("");
 
   const reset = () => {
     setLateStart(""); setLateEnd(""); setLateDetail("");
+    setLeaveType("");
     setLeaveFromDate(""); setLeaveToDate("");
     setLeaveFromTime(""); setLeaveToTime(""); setLeaveDetail("");
     setOtherDetail("");
@@ -125,6 +142,7 @@ export function QuickReportButton() {
       submitter_id: appUser.id,
       type: "leave",
       report_date: leaveFromDate,
+      leave_type: leaveType || null,
       leave_from: ts(leaveFromDate, leaveFromTime || "00:00"),
       leave_to: ts(leaveToDate, leaveToTime || "23:59"),
       detail: leaveDetail.trim() || null,
@@ -207,10 +225,22 @@ export function QuickReportButton() {
               </DialogFooter>
             </TabsContent>
 
-            {/* 請假：只收區間＋事由，一鍵送出。
-                代理人與交接代辦不在這裡填 —— 臨時請假來不及登打，改到「交接代辦」頁補。
-                假別仍走 EZ9 正式假單（定案第 13 條），這裡不出現假別欄位。 */}
+            {/* 請假：假別＋區間＋事由，一鍵送出。
+                代理人與交接代辦不在這裡填 —— 臨時請假來不及登打，改到「交接代辦」頁補。 */}
             <TabsContent value="leave" className="space-y-3 pt-2">
+              <div>
+                <Label>假別</Label>
+                <Select value={leaveType} onValueChange={setLeaveType}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="請選擇假別（選填）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(leaveTypesQ.data ?? []).map((lt) => (
+                      <SelectItem key={lt.code} value={lt.code}>{lt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label>請假日期（起訖）</Label>
                 <div className="grid grid-cols-2 gap-3 mt-1">

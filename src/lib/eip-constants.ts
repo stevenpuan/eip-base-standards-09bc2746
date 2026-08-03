@@ -37,3 +37,18 @@ export const PRIORITY_COLOR: Record<string, string> = {
   high: "bg-amber-100 text-amber-700",
   urgent: "bg-red-100 text-red-700",
 };
+
+// 假別代碼→名稱（對照 leave_type 字典表）。下拉選項以資料表為準，
+// 這份僅供清單顯示把代碼轉成中文時使用。
+export const LEAVE_TYPE_LABEL: Record<string, string> = {
+  personal: "事假",
+  sick: "病假",
+  annual: "特休",
+  menstrual: "生理假",
+  marriage: "婚假",
+  bereavement: "喪假",
+  official: "公假",
+  maternity: "產假",
+  paternity: "陪產假",
+  other: "其他",
+};

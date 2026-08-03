@@ -7,7 +7,7 @@ import { ChevronDown, ChevronRight, ExternalLink, Inbox, Plus, Trash2, FolderOpe
 // eip_leave_handover_item 整張表都尚未進 src/integrations/supabase/types.ts，
 // 故本頁改用 any 版 client（型別在本檔自行宣告）。
 import { supabase } from "@/lib/supabase";
-import { LEAVE_DONE_STATUSES } from "@/lib/eip-constants";
+import { LEAVE_DONE_STATUSES, LEAVE_TYPE_LABEL } from "@/lib/eip-constants";
 import { useAuth } from "@/lib/auth";
 import { useEipUser } from "@/lib/eip-user";
 import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
@@ -628,11 +628,9 @@ function QuickReportsPage() {
                             <div className="text-xs text-muted-foreground mt-0.5">
                               代理人：{nameOf(r.deputy_id)}
                             </div>
-                            {/* 假別已從請假流程移除，只有舊資料才會出現；
-                                事由 2026-07-30 隨「快速回報 → 請假」一起回歸，是現行欄位 */}
                             {r.leave_type && (
                               <div className="text-xs text-muted-foreground mt-0.5">
-                                假別（舊資料）：{r.leave_type}
+                                假別：{LEAVE_TYPE_LABEL[r.leave_type] ?? r.leave_type}
                               </div>
                             )}
                             {r.detail && (
