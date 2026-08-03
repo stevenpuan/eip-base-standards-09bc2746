@@ -516,23 +516,25 @@ function QuickReportsPage() {
   const canEditRow = (r: Row) =>
     r.submitter_id === appUser?.id && r.status === "open" && !DONE_STATUSES.has(r.status);
 
-  // 軟刪除：寫 deleted_at（清單以 .is('deleted_at', null) 排除，保留於資料庫可稽核）。
-  // 回讀筆數，RLS 擋掉時是 0 列 —— 不看筆數會跳成功但其實沒刪。
+  // 軟刪除：走系統的 eip_soft_delete RPC（發 DELETE→BEFORE DELETE 觸發器 eip_soft_delete_guard
+  // 攔截、改設 deleted_at/deleted_by 並取消真刪除，由 qr_delete RLS 把關）。
+  // 注意：不能直接 UPDATE deleted_at —— 那會被 UPDATE 政策的 WITH CHECK 擋掉。
+  // RPC 回 { ok, reason? }：ok=false 代表沒權限或已結案。
   const softDeleteReport = async () => {
     if (!deletingReport || delReportBusy) return;
     setDelReportBusy(true);
-    const { data, error } = await supabase
-      .from("eip_quick_report")
-      .update({ deleted_at: nowWithOffset() })
-      .eq("id", deletingReport.id)
-      .select("id");
+    const { data, error } = await supabase.rpc("eip_soft_delete", {
+      p_module: "eip_quick_reports",
+      p_id: deletingReport.id,
+    });
     setDelReportBusy(false);
     if (error) {
       toast.error(humanizeError(error, "刪除"));
       return;
     }
-    if (!data?.length) {
-      toast.error("刪除失敗：沒有權限，或此筆已結案（已結案僅管理者可刪）");
+    const res = data as { ok?: boolean; reason?: string } | null;
+    if (res && res.ok === false) {
+      toast.error(`刪除失敗：${res.reason ?? "沒有權限，或此筆已結案（已結案僅管理者可刪）"}`);
       setDeletingReport(null);
       refreshAll();
       return;
