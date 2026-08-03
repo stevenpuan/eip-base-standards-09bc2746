@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
 import { useActiveUsers } from "@/hooks/useUsers";
 import { validateExternalUrl } from "@/lib/eip-url";
+import { LEAVE_TYPE_LABEL } from "@/lib/eip-constants";
 import {
   Dialog,
   DialogContent,
@@ -97,6 +98,11 @@ export function LeaveRequestDialog({
       return (data ?? []) as { code: string; name: string }[];
     },
   });
+  // 假別必填：字典表載入失敗或回空時退回內建對照表，避免下拉沒選項卡住送不出去
+  const leaveTypeOptions =
+    leaveTypesQ.data && leaveTypesQ.data.length
+      ? leaveTypesQ.data
+      : Object.entries(LEAVE_TYPE_LABEL).map(([code, name]) => ({ code, name }));
 
   const [leaveType, setLeaveType] = useState("");
   const [fromDate, setFromDate] = useState(todayLocal());
@@ -243,7 +249,7 @@ export function LeaveRequestDialog({
                 <SelectValue placeholder="請選擇假別" />
               </SelectTrigger>
               <SelectContent>
-                {(leaveTypesQ.data ?? []).map((lt) => (
+                {leaveTypeOptions.map((lt) => (
                   <SelectItem key={lt.code} value={lt.code}>{lt.name}</SelectItem>
                 ))}
               </SelectContent>

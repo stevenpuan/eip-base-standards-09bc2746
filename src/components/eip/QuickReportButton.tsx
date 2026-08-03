@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useEipUser } from "@/lib/eip-user";
-import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
+import { DEFAULT_TENANT_ID, LEAVE_TYPE_LABEL } from "@/lib/eip-constants";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,7 +48,7 @@ const DONE_STATUSES = new Set(["done", "closed"]);
  *    可以指定／更換代理人、新增／編輯／刪除代辦、逐項指派）。
  *  ・有時間一次填完的人走「我的工作區」交接卡片上的 LeaveRequestDialog，
  *    那是選填的完整版入口，不是必經路徑。
- *  ・假別與正式假單仍走 EZ9（定案第 13 條），這裡不出現假別欄位。
+ *  ・假別為必填（2026-08 依需求回復，選項取自 leave_type 字典表，存代碼）。
  *
  * DB 端已確認可承受 deputy_id / 代辦皆為空的請假單：
  * `eip_quick_report.deputy_id` 可為 null，`eip_notify_quick_report` 仍會以
@@ -88,6 +88,11 @@ export function QuickReportButton() {
       return (data ?? []) as { code: string; name: string }[];
     },
   });
+  // 假別是必填：字典表載入失敗或回空時，退回內建對照表，避免下拉沒選項讓人送不出去
+  const leaveTypeOptions =
+    leaveTypesQ.data && leaveTypesQ.data.length
+      ? leaveTypesQ.data
+      : Object.entries(LEAVE_TYPE_LABEL).map(([code, name]) => ({ code, name }));
 
   // 事件
   const [otherDetail, setOtherDetail] = useState("");
@@ -236,7 +241,7 @@ export function QuickReportButton() {
                     <SelectValue placeholder="請選擇假別" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(leaveTypesQ.data ?? []).map((lt) => (
+                    {leaveTypeOptions.map((lt) => (
                       <SelectItem key={lt.code} value={lt.code}>{lt.name}</SelectItem>
                     ))}
                   </SelectContent>

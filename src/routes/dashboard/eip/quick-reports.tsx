@@ -63,7 +63,7 @@ type Row = {
   done_at: string | null;
   done_by: string | null;
   handover_note: string | null;
-  // 假別已從流程移除，僅保留讀取以顯示舊資料，不提供新增／編輯入口
+  // 假別（2026-08 依需求回復；快速回報與完整版請假皆會寫入 leave_type，此處讀取顯示）
   leave_type: string | null;
   // 這一次請假指定的代理人，與 app_user.deputy_id 的靜態代理人是不同概念
   deputy_id: string | null;
