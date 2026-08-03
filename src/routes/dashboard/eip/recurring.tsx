@@ -260,6 +260,10 @@ function RuleDialog({
   const [ownerId, setOwnerId] = useState<string>(rule?.owner_id ?? ownerFallback);
   const [deptId, setDeptId] = useState<string>(rule?.department_id ?? "none");
   const [counterpart, setCounterpart] = useState(rule?.counterpart ?? "");
+  // 對接人員改為指定實際帳號（會通知並列為協作者）；counterpart 文字欄保留給舊資料
+  const [counterpartUserId, setCounterpartUserId] = useState<string>(
+    (rule as unknown as { counterpart_user_id?: string })?.counterpart_user_id ?? "none",
+  );
   const [priority, setPriority] = useState<Priority>(rule?.priority ?? "normal");
   const [freq, setFreq] = useState<string>(rule?.freq ?? "monthly");
   const [weekday, setWeekday] = useState<number>(rule?.weekday ?? 1);
@@ -291,6 +295,7 @@ function RuleDialog({
         owner_id: ownerId,
         department_id: deptId === "none" ? null : deptId,
         counterpart: counterpart.trim() || null,
+        counterpart_user_id: counterpartUserId === "none" ? null : counterpartUserId,
         priority,
         freq,
         weekday: freq === "weekly" ? weekday : null,
@@ -304,11 +309,13 @@ function RuleDialog({
         report_fields: fields as unknown as Database["public"]["Tables"]["recurring_rule"]["Row"]["report_fields"],
       };
       if (rule) {
-        const { error } = await supabase.from("recurring_rule").update(payload).eq("id", rule.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await supabase.from("recurring_rule").update(payload as any).eq("id", rule.id);
         if (error) throw error;
         toast.success("已更新");
       } else {
-        const { error } = await supabase.from("recurring_rule").insert(payload);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await supabase.from("recurring_rule").insert(payload as any);
         if (error) throw error;
         toast.success("已新增");
       }
@@ -353,8 +360,14 @@ function RuleDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>對接人員</Label>
-            <Input value={counterpart} onChange={(e) => setCounterpart(e.target.value)} placeholder="如：王會計" />
+            <Label>對接人員（選填，會通知並列為協作者）</Label>
+            <Select value={counterpartUserId} onValueChange={setCounterpartUserId}>
+              <SelectTrigger><SelectValue placeholder="選擇人員…" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—（不指定）</SelectItem>
+                {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label>優先級</Label>
