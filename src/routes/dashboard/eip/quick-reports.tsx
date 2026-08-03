@@ -175,9 +175,15 @@ function QuickReportsPage() {
 
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("");
+  // 日期改為區間篩選（起訖），資料量大時用單一日期逐天找太費時
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [keyword, setKeyword] = useState("");
   const [mineOnly, setMineOnly] = useState<boolean>(false);
+
+  // 刪除（軟刪除：寫 deleted_at，清單排除、保留於資料庫）
+  const [deletingReport, setDeletingReport] = useState<Row | null>(null);
+  const [delReportBusy, setDelReportBusy] = useState(false);
 
   const listQ = useQuery({
     queryKey: ["eip", "quick-reports"],
@@ -186,6 +192,7 @@ function QuickReportsPage() {
       const { data, error } = await supabase
         .from("eip_quick_report")
         .select("*")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Row[];
@@ -410,7 +417,8 @@ function QuickReportsPage() {
           if (!DONE_STATUSES.has(r.status)) return false;
         } else if (r.status !== statusFilter) return false;
       }
-      if (dateFilter && r.report_date !== dateFilter) return false;
+      if (dateFrom && r.report_date < dateFrom) return false;
+      if (dateTo && r.report_date > dateTo) return false;
       if (keyword) {
         const kw = keyword.toLowerCase();
         const name = (nameMap.get(r.submitter_id) ?? "").toLowerCase();
@@ -419,7 +427,7 @@ function QuickReportsPage() {
       }
       return true;
     });
-  }, [listQ.data, typeFilter, statusFilter, dateFilter, keyword, nameMap, mineOnly, appUser]);
+  }, [listQ.data, typeFilter, statusFilter, dateFrom, dateTo, keyword, nameMap, mineOnly, appUser]);
 
   if (authLoading || !permsLoaded) return <div className="text-muted-foreground">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" />;
@@ -463,9 +471,43 @@ function QuickReportsPage() {
     refreshAll();
   };
 
-  const hasFilter = typeFilter !== "all" || statusFilter !== "all" || dateFilter || keyword;
+  const hasFilter = typeFilter !== "all" || statusFilter !== "all" || dateFrom || dateTo || keyword;
   // 是否可標記完成（處理他人回報）：讀臨時回報編輯權
   const canAck = can("eip_quick_reports", "edit");
+  const canDeletePerm = can("eip_quick_reports", "delete");
+
+  // 這一筆是否可刪：與 RLS(qr_delete/qr_update_own)對齊 ——
+  //  ・本人「未結案(open)」的一律可撤回（銷假／更正，屬自助，不需刪除權限）
+  //  ・管理者(company_admin)有刪除權時可刪任一筆（含他人／已結案，供歷史清理）
+  const canDeleteRow = (r: Row) =>
+    (r.submitter_id === appUser?.id && r.status === "open" && !DONE_STATUSES.has(r.status)) ||
+    (appUser?.role === "company_admin" && canDeletePerm);
+
+  // 軟刪除：寫 deleted_at（清單以 .is('deleted_at', null) 排除，保留於資料庫可稽核）。
+  // 回讀筆數，RLS 擋掉時是 0 列 —— 不看筆數會跳成功但其實沒刪。
+  const softDeleteReport = async () => {
+    if (!deletingReport || delReportBusy) return;
+    setDelReportBusy(true);
+    const { data, error } = await supabase
+      .from("eip_quick_report")
+      .update({ deleted_at: nowWithOffset() })
+      .eq("id", deletingReport.id)
+      .select("id");
+    setDelReportBusy(false);
+    if (error) {
+      toast.error(humanizeError(error, "刪除"));
+      return;
+    }
+    if (!data?.length) {
+      toast.error("刪除失敗：沒有權限，或此筆已結案（已結案僅管理者可刪）");
+      setDeletingReport(null);
+      refreshAll();
+      return;
+    }
+    toast.success("已刪除回報");
+    setDeletingReport(null);
+    refreshAll();
+  };
 
   return (
     <div className="space-y-4">
@@ -505,12 +547,25 @@ function QuickReportsPage() {
             <SelectItem value="done">已完成</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="w-44"
-        />
+        <div className="flex items-center gap-1">
+          <Input
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-40"
+            aria-label="起日"
+          />
+          <span className="text-xs text-muted-foreground shrink-0">至</span>
+          <Input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-40"
+            aria-label="迄日"
+          />
+        </div>
         <Input
           placeholder="搜尋姓名 / 內容"
           value={keyword}
@@ -524,7 +579,8 @@ function QuickReportsPage() {
             onClick={() => {
               setTypeFilter("all");
               setStatusFilter("all");
-              setDateFilter("");
+              setDateFrom("");
+              setDateTo("");
               setKeyword("");
             }}
           >
@@ -727,6 +783,19 @@ function QuickReportsPage() {
                               標記完成
                             </Button>
                           )}
+                          {/* 刪除：管理者任一筆；本人限自己未結案的（銷假／更正）。軟刪除、保留於資料庫 */}
+                          {canDeleteRow(r) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeletingReport(r)}
+                              aria-label="刪除回報"
+                              title="刪除這筆回報"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -788,6 +857,37 @@ function QuickReportsPage() {
               }}
             >
               {deleteBusy ? "刪除中…" : "刪除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 刪除整筆臨時回報（軟刪除） */}
+      <AlertDialog
+        open={!!deletingReport}
+        onOpenChange={(o) => {
+          if (!o && !delReportBusy) setDeletingReport(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除這筆回報？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingReport ? `${TYPE_LABEL[deletingReport.type] ?? deletingReport.type}・${deletingReport.report_date}` : ""}
+              將從清單移除（保留於資料庫、不會真正抹除，必要時可由管理者復原）。
+              {deletingReport?.type === "leave" ? "　此請假的代辦事項不會一起刪除。" : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={delReportBusy}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={delReportBusy}
+              onClick={(e) => {
+                e.preventDefault();
+                void softDeleteReport();
+              }}
+            >
+              {delReportBusy ? "刪除中…" : "刪除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
