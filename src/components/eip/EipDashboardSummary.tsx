@@ -35,6 +35,22 @@ export function EipDashboardSummary() {
   const appUser = appUserQ.data;
   const managerLevel =
     appUser?.role === "company_admin" || appUser?.role === "dept_manager";
+  const isDeptMgr = appUser?.role === "dept_manager";
+
+  // 部門主管「看得到資料」的部門集合＝自身管轄 ∪ 被跨部門授權（eip_my_view_departments）。
+  // 用它放寬首頁任務抓取與「部門任務分佈」的過濾，讓被分享的部門也會顯示。
+  const viewDeptsQ = useQuery({
+    enabled: !!appUser?.id && isDeptMgr,
+    queryKey: ["dashboard", "eip-view-depts", appUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("eip_my_view_departments");
+      if (error) throw error;
+      return ((data ?? []) as any[])
+        .map((r) => (typeof r === "string" ? r : r?.eip_my_view_departments))
+        .filter(Boolean) as string[];
+    },
+  });
+  const viewDeptIds = viewDeptsQ.data ?? [];
 
 
   const statusesQ = useQuery({
@@ -53,11 +69,12 @@ export function EipDashboardSummary() {
   const pendingStatusName = statuses.find((s: any) => s.name === "待確認");
 
   const tasksQ = useQuery({
-    enabled: !!appUser?.id,
-    queryKey: ["dashboard", "eip-tasks", appUser?.id, appUser?.role, appUser?.department_id],
+    // 部門主管需等 viewDeptsQ 完成，才能用完整的可視部門集合抓取
+    enabled: !!appUser?.id && (!isDeptMgr || viewDeptsQ.isSuccess),
+    queryKey: ["dashboard", "eip-tasks", appUser?.id, appUser?.role, viewDeptIds.join(",")],
     queryFn: async () => {
       // 依角色縮小抓取範圍，避免每次登入都抓全公司任務：
-      // 一般員工→只抓自己(負責/建立)；部門主管→本部門+自己；公司層管理者→全部(需公司概況)
+      // 一般員工→只抓自己(負責/建立)；部門主管→可視部門(含被授權)+自己；公司層管理者→全部(需公司概況)
       let q = supabase
         .from("task")
         .select("id,title,status_id,owner_id,created_by,due_date,progress,department_id,project_id");
@@ -68,10 +85,11 @@ export function EipDashboardSummary() {
         // 唯一受影響的是主管卡的狀態分佈，而看板本來就是同一套口徑（H1 收尾）。
         const since = new Date(Date.now() - 90 * 864e5).toISOString();
         q = q.or(`completed_at.is.null,completed_at.gte.${since}`);
-      } else if (role === "dept_manager" && appUser?.department_id) {
-        q = q.or(
-          `department_id.eq.${appUser.department_id},owner_id.eq.${appUser.id},created_by.eq.${appUser.id}`,
-        );
+      } else if (role === "dept_manager") {
+        // 可視部門（自身管轄 ∪ 跨部門授權）＋ 自己負責/建立的任務
+        const clauses = viewDeptIds.map((d) => `department_id.eq.${d}`);
+        clauses.push(`owner_id.eq.${appUser!.id}`, `created_by.eq.${appUser!.id}`);
+        q = q.or(clauses.join(","));
       } else {
         q = q.or(`owner_id.eq.${appUser!.id},created_by.eq.${appUser!.id}`);
       }
@@ -145,9 +163,11 @@ export function EipDashboardSummary() {
   const mgrStats = useMemo(() => {
     if (!managerLevel) return null;
     const tasks = (tasksQ.data ?? []) as any[];
+    // 部門主管：只算「可視部門」（含被跨部門授權）的任務；公司層管理者：全部
+    const deptSet = new Set(viewDeptIds);
     const scope =
-      appUser?.role === "dept_manager" && appUser?.department_id
-        ? tasks.filter((t) => t.department_id === appUser.department_id)
+      isDeptMgr
+        ? tasks.filter((t) => t.department_id && deptSet.has(t.department_id))
         : tasks;
     const byStatus: Record<string, number> = {};
     scope.forEach((t) => {
@@ -155,7 +175,7 @@ export function EipDashboardSummary() {
     });
     const projects = (projectsQ.data ?? []) as any[];
     return { byStatus, projects };
-  }, [tasksQ.data, projectsQ.data, managerLevel, appUser]);
+  }, [tasksQ.data, projectsQ.data, managerLevel, isDeptMgr, appUser, viewDeptsQ.data]);
 
   if (!user) return null;
 
