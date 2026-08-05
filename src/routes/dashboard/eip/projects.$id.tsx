@@ -34,7 +34,7 @@ import { VisibilityBadge } from "@/components/eip/VisibilityScope";
 import { humanizeError } from "@/lib/eip-error";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { milestone?: string } => ({
     milestone: typeof search.milestone === "string" ? search.milestone : undefined,
   }),
   component: ProjectDetailPage,

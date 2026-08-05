@@ -123,7 +123,7 @@ export const Route = createFileRoute("/dashboard/eip/tasks")({
       <TasksPage />
     </RequirePerm>
   ),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { openTask?: string } => ({
     openTask: typeof s.openTask === "string" ? s.openTask : undefined,
   }),
 });
