@@ -30,6 +30,7 @@ import { Route as DashboardErrorLogsRouteImport } from './routes/dashboard/error
 import { Route as DashboardEipRouteImport } from './routes/dashboard/eip'
 import { Route as DashboardDevTodosRouteImport } from './routes/dashboard/dev-todos'
 import { Route as DashboardDevHistoryRouteImport } from './routes/dashboard/dev-history'
+import { Route as DashboardDeptViewGrantsRouteImport } from './routes/dashboard/dept-view-grants'
 import { Route as DashboardAuditLogsRouteImport } from './routes/dashboard/audit-logs'
 import { Route as DashboardAssistantIntentRouteImport } from './routes/dashboard/assistant-intent'
 import { Route as DashboardActivityLogsRouteImport } from './routes/dashboard/activity-logs'
@@ -168,6 +169,11 @@ const DashboardDevTodosRoute = DashboardDevTodosRouteImport.update({
 const DashboardDevHistoryRoute = DashboardDevHistoryRouteImport.update({
   id: '/dev-history',
   path: '/dev-history',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardDeptViewGrantsRoute = DashboardDeptViewGrantsRouteImport.update({
+  id: '/dept-view-grants',
+  path: '/dept-view-grants',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardAuditLogsRoute = DashboardAuditLogsRouteImport.update({
@@ -344,6 +350,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
   '/dashboard/assistant-intent': typeof DashboardAssistantIntentRoute
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
+  '/dashboard/dept-view-grants': typeof DashboardDeptViewGrantsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
   '/dashboard/eip': typeof DashboardEipRouteWithChildren
@@ -397,6 +404,7 @@ export interface FileRoutesByTo {
   '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
   '/dashboard/assistant-intent': typeof DashboardAssistantIntentRoute
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
+  '/dashboard/dept-view-grants': typeof DashboardDeptViewGrantsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
   '/dashboard/eip': typeof DashboardEipRouteWithChildren
@@ -449,6 +457,7 @@ export interface FileRoutesById {
   '/dashboard/activity-logs': typeof DashboardActivityLogsRoute
   '/dashboard/assistant-intent': typeof DashboardAssistantIntentRoute
   '/dashboard/audit-logs': typeof DashboardAuditLogsRoute
+  '/dashboard/dept-view-grants': typeof DashboardDeptViewGrantsRoute
   '/dashboard/dev-history': typeof DashboardDevHistoryRoute
   '/dashboard/dev-todos': typeof DashboardDevTodosRoute
   '/dashboard/eip': typeof DashboardEipRouteWithChildren
@@ -505,6 +514,7 @@ export interface FileRouteTypes {
     | '/dashboard/activity-logs'
     | '/dashboard/assistant-intent'
     | '/dashboard/audit-logs'
+    | '/dashboard/dept-view-grants'
     | '/dashboard/dev-history'
     | '/dashboard/dev-todos'
     | '/dashboard/eip'
@@ -558,6 +568,7 @@ export interface FileRouteTypes {
     | '/dashboard/activity-logs'
     | '/dashboard/assistant-intent'
     | '/dashboard/audit-logs'
+    | '/dashboard/dept-view-grants'
     | '/dashboard/dev-history'
     | '/dashboard/dev-todos'
     | '/dashboard/eip'
@@ -609,6 +620,7 @@ export interface FileRouteTypes {
     | '/dashboard/activity-logs'
     | '/dashboard/assistant-intent'
     | '/dashboard/audit-logs'
+    | '/dashboard/dept-view-grants'
     | '/dashboard/dev-history'
     | '/dashboard/dev-todos'
     | '/dashboard/eip'
@@ -810,6 +822,13 @@ declare module '@tanstack/react-router' {
       path: '/dev-history'
       fullPath: '/dashboard/dev-history'
       preLoaderRoute: typeof DashboardDevHistoryRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/dept-view-grants': {
+      id: '/dashboard/dept-view-grants'
+      path: '/dept-view-grants'
+      fullPath: '/dashboard/dept-view-grants'
+      preLoaderRoute: typeof DashboardDeptViewGrantsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/audit-logs': {
@@ -1148,6 +1167,7 @@ interface DashboardRouteChildren {
   DashboardActivityLogsRoute: typeof DashboardActivityLogsRoute
   DashboardAssistantIntentRoute: typeof DashboardAssistantIntentRoute
   DashboardAuditLogsRoute: typeof DashboardAuditLogsRoute
+  DashboardDeptViewGrantsRoute: typeof DashboardDeptViewGrantsRoute
   DashboardDevHistoryRoute: typeof DashboardDevHistoryRoute
   DashboardDevTodosRoute: typeof DashboardDevTodosRoute
   DashboardEipRoute: typeof DashboardEipRouteWithChildren
@@ -1172,6 +1192,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardActivityLogsRoute: DashboardActivityLogsRoute,
   DashboardAssistantIntentRoute: DashboardAssistantIntentRoute,
   DashboardAuditLogsRoute: DashboardAuditLogsRoute,
+  DashboardDeptViewGrantsRoute: DashboardDeptViewGrantsRoute,
   DashboardDevHistoryRoute: DashboardDevHistoryRoute,
   DashboardDevTodosRoute: DashboardDevTodosRoute,
   DashboardEipRoute: DashboardEipRouteWithChildren,
