@@ -1698,7 +1698,16 @@ function CreateTaskDialog({
               </Select>
             </Field>
             <Field label="負責人">
-              <Select value={ownerId} onValueChange={setOwnerId}>
+              {/* 部門跟著「負責人」走：以前是取建立者的部門，指派給別部門同仁時
+                  任務仍掛在建立者部門，該負責人的直屬主管就管不到自己部下的任務。 */}
+              <Select
+                value={ownerId}
+                onValueChange={(v) => {
+                  setOwnerId(v);
+                  const d = users.find((u) => u.id === v)?.department_id ?? null;
+                  if (d) { setDeptId(d); if (scope !== "members") setScope("department"); }
+                }}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
@@ -2208,7 +2217,16 @@ export function EditTaskDialog({
               </Select>
             </Field>
             <Field label="負責人">
-              <Select value={ownerId} onValueChange={setOwnerId} disabled={readOnly}>
+              <Select
+                value={ownerId}
+                onValueChange={(v) => {
+                  setOwnerId(v);
+                  // 轉派負責人時部門一併跟著轉，否則新負責人的主管看不到這張任務
+                  const d = users.find((u) => u.id === v)?.department_id ?? null;
+                  if (d) { setDeptId(d); if (scope !== "members") setScope("department"); }
+                }}
+                disabled={readOnly}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
