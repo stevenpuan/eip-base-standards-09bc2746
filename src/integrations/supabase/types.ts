@@ -1126,6 +1126,85 @@ export type Database = {
           },
         ]
       }
+      eip_dept_view_grant: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          id: string
+          include_subtree: boolean
+          is_active: boolean
+          note: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          include_subtree?: boolean
+          is_active?: boolean
+          note?: string | null
+          tenant_id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          include_subtree?: boolean
+          is_active?: boolean
+          note?: string | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eip_dept_view_grant_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_dept_view_grant_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "eip_dept_view_grant_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_dept_view_grant_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "eip_dept_view_grant_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eip_dept_view_grant_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       eip_doc_folder: {
         Row: {
           created_at: string
@@ -3321,6 +3400,7 @@ export type Database = {
         Row: {
           advance_days: number[]
           counterpart: string | null
+          counterpart_user_id: string | null
           created_at: string
           created_by: string | null
           days_of_month: number[] | null
@@ -3345,6 +3425,7 @@ export type Database = {
         Insert: {
           advance_days?: number[]
           counterpart?: string | null
+          counterpart_user_id?: string | null
           created_at?: string
           created_by?: string | null
           days_of_month?: number[] | null
@@ -3369,6 +3450,7 @@ export type Database = {
         Update: {
           advance_days?: number[]
           counterpart?: string | null
+          counterpart_user_id?: string | null
           created_at?: string
           created_by?: string | null
           days_of_month?: number[] | null
@@ -3391,6 +3473,20 @@ export type Database = {
           weekday?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "recurring_rule_counterpart_user_id_fkey"
+            columns: ["counterpart_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_rule_counterpart_user_id_fkey"
+            columns: ["counterpart_user_id"]
+            isOneToOne: false
+            referencedRelation: "eip_org_chart"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "recurring_rule_created_by_fkey"
             columns: ["created_by"]
@@ -4825,6 +4921,7 @@ export type Database = {
         }[]
       }
       eip_build_handover: { Args: { p_leaver: string }; Returns: number }
+      eip_can_edit_project: { Args: { p_project_id: string }; Returns: boolean }
       eip_can_edit_task_checklist: {
         Args: { p_task_id: string }
         Returns: boolean
@@ -4836,6 +4933,7 @@ export type Database = {
       eip_can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       eip_can_see_task: { Args: { p_task_id: string }; Returns: boolean }
       eip_can_view_dept_record: { Args: { p_dept: string }; Returns: boolean }
+      eip_can_view_dept_shared: { Args: { p_dept: string }; Returns: boolean }
       eip_close_leave_handover: { Args: { p_report_id: string }; Returns: Json }
       eip_confirm_line_delivery: { Args: never; Returns: number }
       eip_create_department: {
@@ -4998,6 +5096,7 @@ export type Database = {
           department_id: string
         }[]
       }
+      eip_my_view_departments: { Args: never; Returns: string[] }
       eip_notification_entity_alive: {
         Args: {
           p_entity_id: string
@@ -5252,7 +5351,7 @@ export type Database = {
       task_priority: "low" | "normal" | "high" | "urgent"
       user_role: "company_admin" | "dept_manager" | "member" | "viewer"
       user_status: "active" | "inactive"
-      visibility_scope: "company" | "department"
+      visibility_scope: "company" | "department" | "members"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5436,7 +5535,7 @@ export const Constants = {
       task_priority: ["low", "normal", "high", "urgent"],
       user_role: ["company_admin", "dept_manager", "member", "viewer"],
       user_status: ["active", "inactive"],
-      visibility_scope: ["company", "department"],
+      visibility_scope: ["company", "department", "members"],
     },
   },
 } as const
