@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   ChevronLeft, Plus, Pencil, Trash2, Target, Flag, ListChecks,
-  AlertTriangle, CalendarDays, Activity, MoreHorizontal,
+  AlertTriangle, CalendarDays, Activity, MoreHorizontal, Users,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
@@ -252,6 +252,11 @@ function ProjectDetailPage() {
         <StatBox label="距結束" value={daysLeft == null ? "—" : `${daysLeft} 天`} accent={daysLeft != null && daysLeft < 0 ? "text-red-600" : ""} />
         <StatBox label="健康度" value={<span className="flex items-center gap-1.5"><span className={`inline-block w-2.5 h-2.5 rounded-full ${HEALTH_DOT[project.health]}`} />{HEALTH_LABEL[project.health].split(" · ")[0]}</span>} />
       </div>
+
+      {/* C0. 專案成員 */}
+      <Section icon={Users} title="專案成員">
+        <MembersSection projectId={id} ownerId={project.owner_id} userMap={userMap} canEdit={canEdit} />
+      </Section>
 
       {/* C. KPI */}
       <Section icon={Target} title="KPI 指標">
@@ -886,6 +891,77 @@ function MeetingsSection({ projectId, meetings, canEdit }: { projectId: string; 
   );
 }
 
+
+function MembersSection({
+  projectId, ownerId, userMap, canEdit,
+}: { projectId: string; ownerId: string; userMap: Map<string, AppUser>; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const activeUsersQ = useActiveUsers();
+  const membersQ = useQuery({
+    queryKey: ["eip", "project-members", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_member").select("project_id,user_id,role").eq("project_id", projectId);
+      if (error) throw error;
+      return (data ?? []) as { project_id: string; user_id: string; role: string | null }[];
+    },
+  });
+  const members = membersQ.data ?? [];
+  const memberIds = new Set(members.map((m) => m.user_id));
+  const nameOf = (uid: string) =>
+    userMap.get(uid)?.name ?? (activeUsersQ.data ?? []).find((u) => u.id === uid)?.name ?? "未知";
+  const selectable = (activeUsersQ.data ?? []).filter((u) => u.id !== ownerId && !memberIds.has(u.id));
+  const refetch = () => qc.invalidateQueries({ queryKey: ["eip", "project-members", projectId] });
+
+  const addMember = async (uid: string) => {
+    const { error } = await supabase.from("project_member").insert({ project_id: projectId, user_id: uid, role: "member" });
+    if (error) { toast.error(humanizeError(error, "加入成員")); return; }
+    toast.success("已加入成員"); refetch();
+  };
+  const removeMember = async (uid: string) => {
+    const { error } = await supabase.from("project_member").delete().eq("project_id", projectId).eq("user_id", uid);
+    if (error) { toast.error(humanizeError(error, "移除成員")); return; }
+    toast.success("已移除成員"); refetch();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="text-[11.5px] bg-amber-50 text-amber-700 border-amber-200">負責人</Badge>
+        <span className="text-sm">{nameOf(ownerId)}</span>
+      </div>
+      {members.length === 0 ? (
+        <div className="text-sm text-muted-foreground">尚未加入其他參與成員。</div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {members.map((m) => (
+            <span key={m.user_id} className="inline-flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-full border bg-muted/40">
+              {nameOf(m.user_id)}
+              {canEdit && (
+                <button type="button" onClick={() => removeMember(m.user_id)} className="text-muted-foreground hover:text-destructive" aria-label="移除成員">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+      {canEdit && (
+        <div className="flex items-center gap-2">
+          <Select value="" onValueChange={(v) => { if (v) addMember(v); }}>
+            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="＋加入成員…" /></SelectTrigger>
+            <SelectContent>
+              {selectable.length === 0
+                ? <div className="px-2 py-1.5 text-sm text-muted-foreground">沒有可加入的人員</div>
+                : selectable.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <span className="text-[12.5px] text-muted-foreground">加入的成員可檢視並編輯此專案。</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

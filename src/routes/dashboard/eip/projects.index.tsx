@@ -523,7 +523,11 @@ function EditProjectDialog({
             scope={vScope} onScopeChange={setVScope}
             deptId={deptId} onDeptIdChange={setDeptId}
             departments={departments}
+            allowMembers
           />
+          {vScope === "members" && (
+            <p className="text-[12.5px] text-muted-foreground">參與成員請於專案詳情頁的「專案成員」區塊管理。</p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
@@ -549,6 +553,7 @@ function CreateProjectDialog({
   const [endDate, setEndDate] = useState("");
   const [vScope, setVScope] = useState<VisibilityScope>(appUser.department_id ? "department" : "company");
   const [deptId, setDeptId] = useState<string | null>(appUser.department_id ?? null);
+  const [memberIds, setMemberIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -557,7 +562,7 @@ function CreateProjectDialog({
     if (!v.ok) return toast.error(v.error);
     setBusy(true);
     try {
-      const { error } = await supabase.from("project").insert({
+      const { data: created, error } = await supabase.from("project").insert({
         tenant_id: appUser.tenant_id ?? DEFAULT_TENANT_ID,
         name: name.trim(),
         goal: goal.trim() || null,
@@ -570,8 +575,18 @@ function CreateProjectDialog({
         end_date: endDate || null,
         visibility_scope: v.payload.visibility_scope,
         department_id: v.payload.department_id,
-      });
+      }).select("id").single();
       if (error) throw error;
+      // 私密專案：把挑選的參與成員寫入 project_member（負責人本身自動有權限，不需重複加入）
+      if (created && memberIds.length > 0) {
+        const rows = memberIds
+          .filter((uid) => uid !== ownerId)
+          .map((uid) => ({ project_id: created.id, user_id: uid, role: "member" }));
+        if (rows.length > 0) {
+          const { error: mErr } = await supabase.from("project_member").insert(rows);
+          if (mErr) throw mErr;
+        }
+      }
       toast.success("專案已建立");
       onCreated(); onClose();
     } catch (e) { toast.error(humanizeError(e, "建立")); }
@@ -621,7 +636,11 @@ function CreateProjectDialog({
             scope={vScope} onScopeChange={setVScope}
             deptId={deptId} onDeptIdChange={setDeptId}
             departments={departments}
+            allowMembers
           />
+          {vScope === "members" && (
+            <MemberMultiSelect users={users} ownerId={ownerId} value={memberIds} onChange={setMemberIds} />
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
@@ -632,6 +651,36 @@ function CreateProjectDialog({
   );
 }
 
+
+function MemberMultiSelect({
+  users, ownerId, value, onChange,
+}: { users: AppUser[]; ownerId: string; value: string[]; onChange: (v: string[]) => void }) {
+  const selectable = users.filter((u) => u.id !== ownerId && !value.includes(u.id));
+  const nameOf = (id: string) => users.find((u) => u.id === id)?.name ?? "未知";
+  return (
+    <div className="grid gap-1.5">
+      <Label className="text-xs text-muted-foreground">專案成員（可檢視並編輯此專案）</Label>
+      <div className="flex flex-wrap items-center gap-1.5 rounded-md border p-2 min-h-9">
+        <span className="text-[12.5px] text-muted-foreground">負責人：{nameOf(ownerId)}</span>
+        {value.map((uid) => (
+          <span key={uid} className="inline-flex items-center gap-1 text-[12.5px] px-2 py-0.5 rounded-full border bg-accent/30">
+            {nameOf(uid)}
+            <button type="button" onClick={() => onChange(value.filter((x) => x !== uid))} className="text-muted-foreground hover:text-destructive" aria-label="移除">×</button>
+          </span>
+        ))}
+        <select
+          value=""
+          onChange={(e) => { if (e.target.value) onChange([...value, e.target.value]); }}
+          className="h-7 rounded-md border bg-card px-1 text-[12.5px]"
+        >
+          <option value="">＋加入成員…</option>
+          {selectable.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      </div>
+      <div className="text-[12.5px] text-muted-foreground">只有負責人與這些成員看得到並可編輯此專案。</div>
+    </div>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

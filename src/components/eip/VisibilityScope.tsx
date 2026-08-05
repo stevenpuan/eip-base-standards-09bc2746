@@ -5,7 +5,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-export type VisibilityScope = "company" | "department";
+export type VisibilityScope = "company" | "department" | "members";
 
 interface DeptLite {
   id: string;
@@ -14,7 +14,7 @@ interface DeptLite {
   sort_order?: number | null;
 }
 
-const INDENT = "\u00A0\u00A0\u00A0\u00A0";
+const INDENT = "    ";
 
 /** 依 parent_id 組成樹，回傳已扁平化的選項（含縮排），依 sort_order 排序。 */
 export function buildDeptTreeOptions<T extends DeptLite>(
@@ -56,9 +56,10 @@ export function buildDeptTreeOptions<T extends DeptLite>(
   return out;
 }
 
-/** 共用「可見範圍」欄位（下拉 + 條件式部門下拉）。 */
+/** 共用「可見範圍」欄位（下拉 + 條件式部門下拉）。
+ *  allowMembers=true 時多一個「僅參與成員」選項（私密專案），選它時不需部門。 */
 export function VisibilityScopeFields({
-  scope, onScopeChange, deptId, onDeptIdChange, departments, disabled,
+  scope, onScopeChange, deptId, onDeptIdChange, departments, disabled, allowMembers,
 }: {
   scope: VisibilityScope;
   onScopeChange: (v: VisibilityScope) => void;
@@ -66,6 +67,7 @@ export function VisibilityScopeFields({
   onDeptIdChange: (id: string | null) => void;
   departments: DeptLite[];
   disabled?: boolean;
+  allowMembers?: boolean;
 }) {
   const options = useMemo(() => buildDeptTreeOptions(departments), [departments]);
   return (
@@ -77,7 +79,7 @@ export function VisibilityScopeFields({
           onValueChange={(v) => {
             const s = v as VisibilityScope;
             onScopeChange(s);
-            if (s === "company") onDeptIdChange(null);
+            if (s !== "department") onDeptIdChange(null);
           }}
           disabled={disabled}
         >
@@ -85,6 +87,7 @@ export function VisibilityScopeFields({
           <SelectContent>
             <SelectItem value="company">全公司</SelectItem>
             <SelectItem value="department">部門</SelectItem>
+            {allowMembers && <SelectItem value="members">僅參與成員</SelectItem>}
           </SelectContent>
         </Select>
       </div>
@@ -108,11 +111,16 @@ export function VisibilityScopeFields({
           </div>
         </div>
       )}
+      {scope === "members" && (
+        <div className="text-[12.5px] text-muted-foreground">
+          僅<strong>負責人與被加入的參與成員</strong>看得到並可編輯此專案；部門主管、跨部門主管，連系統管理者都看不到。請於下方「專案成員」加入參與人員。
+        </div>
+      )}
     </div>
   );
 }
 
-/** 列表/卡片用標籤：company → 全公司；department → 顯示部門名稱。 */
+/** 列表/卡片用標籤：company → 全公司；department → 部門名稱；members → 僅參與成員。 */
 export function VisibilityBadge({
   scope, departmentId, deptMap, className,
 }: {
@@ -128,6 +136,16 @@ export function VisibilityBadge({
         className={`text-[11.5px] bg-blue-50 text-blue-700 border-blue-200 ${className ?? ""}`}
       >
         全公司
+      </Badge>
+    );
+  }
+  if (scope === "members") {
+    return (
+      <Badge
+        variant="outline"
+        className={`text-[11.5px] bg-purple-50 text-purple-700 border-purple-200 ${className ?? ""}`}
+      >
+        僅參與成員
       </Badge>
     );
   }
