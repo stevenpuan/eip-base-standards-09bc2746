@@ -83,7 +83,8 @@ function ReportsPage() {
   const deptsQ = useQuery({
     queryKey: ["eip", "departments"],
     queryFn: async () => {
-      const { data } = await supabase.from("department").select("id,name").order("name");
+      const { data, error } = await supabase.from("department").select("id,name").order("name");
+      if (error) throw error;
       return (data ?? []) as { id: string; name: string }[];
     },
   });
@@ -91,8 +92,9 @@ function ReportsPage() {
   const statusesQ = useQuery({
     queryKey: ["eip", "task_status"],
     queryFn: async () => {
-      const { data } = await supabase.from("task_status")
+      const { data, error } = await supabase.from("task_status")
         .select("id,name,is_done_state,sort_order").order("sort_order");
+      if (error) throw error;
       return (data ?? []) as { id: string; name: string; is_done_state: boolean; sort_order: number }[];
     },
   });
@@ -130,7 +132,8 @@ function ReportsPage() {
         .select("id,created_at,completed_at,department_id")
         .gte("created_at", start.toISOString());
       if (deptId !== "all") q = q.eq("department_id", deptId);
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return (data ?? []) as { id: string; created_at: string; completed_at: string | null }[];
     },
   });
@@ -143,7 +146,7 @@ function ReportsPage() {
         .gte("due_date", fromStr).lte("due_date", toStr);
       if (deptId !== "all") q = (q as never as { eq: (k: string, v: string) => typeof q }).eq("department_id", deptId);
       const { data, error } = await q;
-      if (error) return [] as { task_id: string; is_done: boolean; due_date: string }[];
+      if (error) throw error;
       return (data ?? []) as { task_id: string; is_done: boolean; due_date: string }[];
     },
   });
@@ -151,7 +154,8 @@ function ReportsPage() {
   const frQ = useQuery({
     queryKey: ["eip", "reports", "fr"],
     queryFn: async () => {
-      const { data } = await supabase.from("eip_feature_request").select("id,status");
+      const { data, error } = await supabase.from("eip_feature_request").select("id,status");
+      if (error) throw error;
       return (data ?? []) as { id: string; status: string }[];
     },
   });
@@ -159,8 +163,9 @@ function ReportsPage() {
   const annQ = useQuery({
     queryKey: ["eip", "reports", "ann"],
     queryFn: async () => {
-      const { data: anns } = await supabase.from("announcement")
+      const { data: anns, error: annErr } = await supabase.from("announcement")
         .select("id,title,published_at").not("published_at", "is", null);
+      if (annErr) throw annErr;
       const list = (anns ?? []) as { id: string; title: string; published_at: string }[];
       if (!list.length) return [] as { id: string; title: string; rate: number }[];
       const ids = list.map((a) => a.id);
@@ -360,9 +365,16 @@ function ReportsPage() {
   if (!isManager) return <Navigate to="/dashboard/eip/my-tasks" />;
 
   const loading = tasksQ.isLoading || statusesQ.isLoading;
+  // 任一統計查詢失敗時明確提示，避免主管把「載入失敗顯示 0」誤判成「真的達成率低/沒人回報」。
+  const statError = [deptsQ, statusesQ, tasksQ, trendTasksQ, recurringQ, frQ, annQ].some((q) => q.isError);
 
   return (
     <div className="space-y-4">
+      {statError && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          部分統計資料載入失敗，下方數字可能不完整或顯示為 0，請重新整理；若持續發生請重新登入。
+        </div>
+      )}
       <PageHeader
         title="報表分析"
         description="任務、常態工作、需求池等綜合績效視圖。"

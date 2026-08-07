@@ -32,6 +32,7 @@ import { TaskSourceBadge, useTaskSources } from "@/components/eip/TaskSourceBadg
 import { EditTaskDialog } from "@/routes/dashboard/eip/tasks";
 import { VisibilityBadge } from "@/components/eip/VisibilityScope";
 import { humanizeError } from "@/lib/eip-error";
+import { taipeiToday } from "@/lib/eip-routine";
 
 export const Route = createFileRoute("/dashboard/eip/projects/$id")({
   validateSearch: (search: Record<string, unknown>): { milestone?: string } => ({
@@ -432,7 +433,7 @@ function MilestonesSection({ projectId, tenantId, milestones, canEdit, highlight
   const [name, setName] = useState("");
   const [due, setDue] = useState("");
   const [flashId, setFlashId] = useState<string | null>(null);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = taipeiToday(); // 台北今天，勿用 toISOString（清晨會退回昨天，逾期判定錯位）
   const refetch = () => qc.invalidateQueries({ queryKey: ["eip", "milestones", projectId] });
 
   useEffect(() => {

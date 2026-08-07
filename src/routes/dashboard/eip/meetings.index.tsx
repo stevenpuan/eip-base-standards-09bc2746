@@ -35,6 +35,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Database } from "@/integrations/supabase/types";
 import { VisibilityScopeFields, VisibilityBadge, validateVisibility, type VisibilityScope } from "@/components/eip/VisibilityScope";
 import { humanizeError } from "@/lib/eip-error";
+import { taipeiToday } from "@/lib/eip-routine";
 
 type Department = { id: string; name: string; parent_id: string | null; sort_order: number | null };
 
@@ -536,7 +537,7 @@ function ActionItemsTracker({ meetings, users, userMap }: { meetings: Meeting[];
   });
 
   const meetingMap = useMemo(() => new Map(meetings.map((m) => [m.id, m])), [meetings]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = taipeiToday(); // 台北今天，勿用 toISOString（清晨會退回昨天，逾期判定錯位）
 
   const filtered = useMemo(() => {
     return (itemsQ.data ?? []).filter((it) => {

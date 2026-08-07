@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -206,7 +207,7 @@ function FeatureRequestDetailPage() {
             {fr.description ? (
               <div
                 className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30"
-                dangerouslySetInnerHTML={{ __html: fr.description }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(fr.description) }}
               />
             ) : (
               <div className="text-sm text-muted-foreground">(無)</div>

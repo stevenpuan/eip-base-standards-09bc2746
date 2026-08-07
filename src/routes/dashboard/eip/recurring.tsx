@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID, PRIORITY_LABEL } from "@/lib/eip-constants";
+import { taipeiToday } from "@/lib/eip-routine";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -521,7 +522,9 @@ function AchievementDashboard({
 
   const range = useMemo(() => {
     const today = new Date();
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    // 用本地(台北)日期格式化，不要走 toISOString（UTC+8 會把月首/今天退回前一天，
+    // 導致「本月」範圍整段位移、月底到期的常態工作被漏算）。
+    const fmt = (d: Date) => d.toLocaleDateString("sv-SE");
     if (period === "month") {
       const s = new Date(today.getFullYear(), today.getMonth(), 1);
       const e = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -549,7 +552,7 @@ function AchievementDashboard({
   });
 
   const rows = overviewQ.data ?? [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = taipeiToday();
   const total = rows.length;
   const done = rows.filter((r) => r.is_done).length;
   const overdue = rows.filter((r) => r.is_overdue).length;

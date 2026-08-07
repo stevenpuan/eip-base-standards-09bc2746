@@ -14,6 +14,7 @@ import { useEipUser } from "@/lib/eip-user";
 import { useActiveUsers, useAllUsers } from "@/hooks/useUsers";
 import { useAuth } from "@/lib/auth";
 import { DEFAULT_TENANT_ID } from "@/lib/eip-constants";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -729,7 +730,7 @@ function DocDetailDialog({
                   </div>
                 )}
                 {viewing.content ? (
-                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: viewing.content }} />
+                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(viewing.content) }} />
                 ) : (
                   <div className="text-sm text-muted-foreground">(本版本無內文)</div>
                 )}
@@ -828,10 +829,11 @@ function DocEditorDialog({
     queryKey: ["eip_document_version", "current", doc?.id, doc?.current_version],
     enabled: mode === "edit" && !!doc,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("eip_document_version")
         .select("*").eq("document_id", doc!.id).eq("version_no", doc!.current_version)
         .maybeSingle();
+      if (error) throw error; // 不吞錯：載入失敗要讓 submit 擋下，避免用空白覆蓋整份文件
       return data as Version | null;
     },
   });
@@ -950,6 +952,9 @@ function DocEditorDialog({
         if (vErr) throw vErr;
         toast.success("已建立文件");
       } else if (doc) {
+        // 防止用空白覆蓋：現行版本內文尚未載入完成或載入失敗時，不可儲存新版本。
+        if (curVerQ.isLoading) throw new Error("現行版本內容尚未載入完成，請稍候再儲存");
+        if (curVerQ.isError) throw new Error("現行版本內容載入失敗，為避免覆蓋成空白已中止儲存，請關閉後重新開啟編輯");
         const att = await uploadIfNeeded(doc.id);
         const { error: dErr } = await supabase.from("eip_document")
           .update({

@@ -107,14 +107,20 @@ function RolePermPage() {
     setPDraft((d) => ({ ...d, [k]: { ...(d[k] ?? { role_id: roleId, page_key: k }), [a]: next } }));
   };
   const savePage = async () => {
-    await supabase.from("role_page_permissions").delete().eq("role_id", roleId);
     const rows = pages
       .map((p) => ({ role_id: roleId, page_key: p.key, can_view: pVal(p.key, "can_view"), can_create: pVal(p.key, "can_create"), can_edit: pVal(p.key, "can_edit"), can_delete: pVal(p.key, "can_delete"), can_export: pVal(p.key, "can_export") }))
       .filter((r) => [r.can_view, r.can_create, r.can_edit, r.can_delete, r.can_export].some((x) => x !== null));
+    // 先 upsert 再刪：交易安全。原本「先 delete 全部再 insert」若 insert 失敗，
+    // 該角色所有子頁權限會被清空且救不回。改成先寫入，成功後才刪掉本次已取消覆寫的列。
     if (rows.length) {
-      const { error } = await supabase.from("role_page_permissions").insert(rows);
+      const { error } = await supabase.from("role_page_permissions").upsert(rows, { onConflict: "role_id,page_key" });
       if (error) { toast.error(humanizeError(error, "儲存頁面權限")); return; }
     }
+    const keep = rows.map((r) => r.page_key);
+    let del = supabase.from("role_page_permissions").delete().eq("role_id", roleId);
+    if (keep.length) del = del.not("page_key", "in", `(${keep.join(",")})`);
+    const { error: delErr } = await del;
+    if (delErr) { toast.error(humanizeError(delErr, "更新頁面權限")); return; }
     toast.success("子頁面權限已儲存"); qc.invalidateQueries({ queryKey: ["rpp", roleId] });
   };
 

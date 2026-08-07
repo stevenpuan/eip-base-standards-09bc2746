@@ -61,16 +61,27 @@ function WorkLogPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     if (!appUser?.id) return;
     setLoading(true);
-    const { data } = await supabase.from("work_log").select("*").eq("user_id", appUser.id).eq("log_date", date).maybeSingle();
+    setLoadError(null);
+    // 先確實檢查 error：token 過期(PGRST301)、RLS、斷線時 data 會是 null，
+    // 若不分辨錯誤就落到 fetchSeed，會顯示一張空白草稿讓使用者誤以為日誌不見了。
+    const { data, error } = await supabase.from("work_log").select("*").eq("user_id", appUser.id).eq("log_date", date).maybeSingle();
+    if (error) {
+      setLog(null);
+      setLoadError(humanizeError(error));
+      setLoading(false);
+      return;
+    }
     if (data) {
       // 舊資料（改造前）全部塞在 routine_morning、routine_afternoon 為空；
       // 照原欄位讀進來顯示結果與改造前一致，不需要資料遷移。
       setLog({ id: data.id, log_date: date, morning: arr(data.routine_morning), afternoon: arr(data.routine_afternoon), special: arr(data.special_items), status: data.status });
     } else {
+      // 確認查詢成功、只是今天還沒有日誌，才給空白 seed 草稿。
       const seed = await fetchSeed(appUser.id, date);
       setLog({ log_date: date, morning: seed.morning, afternoon: seed.afternoon, special: seed.special, status: "draft" });
     }
@@ -192,6 +203,19 @@ function WorkLogPage() {
     toast.success(`已帶入 ${n} 筆，記得按儲存或送出`);
   };
 
+  if (loadError) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6 text-sm">
+          <div className="font-medium text-destructive mb-1">工作日誌載入失敗</div>
+          <div className="text-muted-foreground mb-3">{loadError}（資料並未遺失，請重新載入；若持續發生請重新登入）</div>
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)}>
+            <RefreshCw className="mr-1 h-4 w-4" />重新載入
+          </Button>
+        </div>
+      </div>
+    );
+  }
   if (loading || !log) {
     return <div className="space-y-3"><div className="h-9 w-40 rounded-md bg-muted/50 animate-pulse" /><div className="h-56 rounded-2xl bg-muted/50 animate-pulse" /></div>;
   }
