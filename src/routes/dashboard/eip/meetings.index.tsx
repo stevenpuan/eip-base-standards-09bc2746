@@ -364,6 +364,7 @@ function CreateMeetingDialog({
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<string>(() => {
     const d = new Date(); d.setMinutes(0, 0, 0);
+    // eslint-disable-next-line no-restricted-syntax -- datetime-local 輸入框需要「本地牆上時鐘」字串；此處先扣掉時區位移再取 slice(0,16) 是正確用法
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   });
   const [location, setLocation] = useState("");

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { taipeiToday } from "@/lib/eip-routine";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -51,7 +52,7 @@ function Page() {
 
   const create = async () => {
     if (!version || !title) { toast.error("請輸入版本與標題"); return; }
-    const { error } = await supabase.from("changelogs").insert({ version, type, title, content: content || null, released_at: new Date().toISOString().slice(0, 10) });
+    const { error } = await supabase.from("changelogs").insert({ version, type, title, content: content || null, released_at: taipeiToday() });
     if (error) { toast.error(humanizeError(error, "新增版本紀錄")); return; }
     toast.success("已新增");
     setOpen(false); setVersion(""); setTitle(""); setContent("");

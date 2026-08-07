@@ -64,7 +64,9 @@ function periodRange(p: Period): { from: Date; to: Date } {
 }
 
 function fmtDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // 本地(台北)日期字串。用於 DATE 欄位比較(常態工作 due_date)與「今天」，
+  // 不能用 toISOString()（UTC，清晨/月初月底會退回前一天）。
+  return d.toLocaleDateString("sv-SE");
 }
 
 function ReportsPage() {

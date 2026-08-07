@@ -32,6 +32,14 @@ export type ToggleResult = {
 /** 台北時區的今天（不要用 toISOString，UTC+8 會退回前一天） */
 export const taipeiToday = () => new Date().toLocaleDateString("sv-SE");
 
+/**
+ * 把 Date 轉成本地(台北)日期字串 YYYY-MM-DD。
+ * 這是全站唯一的「日期欄位格式化」來源——凡是要送給 DATE 欄位、或當「今天/某天」
+ * 比較的字串，都用這支或 taipeiToday()，不要用 d.toISOString().slice(0,10)
+ * （那是 UTC，UTC+8 在清晨或月初/月底會退回前一天，是反覆出現的時區 bug 來源）。
+ */
+export const toDateStr = (d: Date) => d.toLocaleDateString("sv-SE");
+
 export const ROUTINE_SOURCE_LABEL: Record<string, string> = {
   personal_routine: "個人例行",
   recurring: "常態工作",

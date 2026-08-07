@@ -408,6 +408,7 @@ function MyHistory({ meId, activeDate, onPick, onDelete, refreshKey }: { meId: s
     (async () => {
       const [y, m] = month.split("-").map(Number);
       const start = `${month}-01`;
+      // eslint-disable-next-line no-restricted-syntax -- Date.UTC 與 toISOString 皆為 UTC、彼此一致，用來算「次月一號」當獨佔上界，不受時區影響
       const end = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
       const { data } = await supabase.from("work_log")
         .select("id,log_date,status,routine_morning,routine_afternoon,special_items")
