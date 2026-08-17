@@ -46,6 +46,10 @@ import {
 } from "@/components/ui/table";
 import { humanizeError } from "@/lib/eip-error";
 
+// 2026-08-17 依客戶要求隱藏「獨立網址／NAS 連結」欄；網址請直接貼在說明／執行內容欄。
+// 既有連結資料保留於資料庫不刪，要恢復顯示只需把下方旗標改為 true。
+const SHOW_URL_LINK_FIELD = false;
+
 export const Route = createFileRoute("/dashboard/eip/anomalies")({
   component: AnomaliesPage,
 });
@@ -1177,12 +1181,14 @@ function DetailDialog({
           <Attachments anomalyId={row.id} canEdit={canFill || canManage} />
 
           {/* 檔案不一定要上傳進系統；規格書 G 章的「連結」欄位走 eip_url_link */}
-          <UrlLinks
-            entityType="anomaly"
-            entityId={row.id}
-            readOnly={!(canFill || canManage)}
-            title="檔案／NAS 連結"
-          />
+          {SHOW_URL_LINK_FIELD && (
+            <UrlLinks
+              entityType="anomaly"
+              entityId={row.id}
+              readOnly={!(canFill || canManage)}
+              title="檔案／NAS 連結"
+            />
+          )}
 
           {/* 填報區（CAPA） */}
           <div className="border-t pt-3 space-y-3">

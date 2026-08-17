@@ -34,6 +34,10 @@ const keyOf = (r: RoutineRow) => `${r.section}:${r.source ?? ""}:${r.ref_id ?? r
  * 兩者都走 eip_set_routine_item（0138）—— 全系統唯一的寫入實作，
  * 只改命中那一項的欄位，不整批覆寫。
  */
+// 2026-08-17 依客戶要求隱藏「獨立網址／NAS 連結」欄；網址請直接貼在說明／執行內容欄。
+// 既有連結資料保留於資料庫不刪，要恢復顯示只需把下方旗標改為 true。
+const SHOW_URL_LINK_FIELD = false;
+
 export function TodayRoutineCard() {
   const date = taipeiToday();
   const [rows, setRows] = useState<RoutineRow[] | null>(null);
@@ -469,6 +473,7 @@ function RoutineRowItem({
       </div>
 
       {/* 相關檔案連結：預設收起來，有連結或按了才展開，避免每一列都多一個輸入框 */}
+      {SHOW_URL_LINK_FIELD && (
       <div className="ml-6 mt-1">
         {!linkOpen ? (
           <button
@@ -531,6 +536,7 @@ function RoutineRowItem({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

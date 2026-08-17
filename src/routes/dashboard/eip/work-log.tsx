@@ -13,6 +13,10 @@ import { toast } from "sonner";
 import { toggleRoutineItem, type RoutineSection } from "@/lib/eip-routine";
 import { humanizeError } from "@/lib/eip-error";
 
+// 2026-08-17 依客戶要求隱藏「獨立網址／NAS 連結」欄；網址請直接貼在說明／執行內容欄。
+// 既有連結資料保留於資料庫不刪，要恢復顯示只需把下方旗標改為 true。
+const SHOW_URL_LINK_FIELD = false;
+
 export const Route = createFileRoute("/dashboard/eip/work-log")({ component: () => (
     <RequirePerm module="eip_work_log">
       <WorkLogPage />
@@ -96,12 +100,14 @@ function WorkLogPage() {
       const missing = [...log.morning, ...log.afternoon, ...log.special]
         .filter((x) => x.req && x.done && !(x.note ?? "").trim()).map((x) => x.text);
       if (missing.length) { toast.error(`這些項目需填執行內容：${missing.join("、")}`); return undefined; }
-      const badLink = [...log.morning, ...log.afternoon, ...log.special]
-        .filter((x) => (x.link ?? "").trim() && !/^(https?:\/\/|file:\/\/|\\\\)/.test((x.link ?? "").trim()))
-        .map((x) => x.text);
-      if (badLink.length) {
-        toast.error(`這些項目的連結格式不對（請用 http(s)://、file:// 或 \\伺服器\分享資料夾）：${badLink.join("、")}`);
-        return undefined;
+      if (SHOW_URL_LINK_FIELD) {
+        const badLink = [...log.morning, ...log.afternoon, ...log.special]
+          .filter((x) => (x.link ?? "").trim() && !/^(https?:\/\/|file:\/\/|\\\\)/.test((x.link ?? "").trim()))
+          .map((x) => x.text);
+        if (badLink.length) {
+          toast.error(`這些項目的連結格式不對（請用 http(s)://、file:// 或 \\伺服器\分享資料夾）：${badLink.join("、")}`);
+          return undefined;
+        }
       }
     }
     setSaving(true);
@@ -351,14 +357,16 @@ function Section({ title, Icon, tone, items, editable, onChange, onToggleDone }:
                   className="mt-1 ml-6 block w-[calc(100%-1.75rem)] resize-y rounded-md bg-transparent px-1 py-0.5 text-xs text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
                 {/* 相關檔案連結（訪談定案第 5 條）。與項目文字一樣走「儲存」批次寫入，
                     不即時打 API —— 一邊打字一邊送出會很吵。 */}
-                <input value={it.link ?? ""} placeholder="相關連結（選填）：\\NAS\… 或 https://…"
-                  onChange={(e) => setItem(i, { link: e.target.value })}
-                  className="mt-0.5 ml-6 block w-[calc(100%-1.75rem)] rounded-md bg-transparent px-1 py-0.5 text-[12.5px] font-mono text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
+                {SHOW_URL_LINK_FIELD && (
+                  <input value={it.link ?? ""} placeholder="相關連結（選填）：\\NAS\… 或 https://…"
+                    onChange={(e) => setItem(i, { link: e.target.value })}
+                    className="mt-0.5 ml-6 block w-[calc(100%-1.75rem)] rounded-md bg-transparent px-1 py-0.5 text-[12.5px] font-mono text-muted-foreground outline-none border border-transparent hover:border-border/60 focus:border-border" />
+                )}
               </>
             ) : (
               <>
                 {it.note ? <p className="mt-0.5 ml-6 text-xs text-muted-foreground whitespace-pre-wrap">{it.note}</p> : null}
-                {it.link ? (
+                {SHOW_URL_LINK_FIELD && it.link ? (
                   it.link.startsWith("\\\\") ? (
                     <p className="mt-0.5 ml-6 text-[12.5px] font-mono text-muted-foreground break-all">{it.link}</p>
                   ) : (

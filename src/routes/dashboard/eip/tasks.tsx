@@ -117,6 +117,10 @@ function canDeleteTask(task: Task, appUser: AppUser | null, can: CanFn, collabMa
 
 
 
+// 2026-08-17 依客戶要求隱藏「獨立網址／NAS 連結」欄；網址請直接貼在說明／執行內容欄。
+// 既有連結資料保留於資料庫不刪，要恢復顯示只需把下方旗標改為 true。
+const SHOW_URL_LINK_FIELD = false;
+
 export const Route = createFileRoute("/dashboard/eip/tasks")({
   component: () => (
     <RequirePerm module="eip_tasks">
@@ -1794,6 +1798,7 @@ function CreateTaskDialog({
 
           {/* 相關連結：使用者說的「檔案」就是 NAS 上的路徑，用連結涵蓋。
               真正的檔案上傳屬文件中心，這裡不做。 */}
+          {SHOW_URL_LINK_FIELD && (
           <div className="mt-1 border-t pt-3 space-y-2">
             <div className="text-sm font-medium flex items-center gap-1.5">
               <Link2 className="w-3.5 h-3.5" />
@@ -1838,6 +1843,7 @@ function CreateTaskDialog({
               新增連結
             </Button>
           </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>取消</Button>
@@ -2333,7 +2339,7 @@ export function EditTaskDialog({
 
           {task.id && <EntityLinks entityType="task" entityId={task.id} readOnly={readOnly} />}
           {/* eip_link 是系統內實體關聯，NAS／網址是另一件事，走 eip_url_link */}
-          {task.id && (
+          {SHOW_URL_LINK_FIELD && task.id && (
             <UrlLinks entityType="task" entityId={task.id} readOnly={readOnly} title="檔案／NAS 連結" />
           )}
 
