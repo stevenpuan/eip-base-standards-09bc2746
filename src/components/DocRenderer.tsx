@@ -115,6 +115,23 @@ export function DocRenderer({ content }: { content: string }) {
   if (!content?.trim()) {
     return <div className="text-sm text-muted-foreground">（尚無內容）</div>;
   }
+
+  // Rich HTML document mode: when the stored content begins with an HTML tag we
+  // render it verbatim (it carries its own scoped `.eip-manual` styles). Only
+  // roles with edit permission on the doc page can write doc_pages (enforced by
+  // RLS), so this is trusted, admin-authored internal content — used by the
+  // full illustrated 使用手冊 (v4.0+). Plain-text docs (e.g. 系統文件) keep the
+  // section-card renderer below unchanged.
+  if (content.trimStart().startsWith("<")) {
+    return (
+      <div
+        className="eip-doc-html"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    );
+  }
+
   const sections = parseSections(content);
   if (sections.length === 0) {
     return <div className="whitespace-pre-wrap text-sm leading-7 text-foreground/90">{content}</div>;
