@@ -107,6 +107,18 @@ type Att = {
   uploaded_by: string | null;
 };
 
+/** eip_deleted_items RPC 回傳（回收區用，通用結構，與 quick-reports 一致） */
+type DeletedItem = {
+  module_key: string;
+  label: string;
+  item_id: string;
+  title: string | null;
+  deleted_at: string;
+  deleted_by_name: string | null;
+  can_purge: boolean;
+  purge_block: string | null;
+};
+
 const STATUS_TABS = [
   { value: "pending_fill", label: "待填報" },
   { value: "filled", label: "待確認" },
@@ -187,6 +199,7 @@ function AnomaliesPage() {
   const [openRow, setOpenRow] = useState<Anomaly | null>(null);
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false); // 回收區檢視切換
 
   // 顯示對照用：含停用者，否則離職同仁的歷史缺失姓名會變空白
   const allUsersQ = useAllUsers();
@@ -349,6 +362,40 @@ function AnomaliesPage() {
     refresh();
   };
 
+  // 回收區（已刪除）：走 SECURITY DEFINER 的 eip_deleted_items，RLS 已把軟刪除列隱形。
+  const deletedQ = useQuery({
+    queryKey: ["eip", "anomalies-deleted"],
+    enabled: !!appUser && canView,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("eip_deleted_items", { p_module: "eip_anomaly" });
+      if (error) throw error;
+      return (data ?? []) as DeletedItem[];
+    },
+  });
+  const deletedRows = deletedQ.data ?? [];
+
+  const restoreAnomaly = async (item: DeletedItem) => {
+    const { error } = await supabase.rpc("eip_restore_deleted", {
+      p_module: "eip_anomaly",
+      p_id: item.item_id,
+    });
+    if (error) return toast.error(humanizeError(error, "還原"));
+    toast.success("已還原");
+    void deletedQ.refetch();
+    refresh();
+  };
+
+  const purgeAnomaly = async (item: DeletedItem) => {
+    if (!window.confirm(`永久刪除「${item.title ?? ""}」？\n此動作無法復原。`)) return;
+    const { error } = await supabase.rpc("eip_purge_deleted", {
+      p_module: "eip_anomaly",
+      p_id: item.item_id,
+    });
+    if (error) return toast.error(humanizeError(error, "永久刪除"));
+    toast.success("已永久刪除");
+    void deletedQ.refetch();
+  };
+
   if (authLoading || !permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
   if (!canView) return <Navigate to="/dashboard/eip/my-tasks" replace />;
   if (!appUser) return <EipUserPending />;
@@ -405,11 +452,25 @@ function AnomaliesPage() {
             {canRaiseForOthers ? "開立缺失" : "填報異常"}
           </Button>
         )}
+        <Button
+          variant={showDeleted ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowDeleted((v) => !v)}
+        >
+          {showDeleted ? "← 返回清單" : `回收區${deletedRows.length ? ` (${deletedRows.length})` : ""}`}
+        </Button>
       </div>
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">
-          {listQ.isLoading ? (
+          {showDeleted ? (
+            <DeletedList
+              q={deletedQ}
+              rows={deletedRows}
+              onRestore={(d) => void restoreAnomaly(d)}
+              onPurge={(d) => void purgeAnomaly(d)}
+            />
+          ) : listQ.isLoading ? (
             <div className="text-sm text-muted-foreground text-center py-10">載入中…</div>
           ) : listQ.isError ? (
             <div className="text-sm text-center py-10">
@@ -1304,6 +1365,80 @@ function ReadField({ label, value }: { label: string; value: string | null }) {
       <span className="text-xs text-muted-foreground">{label}：</span>
       <span className="whitespace-pre-wrap">{value || "—"}</span>
     </div>
+  );
+}
+
+/* ---------- 回收區（已刪除）清單 ---------- */
+
+function DeletedList({
+  q,
+  rows,
+  onRestore,
+  onPurge,
+}: {
+  q: { isLoading: boolean; isError: boolean; refetch: () => void };
+  rows: DeletedItem[];
+  onRestore: (d: DeletedItem) => void;
+  onPurge: (d: DeletedItem) => void;
+}) {
+  if (q.isLoading)
+    return <div className="text-sm text-muted-foreground text-center py-10">載入中…</div>;
+  if (q.isError)
+    return (
+      <div className="text-sm text-center py-10">
+        <div className="text-destructive mb-2">回收區載入失敗</div>
+        <Button size="sm" variant="outline" onClick={() => q.refetch()}>
+          重試
+        </Button>
+      </div>
+    );
+  if (!rows.length)
+    return (
+      <div className="text-center py-12 px-6 text-sm text-muted-foreground max-w-md mx-auto">
+        回收區沒有已刪除的異常缺失。刪除的缺失會移到這裡，可還原；有協同紀錄者僅管理者可永久刪除。
+      </div>
+    );
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>項目</TableHead>
+          <TableHead className="w-40">刪除時間</TableHead>
+          <TableHead className="w-28">刪除人</TableHead>
+          <TableHead className="w-44 text-right">動作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((d) => (
+          <TableRow key={d.item_id}>
+            <TableCell className="text-sm">{d.title ?? "（無標題）"}</TableCell>
+            <TableCell className="text-sm whitespace-nowrap">{fmtDateTime(d.deleted_at)}</TableCell>
+            <TableCell className="text-sm">{d.deleted_by_name ?? "—"}</TableCell>
+            <TableCell className="text-right">
+              <div className="flex items-center justify-end gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => onRestore(d)}>
+                  還原
+                </Button>
+                {d.can_purge ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => onPurge(d)}
+                  >
+                    永久刪除
+                  </Button>
+                ) : d.purge_block ? (
+                  <span className="text-xs text-muted-foreground" title={d.purge_block}>
+                    不可永久刪除
+                  </span>
+                ) : null}
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
