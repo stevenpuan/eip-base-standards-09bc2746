@@ -186,6 +186,7 @@ function AnomaliesPage() {
   const [mineOnly, setMineOnly] = useState(false);
   const [openRow, setOpenRow] = useState<Anomaly | null>(null);
   const [raiseOpen, setRaiseOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // 顯示對照用：含停用者，否則離職同仁的歷史缺失姓名會變空白
   const allUsersQ = useAllUsers();
@@ -208,6 +209,10 @@ function AnomaliesPage() {
   const isAdmin = can("eip_anomaly", "delete"); // admin/manager/dept_manager 才有刪除權
   const canManageRow = (r: Anomaly) =>
     isAdmin || (!!r.department_id && !!supervisedQ.data?.has(r.department_id));
+  // 刪除（軟刪除→回收區）：對齊 RLS anomaly_delete —— 只有開立者本人或系統管理者(company_admin)可刪。
+  // 不對齊 canManageRow（部門主管）是因為 RLS 不讓非開立者的主管刪別人的缺失，會回 ok=false。
+  const canDeleteRow = (r: Anomaly) =>
+    r.raised_by === appUser?.id || appUser?.role === "company_admin";
 
   // 能不能替別人開立缺失。一般同仁只會看到「填報異常」入口，
   // 不會看到選當事人的欄位 —— 之前的做法是大家都看到「開立缺失」，
@@ -317,6 +322,31 @@ function AnomaliesPage() {
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["eip", "anomalies"] });
     void qc.invalidateQueries({ queryKey: ["eip", "anomaly-kpi"] });
+  };
+
+  // 軟刪除：走 eip_soft_delete RPC（BEFORE DELETE 觸發器攔截、設 deleted_at，由 anomaly_delete RLS 把關）。
+  // 不能直接 UPDATE deleted_at —— 會被 UPDATE 政策的 WITH CHECK 擋掉。RPC 回 { ok, reason? }。
+  const handleSoftDelete = async (r: Anomaly) => {
+    if (deletingId) return;
+    if (!window.confirm(`確定刪除「${r.title}」（${r.code ?? ""}）？\n刪除後會移至回收區，可由管理者還原。`)) return;
+    setDeletingId(r.id);
+    const { data, error } = await supabase.rpc("eip_soft_delete", {
+      p_module: "eip_anomaly",
+      p_id: r.id,
+    });
+    setDeletingId(null);
+    if (error) {
+      toast.error(humanizeError(error, "刪除"));
+      return;
+    }
+    const res = data as { ok?: boolean; reason?: string } | null;
+    if (res && res.ok === false) {
+      toast.error(`刪除失敗：${res.reason ?? "只有開立者本人或系統管理者可刪除"}`);
+      return;
+    }
+    toast.success("已刪除，已移至回收區");
+    setOpenRow(null);
+    refresh();
   };
 
   if (authLoading || !permsLoaded) return <div className="text-muted-foreground py-8">載入中…</div>;
@@ -437,6 +467,9 @@ function AnomaliesPage() {
                         row={r}
                         meId={appUser.id}
                         canManage={canManageRow(r)}
+                        canDelete={canDeleteRow(r)}
+                        deleting={deletingId === r.id}
+                        onDelete={() => void handleSoftDelete(r)}
                         onOpen={() => setOpenRow(r)}
                       />
                     </TableCell>
@@ -453,6 +486,7 @@ function AnomaliesPage() {
           row={openRow}
           meId={appUser.id}
           canManage={canManageRow(openRow)}
+          canDelete={canDeleteRow(openRow)}
           nameOf={nameOf}
           onClose={() => setOpenRow(null)}
           onChanged={() => {
@@ -513,11 +547,17 @@ function RowActions({
   row,
   meId,
   canManage,
+  canDelete,
+  deleting,
+  onDelete,
   onOpen,
 }: {
   row: Anomaly;
   meId: string;
   canManage: boolean;
+  canDelete: boolean;
+  deleting: boolean;
+  onDelete: () => void;
   onOpen: () => void;
 }) {
   const isSubject = row.subject_id === meId;
@@ -536,6 +576,18 @@ function RowActions({
       <Button size="sm" variant="ghost" onClick={onOpen}>
         詳情
       </Button>
+      {canDelete && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
+          disabled={deleting}
+          title="刪除（移至回收區）"
+          onClick={onDelete}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -965,6 +1017,7 @@ function DetailDialog({
   row,
   meId,
   canManage,
+  canDelete,
   nameOf,
   onClose,
   onChanged,
@@ -972,6 +1025,7 @@ function DetailDialog({
   row: Anomaly;
   meId: string;
   canManage: boolean;
+  canDelete: boolean;
   nameOf: (id: string | null) => string;
   onClose: () => void;
   onChanged: () => void;
@@ -994,6 +1048,24 @@ function DetailDialog({
     setBusy(false);
     if (error) return toast.error(humanizeError(error, "更新"));
     toast.success(okMsg);
+    onChanged();
+  };
+
+  // 軟刪除（→回收區）：走 eip_soft_delete RPC，由 anomaly_delete RLS 把關（開立者本人或管理者）。
+  const softDelete = async () => {
+    if (busy) return;
+    if (!window.confirm(`確定刪除「${row.title}」（${row.code ?? ""}）？\n刪除後會移至回收區，可由管理者還原。`)) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc("eip_soft_delete", {
+      p_module: "eip_anomaly",
+      p_id: row.id,
+    });
+    setBusy(false);
+    if (error) return toast.error(humanizeError(error, "刪除"));
+    const res = data as { ok?: boolean; reason?: string } | null;
+    if (res && res.ok === false)
+      return toast.error(`刪除失敗：${res.reason ?? "只有開立者本人或系統管理者可刪除"}`);
+    toast.success("已刪除，已移至回收區");
     onChanged();
   };
 
@@ -1206,6 +1278,17 @@ function DetailDialog({
         </div>
 
         <DialogFooter>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              className="text-destructive hover:text-destructive mr-auto"
+              disabled={busy}
+              onClick={() => void softDelete()}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              刪除
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose}>
             關閉
           </Button>
