@@ -1,9 +1,9 @@
 import { EipUserPending } from "@/components/eip/EipUserPending";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Play, Pencil, Trash2 } from "lucide-react";
+import { Plus, Play, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEipUser } from "@/lib/eip-user";
 import { useAuth } from "@/lib/auth";
@@ -72,6 +72,64 @@ function summarize(r: Rule): string {
   return `${monthPart} ${dayPart}`;
 }
 
+const REPORT_TYPE_LABEL: Record<string, string> = {
+  text: "文字", checkbox: "勾選", number: "數字", date: "日期",
+};
+
+// 列展開後的唯讀明細——把原本只能在「編輯」對話框看到的內文攤開來看，不必進編輯。
+function RuleDetail({ r, userMap, deptMap }: {
+  r: Rule; userMap: Map<string, AppUser>; deptMap: Map<string, Department>;
+}) {
+  const counterpart = r.counterpart_user_id
+    ? (userMap.get(r.counterpart_user_id)?.name ?? "—")
+    : (r.counterpart?.trim() || "—");
+  const fields = Array.isArray(r.report_fields) ? (r.report_fields as unknown as ReportField[]) : [];
+  return (
+    <div className="space-y-3 px-1">
+      <div>
+        <div className="text-xs font-medium text-muted-foreground mb-1">說明</div>
+        <div className="text-sm whitespace-pre-wrap">
+          {r.description?.trim() ? r.description : <span className="text-muted-foreground">（無說明）</span>}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2">
+        <DetailField label="週期" value={`${FREQ_LABEL[r.freq] ?? r.freq}｜${summarize(r)}`} />
+        <DetailField label="對接部門" value={r.department_id ? (deptMap.get(r.department_id)?.name ?? "—") : "—"} />
+        <DetailField label="對接人員" value={counterpart} />
+        <DetailField label="優先級" value={PRIORITY_LABEL[r.priority] ?? r.priority} />
+        <DetailField label="提前提醒" value={r.advance_days?.length ? `提前 ${r.advance_days.join("、")} 天` : "—"} />
+        <DetailField label="逾期再提醒" value={r.repeat_every_days ? `每 ${r.repeat_every_days} 天` : "—"} />
+        <DetailField label="直到完成才停" value={r.remind_until_done ? "是" : "否"} />
+        <DetailField label="上次執行" value={r.last_run_on ?? "—"} />
+      </div>
+      <div>
+        <div className="text-xs font-medium text-muted-foreground mb-1">回報欄位</div>
+        {fields.length === 0 ? (
+          <div className="text-sm text-muted-foreground">（未設定）</div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {fields.map((f, i) => (
+              <span key={i} className="text-xs px-2 py-0.5 rounded border bg-card">
+                {f.label || "（未命名）"}
+                <span className="text-muted-foreground">・{REPORT_TYPE_LABEL[f.type] ?? f.type}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-sm">{value}</div>
+    </div>
+  );
+}
+
 function RecurringPage() {
   const qc = useQueryClient();
   const { appUser } = useEipUser();
@@ -84,6 +142,10 @@ function RecurringPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Rule | null>(null);
   const [running, setRunning] = useState(false);
+  // 展開檢視內文的列（可多列同時展開）
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpanded((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   const rulesQ = useQuery({
     queryKey: ["eip", "recurring"],
@@ -184,6 +246,7 @@ function RecurringPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8" />
                       <TableHead>標題</TableHead>
                       <TableHead>負責人</TableHead>
                       <TableHead>部門</TableHead>
@@ -196,8 +259,16 @@ function RecurringPage() {
                   </TableHeader>
                   <TableBody>
                     {rulesQ.data.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.title}</TableCell>
+                      <Fragment key={r.id}>
+                      <TableRow>
+                        <TableCell className="w-8 pr-0 align-middle">
+                          <button type="button" onClick={() => toggleExpand(r.id)} aria-expanded={expanded.has(r.id)}
+                            aria-label={expanded.has(r.id) ? "收合" : "展開檢視內文"}
+                            className="p-1 rounded hover:bg-muted text-muted-foreground">
+                            <ChevronDown className={`w-4 h-4 transition-transform ${expanded.has(r.id) ? "" : "-rotate-90"}`} />
+                          </button>
+                        </TableCell>
+                        <TableCell className="font-medium cursor-pointer" onClick={() => toggleExpand(r.id)}>{r.title}</TableCell>
                         <TableCell>{userMap.get(r.owner_id)?.name ?? "—"}</TableCell>
                         <TableCell>{r.department_id ? deptMap.get(r.department_id)?.name ?? "—" : "—"}</TableCell>
                         <TableCell><Badge variant="secondary">{FREQ_LABEL[r.freq] ?? r.freq}</Badge> <span className="text-xs text-muted-foreground">{summarize(r)}</span></TableCell>
@@ -215,6 +286,14 @@ function RecurringPage() {
                           )}
                         </TableCell>
                       </TableRow>
+                      {expanded.has(r.id) && (
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableCell colSpan={9} className="py-3">
+                            <RuleDetail r={r} userMap={userMap} deptMap={deptMap} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>
