@@ -17,6 +17,11 @@ import { humanizeError } from "@/lib/eip-error";
 // 既有連結資料保留於資料庫不刪，要恢復顯示只需把下方旗標改為 true。
 const SHOW_URL_LINK_FIELD = false;
 
+// 2026-08-18 工作日誌目前僅本人可見（連單位主管都看不到），「附加檔案」功能先隱藏。
+// 元件（Attachments）與後端 work_log_attachment 表、storage bucket 皆保留不動，
+// 之後要開放只要把下方旗標改回 true 即可。
+const SHOW_ATTACHMENTS = false;
+
 export const Route = createFileRoute("/dashboard/eip/work-log")({ component: () => (
     <RequirePerm module="eip_work_log">
       <WorkLogPage />
@@ -296,14 +301,14 @@ function WorkLogPage() {
         </div>
       )}
 
-      {/* 附加檔案 */}
-      {log.id ? (
+      {/* 附加檔案（2026-08-18 先隱藏，見檔頭 SHOW_ATTACHMENTS） */}
+      {SHOW_ATTACHMENTS && (log.id ? (
         <Collapsible title="附加檔案" Icon={Paperclip} defaultOpen={false}>
           <Attachments workLogId={log.id} canEdit={editable} />
         </Collapsible>
       ) : (
         <p className="text-xs text-muted-foreground pl-1">附加檔案：請先按「儲存草稿」後即可上傳 PDF／Word／Excel／圖片。</p>
-      )}
+      ))}
 
       <Collapsible title="我的日誌記錄" Icon={History} defaultOpen={false}>
         <MyHistory meId={appUser!.id} activeDate={date} onPick={(d) => setDate(d)} onDelete={(id, d) => deleteLog(id, d)} refreshKey={refreshKey} />
