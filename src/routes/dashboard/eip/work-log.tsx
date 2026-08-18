@@ -93,15 +93,25 @@ function WorkLogPage() {
   };
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [appUser?.id, date, refreshKey]);
 
-  const persist = async (patch: { status?: string; submitted_at?: string }, msg?: string) => {
+  // override：明確指定要落地的三區內容。勾選是即時的，但 setLog 是非同步的，
+  // 若 persist 直接讀 log.*（closure 內是勾選前的舊值）就會把剛勾的狀態存錯，
+  // 所以 toggleDone 會把「勾選後」的三區算好傳進來。其餘呼叫者不帶＝沿用現有 state。
+  const persist = async (
+    patch: { status?: string; submitted_at?: string },
+    msg?: string,
+    override?: { morning: Item[]; afternoon: Item[]; special: Item[] },
+  ) => {
     if (!appUser?.id || !log) return undefined;
+    const morning = override?.morning ?? log.morning;
+    const afternoon = override?.afternoon ?? log.afternoon;
+    const special = override?.special ?? log.special;
     // 送出前擋下「需填執行內容」且已勾選、卻沒寫說明的項目
     if (patch.status === "submitted") {
-      const missing = [...log.morning, ...log.afternoon, ...log.special]
+      const missing = [...morning, ...afternoon, ...special]
         .filter((x) => x.req && x.done && !(x.note ?? "").trim()).map((x) => x.text);
       if (missing.length) { toast.error(`這些項目需填執行內容：${missing.join("、")}`); return undefined; }
       if (SHOW_URL_LINK_FIELD) {
-        const badLink = [...log.morning, ...log.afternoon, ...log.special]
+        const badLink = [...morning, ...afternoon, ...special]
           .filter((x) => (x.link ?? "").trim() && !/^(https?:\/\/|file:\/\/|\\\\)/.test((x.link ?? "").trim()))
           .map((x) => x.text);
         if (badLink.length) {
@@ -113,7 +123,7 @@ function WorkLogPage() {
     setSaving(true);
     const body: any = {
       user_id: appUser.id, department_id: appUser.department_id, log_date: date,
-      routine_morning: log.morning, routine_afternoon: log.afternoon, special_items: log.special,
+      routine_morning: morning, routine_afternoon: afternoon, special_items: special,
       status: log.status, ...patch, updated_at: new Date().toISOString(),
     };
     // 這一天可能已被別的路徑（我的工作區勾選、eip_set_routine_item）建立過，
@@ -143,8 +153,11 @@ function WorkLogPage() {
    * 資料就沒了，部門例行彙總與績效也讀不到。現在走 eip_toggle_routine_item，
    * 跟「我的工作區」共用同一份寫入實作（見 src/lib/eip-routine.ts）。
    *
-   * 今天還沒有 DB 列時先 persist 一次建草稿 —— 不能直接叫 RPC，
-   * 因為畫面上可能有還沒存的手動新增項目，RPC 在 DB 裡找不到就會報錯。
+   * 兩種情況不能走 RPC、要改用整份 persist 落地（RPC 是照 source+ref_id／text
+   * 去 DB 現有 jsonb 裡找那一項，找不到會拋「在『…』找不到這個項目」）：
+   *   1. 今天還沒有 DB 列（!log.id）——整份建草稿。
+   *   2. 這一項是剛用「同步今日任務」帶進來、或手動新增、還沒按儲存的項目——
+   *      DB 的 special_items 裡根本沒有它，RPC 一定找不到。改抓 RPC 的錯回退整份存。
    */
   const toggleDone = async (section: RoutineSection, idx: number) => {
     if (!log) return;
@@ -160,11 +173,22 @@ function WorkLogPage() {
         if (section === "afternoon") return { ...l, afternoon: patch(l.afternoon) };
         return { ...l, special: patch(l.special) };
       });
+    // 明確算出「勾選後」的三區，交給 persist 落地——不能等 setDone 後再讓 persist 讀 log.*，
+    // setLog 是非同步的，closure 裡還是勾選前的舊值，會把剛勾的狀態存回去（存錯）。
+    const withDone = (v: boolean) => {
+      const patch = (xs: Item[]) => xs.map((x, j) => (j === idx ? { ...x, done: v } : x));
+      return {
+        morning: section === "morning" ? patch(log.morning) : log.morning,
+        afternoon: section === "afternoon" ? patch(log.afternoon) : log.afternoon,
+        special: section === "special" ? patch(log.special) : log.special,
+      };
+    };
+    const toggled = withDone(next);
 
     setDone(next);
     if (!log.id) {
       // persist 會把整份（含這次勾選）寫進去，不需要再打 RPC
-      const newId = await persist({});
+      const newId = await persist({}, undefined, toggled);
       if (!newId) setDone(it.done);
       return;
     }
@@ -174,8 +198,11 @@ function WorkLogPage() {
         source: it.source, refId: it.ref_id, text: it.text,
       });
     } catch (e) {
-      setDone(it.done);
-      toast.error(humanizeError(e, "更新"));
+      // DB 有這一天的日誌、但找不到這一項＝畫面上是還沒存進 DB 的新項目
+      //（剛「同步今日任務」帶入或手動新增）。改用整份 persist 落地（已含這次勾選）；
+      // persist 也失敗才還原勾選並顯示錯誤。
+      const newId = await persist({}, undefined, toggled);
+      if (!newId) { setDone(it.done); toast.error(humanizeError(e, "更新")); }
     }
   };
 
