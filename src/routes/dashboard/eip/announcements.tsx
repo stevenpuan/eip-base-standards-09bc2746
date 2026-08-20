@@ -291,7 +291,6 @@ function AnnouncementFormDialog({
 
   const submit = async () => {
     if (!title.trim() || !body.trim()) return toast.error("請輸入標題與內文");
-    if (isDeptMgr && audience === "all") return toast.error("部門主管不可發布全公司公告");
     setBusy(true);
     try {
       let aid: string;
@@ -352,7 +351,7 @@ function AnnouncementFormDialog({
             <Select value={audience} onValueChange={(v) => setAudience(v as Audience)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {!isDeptMgr && <SelectItem value="all">{AUDIENCE_LABEL.all}</SelectItem>}
+                <SelectItem value="all">{AUDIENCE_LABEL.all}</SelectItem>
                 <SelectItem value="department">{AUDIENCE_LABEL.department}</SelectItem>
                 <SelectItem value="users">{AUDIENCE_LABEL.users}</SelectItem>
               </SelectContent>
