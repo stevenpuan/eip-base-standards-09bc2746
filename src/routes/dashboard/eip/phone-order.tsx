@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequirePerm } from "@/components/RequirePerm";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Phone, Lock, Unlock, Download, Save, Trash2, FileWarning } from "lucide-react";
+import { Phone, Lock, Unlock, Download, Save, Trash2, FileWarning, CalendarDays } from "lucide-react";
+import * as XLSX from "xlsx";
 
 // 資料表 / RPC 尚未進 src/integrations/supabase/types.ts，這裡用 any 版 client。
 import { supabase } from "@/lib/supabase";
@@ -161,10 +162,23 @@ function PhoneOrderPage() {
   const [errorReason, setErrorReason] = useState("");
   const [remark, setRemark] = useState("");
 
+  // 切換月份時，把輸入日期夾回所選月份內：當月→今天(在範圍內)，其他月→該月第一天
+  useEffect(() => {
+    if (entryDate < monthStart || entryDate > monthEnd) {
+      const t = localDateStr(now);
+      setEntryDate(t >= monthStart && t <= monthEnd ? t : monthStart);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthStart, monthEnd]);
+
   const saveDaily = useMutation({
     mutationFn: async () => {
       if (!appUser?.id) throw new Error("尚未載入使用者");
       if (!entryDate) throw new Error("請選擇日期");
+      // 日期必須落在所選月份內（避免月份選當月卻存到別月，誤植資料）
+      if (entryDate < monthStart || entryDate > monthEnd) {
+        throw new Error(`日期需在所選月份（${monthValue}）內`);
+      }
       const payload = {
         tenant_id: appUser.tenant_id ?? TENANT,
         user_id: appUser.id,
@@ -186,6 +200,24 @@ function PhoneOrderPage() {
     },
     onError: (e) => toast.error(humanizeError(e, "儲存")),
   });
+
+  // 儲存前檢查：日期需在月份內；若當天已有紀錄，跳出確認再覆蓋
+  const handleSaveDaily = () => {
+    if (locked || saveDaily.isPending) return;
+    if (!entryDate) { toast.error("請選擇日期"); return; }
+    if (entryDate < monthStart || entryDate > monthEnd) {
+      toast.error(`日期需在所選月份（${monthValue}）內`);
+      return;
+    }
+    const exists = (myDailyQ.data ?? []).some((r) => r.log_date === entryDate);
+    if (exists) {
+      // eslint-disable-next-line no-alert
+      if (!window.confirm(`${entryDate} 已經有紀錄了。\n再次儲存會「覆蓋」當天原本的接單數、失誤與備註，確定要覆蓋嗎？`)) {
+        return;
+      }
+    }
+    saveDaily.mutate();
+  };
 
   const delDaily = useMutation({
     mutationFn: async (id: string) => {
@@ -310,6 +342,65 @@ function PhoneOrderPage() {
     }
   };
 
+  // 一鍵下載「當月每日明細表」——每人一張工作表，月曆式版面(對照紙本)，全員同一檔案
+  const exportDailyDetail = async () => {
+    try {
+      const people = summaryRows;
+      if (!people.length) { toast.info("本月尚無資料可匯出"); return; }
+      const daysInMonth = new Date(year, month, 0).getDate();
+      // 取當月所有(權限範圍內)每日紀錄
+      const { data: daily, error } = await supabase
+        .from("phone_order_daily")
+        .select("user_id,log_date,order_count,error_count,error_reason,remark")
+        .gte("log_date", monthStart).lte("log_date", monthEnd);
+      if (error) throw error;
+      // user_id -> (日 -> 該日資料)
+      const byUser = new Map<string, Map<number, any>>();
+      (daily ?? []).forEach((r: any) => {
+        const day = Number(String(r.log_date).slice(8, 10));
+        if (!byUser.has(r.user_id)) byUser.set(r.user_id, new Map());
+        byUser.get(r.user_id)!.set(day, r);
+      });
+
+      const wb = XLSX.utils.book_new();
+      const rocYear = year - 1911;
+      const usedNames = new Set<string>();
+      people.forEach((p) => {
+        const cells = byUser.get(p.user_id) ?? new Map<number, any>();
+        const dayCols = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+        const rowValue = (pick: (d: any) => unknown) =>
+          dayCols.map((d) => { const c = cells.get(d); return c ? (pick(c) ?? "") : ""; });
+
+        const aoa: unknown[][] = [];
+        aoa.push([`${rocYear}年 陞煇食品股份有限公司 電話訂單 ${month}月 紀錄表`]);
+        aoa.push([`姓名：${p.user_name ?? ""}`, `部門：${p.department_name ?? ""}`]);
+        aoa.push(["日", ...dayCols]);
+        aoa.push(["電話接單數量", ...rowValue((c) => c.order_count)]);
+        aoa.push(["備註", ...rowValue((c) => c.remark)]);
+        aoa.push(["查核", ...dayCols.map(() => "")]);
+        aoa.push(["前日訂單失誤數量", ...rowValue((c) => c.error_count)]);
+        aoa.push(["失誤原因", ...rowValue((c) => c.error_reason)]);
+        aoa.push([]);
+        aoa.push([
+          `總通數(${p.total_orders ?? 0})/上班天數(${p.work_days ?? ""})=`,
+          p.avg_score == null ? "" : Number(p.avg_score),
+          "", "填表人：", "", "主管：", "", "人事：",
+        ]);
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = [{ wch: 16 }, ...dayCols.map(() => ({ wch: 5 }))];
+        // 工作表名稱：人名去掉 Excel 不允許的字元、避免重名、限 31 字
+        let nm = (p.user_name ?? "未命名").replace(/[\\/?*[\]:]/g, "").slice(0, 28) || "未命名";
+        let suffix = 1;
+        while (usedNames.has(nm)) { nm = `${nm.slice(0, 27)}_${suffix++}`; }
+        usedNames.add(nm);
+        XLSX.utils.book_append_sheet(wb, ws, nm);
+      });
+      XLSX.writeFile(wb, `電話訂單每日明細表_${monthValue}.xlsx`);
+    } catch (e) {
+      toast.error(humanizeError(e, "匯出每日明細表"));
+    }
+  };
+
   const onMonthChange = (v: string) => {
     const [y, m] = v.split("-").map(Number);
     if (y && m) { setYear(y); setMonth(m); }
@@ -374,7 +465,8 @@ function PhoneOrderPage() {
             <div className="text-sm font-medium">新增／更新單日紀錄</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
               <Field label="日期">
-                <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} disabled={locked} />
+                <Input type="date" value={entryDate} min={monthStart} max={monthEnd}
+                  onChange={(e) => setEntryDate(e.target.value)} disabled={locked} />
               </Field>
               <Field label="電話接單數量">
                 <Input type="number" min={0} value={orderCount} onChange={(e) => setOrderCount(e.target.value)} disabled={locked} />
@@ -390,10 +482,12 @@ function PhoneOrderPage() {
               <Textarea rows={2} value={remark} onChange={(e) => setRemark(e.target.value)} disabled={locked} />
             </Field>
             <div>
-              <Button size="sm" onClick={() => saveDaily.mutate()} disabled={locked || saveDaily.isPending}>
+              <Button size="sm" onClick={handleSaveDaily} disabled={locked || saveDaily.isPending}>
                 <Save className="w-4 h-4" /> 儲存當日
               </Button>
-              <span className="text-xs text-muted-foreground ml-2">同一天再存會覆蓋當天資料。</span>
+              <span className="text-xs text-muted-foreground ml-2">
+                日期限所選月份內；同一天已有紀錄時，再存會先跳出確認再覆蓋。
+              </span>
             </div>
           </div>
 
@@ -466,6 +560,10 @@ function PhoneOrderPage() {
               </Button>
               <Button size="sm" variant="outline" onClick={exportErrors} disabled={summaryQ.isLoading}>
                 <FileWarning className="w-4 h-4" /> 匯出失誤明細 Excel
+              </Button>
+              <Button size="sm" onClick={exportDailyDetail}
+                disabled={summaryQ.isLoading || summaryRows.length === 0}>
+                <CalendarDays className="w-4 h-4" /> 下載每日明細表（全員）
               </Button>
             </div>
 
