@@ -336,9 +336,8 @@ function AnnouncementFormDialog({
     finally { setBusy(false); }
   };
 
-  const visibleDepts = isDeptMgr
-    ? departments.filter((d) => d.id === appUser.department_id)
-    : departments;
+  // 部門清單一律列出全部（主管已可發全公司，指定部門不應更嚴）；後端 RLS 仍以「公告建立者」把關。
+  const visibleDepts = departments;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
